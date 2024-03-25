@@ -1,13 +1,15 @@
-# {PROJECT NAME}
-## NHSX Analytics Unit - PhD Internship Project
+# Understanding Fairness and Explainability in Multi-modal Approaches within Healthcare
+## NHSE PhD Internship Project
 
 ### About the Project
 
 [![status: experimental](https://github.com/GIScience/badges/raw/master/status/experimental.svg)](https://github.com/GIScience/badges#experimental)
 
-This repository holds code for the {PROJECT NAME} {SHORT DESCRIPTION}
+This repository holds code for the Understanding Fairness and Explainability in Multi-modal Approaches within Healthcare project.
 
-[Link to original project propsoal](https://nhsx.github.io/nhsx-internship-projects/)
+ {SHORT DESCRIPTION}
+
+[Link to original project propsoal](https://nhsx.github.io/nhsx-internship-projects/advances-modalities-explainability/)
 
 _**Note:** Only public or fake data are shared in this repository._
 
