@@ -4,6 +4,7 @@
 ### About the Project
 
 [![status: experimental](https://github.com/GIScience/badges/raw/master/status/experimental.svg)](https://github.com/GIScience/badges#experimental)
+[![Code style: black](https://img.shields.io/badge/code%20style-black-000000)](https://github.com/psf/black)
 
 This repository holds code for the Understanding Fairness and Explainability in Multi-modal Approaches within Healthcare project.
 
