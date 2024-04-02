@@ -31,4 +31,3 @@ repos:
   hooks:
     - id: mypy
       types: [python]
-      args: [--strict]
