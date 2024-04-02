@@ -7,6 +7,7 @@ repos:
     - id: poetry-lock
     - id: poetry-export
     - id: poetry-install
+      args: ["--no-root"]
 
 # Run ruff:
 - repo: https://github.com/astral-sh/ruff-pre-commit
