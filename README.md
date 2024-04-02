@@ -24,7 +24,7 @@ _**Note:** Only public or fake data are shared in this repository._
 
 ### Built With
 
-[![Python v3.8](https://img.shields.io/badge/python-v3.8-blue.svg)](https://www.python.org/downloads/release/python-380/)
+[![Python v3.9](https://img.shields.io/badge/Python-3.9-blue)](https://www.python.org/downloads/release/python-390/)
 - {LIST OF MAIN PACKAGE VERSIONS}
 
 ### Getting Started
