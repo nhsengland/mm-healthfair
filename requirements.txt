@@ -908,6 +908,9 @@ sympy==1.12 ; python_version >= "3.9" and python_version < "4.0" \
 threadpoolctl==3.4.0 ; python_version >= "3.9" and python_version < "4.0" \
     --hash=sha256:8f4c689a65b23e5ed825c8436a92b818aac005e0f3715f6a1664d7c7ee29d262 \
     --hash=sha256:f11b491a03661d6dd7ef692dd422ab34185d982466c49c8f98c8f716b5c93196
+toml==0.10.2 ; python_version >= "3.9" and python_version < "4.0" \
+    --hash=sha256:806143ae5bfb6a3c6e736a764057db0e6a0e05e338b5630894a5f779cabb4f9b \
+    --hash=sha256:b3bda1d108d5dd99f4a20d24d9c348e91c4db7ab1b749200bded2f839ccbe68f
 toolz==0.12.1 ; python_version >= "3.9" and python_version < "4.0" \
     --hash=sha256:d22731364c07d72eea0a0ad45bafb2c2937ab6fd38a3507bf55eae8744aa7d85 \
     --hash=sha256:ecca342664893f177a13dac0e6b41cbd8ac25a358e5f215316d43e2100224f4d

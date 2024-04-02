@@ -16,6 +16,7 @@ ipykernel = "^6.29.3"
 pre-commit = "^3.7.0"
 dask = "^2024.4.0"
 tqdm = "^4.66.2"
+toml = "^0.10.2"
 
 
 [build-system]
