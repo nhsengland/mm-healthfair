@@ -17,6 +17,7 @@ pre-commit = "^3.7.0"
 dask = {extras = ["dataframe"], version = "^2024.4.0"}
 tqdm = "^4.66.2"
 toml = "^0.10.2"
+types-toml = "^0.10.8.20240310"
 
 
 [build-system]
