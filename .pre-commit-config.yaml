@@ -7,6 +7,17 @@ repos:
     - id: poetry-lock
     - id: poetry-export
 
+# Run ruff:
+- repo: https://github.com/astral-sh/ruff-pre-commit
+  # Ruff version.
+  rev: v0.3.5
+  hooks:
+    # Run the linter.
+    - id: ruff
+      args: [ --fix ]
+    # Run the formatter.
+    - id: ruff-format # replaces Black
+
 # Add pre-commit-hooks
 - repo: https://github.com/pre-commit/pre-commit-hooks
   rev: v1.2.3
@@ -21,13 +32,3 @@ repos:
     - id: mypy
       types: [python]
       args: [--strict]
-
-# Run ruff:
-- repo: https://github.com/astral-sh/ruff-pre-commit
-  # Ruff version.
-  rev: v0.3.5
-  hooks:
-    # Run the linter.
-    - id: ruff
-    # Run the formatter.
-    - id: ruff-format # replaces Black
