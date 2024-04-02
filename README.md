@@ -6,6 +6,7 @@
 [![status: experimental](https://github.com/GIScience/badges/raw/master/status/experimental.svg)](https://github.com/GIScience/badges#experimental)
 [![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
 [![Poetry](https://img.shields.io/endpoint?url=https://python-poetry.org/badge/v0.json)](https://python-poetry.org/)
+[![pre-commit.ci status](https://results.pre-commit.ci/badge/github/nhsengland/mm-healthfair/main.svg)](https://results.pre-commit.ci/latest/github/nhsengland/mm-healthfair/main)
 
 This repository holds code for the Understanding Fairness and Explainability in Multi-modal Approaches within Healthcare project.
 
