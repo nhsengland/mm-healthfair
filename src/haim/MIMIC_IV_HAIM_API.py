@@ -66,7 +66,7 @@ Resources to identify tables and variables of interest can be found in the MIMIC
 
 
 # MIMICIV PATIENT CLASS STRUCTURE
-class Patient_ICU(object):
+class Patient_ICU:
     def __init__(
         self,
         admissions,
@@ -271,12 +271,10 @@ def load_haim_event_dictionaries(root_mimiciv_path):
 
     # Get Chartevent items with labels & category
     df = df_d_items
-    for category_idx, category in enumerate(sorted((df.category.astype(str).unique()))):
+    for category in sorted(df.category.astype(str).unique()):
         # print(category)
         category_list = df[df["category"] == category]
-        for item_idx, item in enumerate(
-            sorted(category_list.label.astype(str).unique())
-        ):
+        for item in sorted(category_list.label.astype(str).unique()):
             df_patientevents_categorylabels_dict = (
                 df_patientevents_categorylabels_dict.append(
                     {"eventtype": "chart", "category": category, "label": item},
@@ -286,12 +284,10 @@ def load_haim_event_dictionaries(root_mimiciv_path):
 
     # Get Lab items with labels & category
     df = df_d_labitems
-    for category_idx, category in enumerate(sorted((df.category.astype(str).unique()))):
+    for category in sorted(df.category.astype(str).unique()):
         # print(category)
         category_list = df[df["category"] == category]
-        for item_idx, item in enumerate(
-            sorted(category_list.label.astype(str).unique())
-        ):
+        for item in sorted(category_list.label.astype(str).unique()):
             df_patientevents_categorylabels_dict = (
                 df_patientevents_categorylabels_dict.append(
                     {"eventtype": "lab", "category": category, "label": item},
@@ -301,12 +297,10 @@ def load_haim_event_dictionaries(root_mimiciv_path):
 
     # Get HCPCS items with labels & category
     df = df_d_hcpcs
-    for category_idx, category in enumerate(sorted((df.category.astype(str).unique()))):
+    for category in sorted(df.category.astype(str).unique()):
         # print(category)
         category_list = df[df["category"] == category]
-        for item_idx, item in enumerate(
-            sorted(category_list.long_description.astype(str).unique())
-        ):
+        for item in sorted(category_list.long_description.astype(str).unique()):
             df_patientevents_categorylabels_dict = (
                 df_patientevents_categorylabels_dict.append(
                     {"eventtype": "hcpcs", "category": category, "label": item},
@@ -397,7 +391,7 @@ def is_haim_patient_keyword_match(patient, keywords, verbose=0):
 
                 if is_df_key:
                     keyword_mask[idx_df, idx_keyword] = 1
-                    if verbose >= 2:
+                    if verbose >= 2:  # noqa: PLR2004
                         print("")
                         print(
                             "Keyword: "
@@ -450,7 +444,7 @@ def is_haim_patient_inclusion_criteria_match(patient, inclusion_criteria, verbos
         is_included = False
 
     # Print if patient has to be included
-    if verbose >= 2:
+    if verbose >= 2:  # noqa: PLR2004
         print("")
         print("Inclusion Criteria: " + str(inclusion_criteria))
         print(
@@ -913,7 +907,7 @@ def get_events_list(dt_patient, event_type, verbose):
         elif event_type == "prescriptions":
             event_string, deltacharttime = prescription_event_to_string(event)
 
-        if verbose >= 3:
+        if verbose >= 3:  # noqa: PLR2004
             print(event_string)
 
         if idx == 0:
@@ -953,7 +947,7 @@ def load_patient_object(filepath):
 
 
 # LOAD ALL MIMIC IV TABLES IN MEMORY (warning: High memory lengthy process)
-def load_mimiciv(root_mimiciv_path):
+def load_mimiciv(root_mimiciv_path):  # noqa: PLR0915
     # Inputs:
     #   root_mimiciv_path -> Path to structured MIMIC IV databases in CSV files
     #   filename -> Pickle filename to save object to
