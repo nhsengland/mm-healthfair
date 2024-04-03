@@ -1,8 +1,11 @@
+[project]
+requires-python = ">=3.9"
+
 [tool.poetry]
 name = "mm-healthfair"
 version = "0.1.0"
 description = ""
-authors = ["Your Name <you@example.com>"]
+authors = ["Sophie Martin <s.martin.20@ucl.ac.uk>"]
 readme = "README.md"
 package-mode = false
 
@@ -22,14 +25,19 @@ types-toml = "^0.10.8.20240310"
 ruff = "^0.3.5"
 
 [tool.ruff]
-select = [
-    "F",  # Pyflakes
-    "E",  # Pycodestyle
-    "W",  # Pycodestyle
-    "UP",  # pyupgrade
+target-version = "py37"
+
+[tool.ruff.lint]
+extend-select = [
     "I",  # isort
-    "PL", # Pylint
-]
+    "UP", # pyupgrade
+    "PL", # pylint
+    "B"]
+
+ignore = [
+    "E501", # too many lines
+    "PLR0913", # too many arguments in function
+    ]
 
 [build-system]
 requires = ["poetry-core"]
