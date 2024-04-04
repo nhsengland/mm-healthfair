@@ -23,6 +23,10 @@ tqdm = "^4.66.2"
 toml = "^0.10.2"
 types-toml = "^0.10.8.20240310"
 ruff = "^0.3.5"
+tsfresh = "^0.20.2"
+torchxrayvision = "^1.2.2"
+transformers = "^4.39.3"
+opencv-python = "^4.9.0.80"
 
 [tool.ruff]
 target-version = "py37"
@@ -38,6 +42,9 @@ ignore = [
     "E501", # too many lines
     "PLR0913", # too many arguments in function
     ]
+
+[tool.ruff.lint.per-file-ignores]
+"src/utils/haim/MIMIC_IV_HAIM_API.py" = ["PLR2004"]
 
 [build-system]
 requires = ["poetry-core"]
