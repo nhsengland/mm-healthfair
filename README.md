@@ -1,4 +1,4 @@
-# Understanding Fairness and Explainability in Multi-modal Approaches within Healthcare
+# Understanding Fairness and Explainability in Multimodal Approaches within Healthcare
 ## NHSE PhD Internship Project
 
 ### About the Project
@@ -10,7 +10,7 @@
 [![Poetry](https://img.shields.io/endpoint?url=https://python-poetry.org/badge/v0.json)](https://python-poetry.org/)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000)](https://github.com/psf/black)
 
-This repository holds code for the Understanding Fairness and Explainability in Multi-modal Approaches within Healthcare project.
+This repository holds code for the Understanding Fairness and Explainability in Multimodal Approaches within Healthcare project.
 See the [original project propsoal](https://nhsx.github.io/nhsx-internship-projects/advances-modalities-explainability/) for more information.
 
 _**Note:** Only public or fake data are shared in this repository._
