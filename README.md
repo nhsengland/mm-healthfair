@@ -1,18 +1,17 @@
-# Understanding Fairness and Explainability in Multi-modal Approaches within Healthcare
+# Understanding Fairness and Explainability in Multimodal Approaches within Healthcare
 ## NHSE PhD Internship Project
 
 ### About the Project
 
 [![status: experimental](https://github.com/GIScience/badges/raw/master/status/experimental.svg)](https://github.com/GIScience/badges#experimental)
+[![PyPI - License](https://img.shields.io/pypi/l/nhssynth)](https://github.com/nhsengland/nhssynth/blob/main/LICENSE)
+[![pre-commit.ci status](https://results.pre-commit.ci/badge/github/nhsengland/mm-healthfair/main.svg)](https://results.pre-commit.ci/latest/github/nhsengland/mm-healthfair/main)
 [![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
 [![Poetry](https://img.shields.io/endpoint?url=https://python-poetry.org/badge/v0.json)](https://python-poetry.org/)
-[![pre-commit.ci status](https://results.pre-commit.ci/badge/github/nhsengland/mm-healthfair/main.svg)](https://results.pre-commit.ci/latest/github/nhsengland/mm-healthfair/main)
+[![Code style: black](https://img.shields.io/badge/code%20style-black-000000)](https://github.com/psf/black)
 
-This repository holds code for the Understanding Fairness and Explainability in Multi-modal Approaches within Healthcare project.
-
- {SHORT DESCRIPTION}
-
-[Link to original project propsoal](https://nhsx.github.io/nhsx-internship-projects/advances-modalities-explainability/)
+This repository holds code for the Understanding Fairness and Explainability in Multimodal Approaches within Healthcare project.
+See the [original project propsoal](https://nhsx.github.io/nhsx-internship-projects/advances-modalities-explainability/) for more information.
 
 _**Note:** Only public or fake data are shared in this repository._
 
@@ -21,12 +20,10 @@ _**Note:** Only public or fake data are shared in this repository._
 - The main code is found in the root of the repository (see Usage below for more information)
 - The accompanying [report](./reports/report.pdf) is also available in the `reports` folder
 - More information about the code usage can be found in the [model card](./model_card.md)
-- {OTHER REPO STRUCTURE}
 
 ### Built With
 
 [![Python v3.9](https://img.shields.io/badge/Python-3.9-blue)](https://www.python.org/downloads/release/python-390/)
-- {LIST OF MAIN PACKAGE VERSIONS}
 
 ### Getting Started
 
