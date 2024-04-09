@@ -1,4 +1,4 @@
-# Load and preprocess MIMIC-IV v2.2 data
+# Load and preprocess MIMIC-IV v2.2 data using HAIM API
 
 import argparse
 import os
@@ -22,10 +22,10 @@ modified_data_dir = args.processed_dir
 if not os.path.exists(modified_data_dir):
     Path(modified_data_dir).mkdir(parents=True)
 
-config = toml.load("config.toml")
+config = toml.load("config.toml")["data"]
 
-with_cxr = True if "cxr" in config["data"]["modalities"] else False
-with_notes = True if "notes" in config["data"]["modalities"] else False
+with_cxr = True if "cxr" in config["modalities"] else False
+with_notes = True if "notes" in config["modalities"] else False
 
 dfs = load_mimiciv(core_mimiciv_path)
 

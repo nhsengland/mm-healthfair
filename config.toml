@@ -1,2 +1,11 @@
 [data]
 modalities = ['demo', 'ehr']
+
+[train]
+epochs = 20
+task = 'longstay'
+use_ratio = true
+best_test_only = false
+longstay_mintime = 72
+use_amp = true
+learning_rate = 1e-1
