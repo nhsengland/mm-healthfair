@@ -1,12 +1,8 @@
-import argparse
 import os
 from pathlib import Path
 
 import numpy as np
-import toml
 import torch
-from benchmark.datasets import MM_dataset
-from benchmark.ehr_module import EHR_module
 from sklearn.metrics import (
     auc,
     average_precision_score,
@@ -17,110 +13,7 @@ from sklearn.metrics import (
 from torch import nn
 from torch.cuda.amp import autocast
 from torch.cuda.amp.grad_scaler import GradScaler
-from torch.utils.data import DataLoader
-from torchvision import transforms
 from tqdm import tqdm
-
-
-def main(args):
-    data_path = args.data_path
-    saved_model_path = args.saved_model_path
-
-    config = toml.load("config.toml")["train"]
-
-    # load params from config
-    task = config["task"]
-    use_ratio = config["use_ratio"]
-    best_test_only = config["best_test_only"]
-    longstay_mintime = config["longstay_mintime"]  # hrs
-    epochs = config["epochs"]
-    use_amp = config["use_amp"]
-    learning_rate = config["learning_rate"]
-
-    if torch.cuda.is_available():
-        device = "cuda"
-    elif torch.backends.mps.is_available():
-        device = "mps"
-        use_amp = False  # override for mps
-    else:
-        device = "cpu"
-
-    print(f"on the {device} device")
-    print("run ehr partial experiment")
-    print(f"task: {task}")
-    if use_ratio:
-        print("use ratio based threshold")
-
-    img_transform = transforms.Compose(
-        [
-            transforms.ToTensor(),
-            # transforms.Normalize(norm_mean, norm_std),
-        ]
-    )
-
-    train_dataset = MM_dataset(
-        split="train",
-        img_transform=img_transform,
-        task=task,
-        longstay_mintime=longstay_mintime,
-        ehr_data_path=data_path,
-    )
-    test_dataset = MM_dataset(
-        split="test",
-        img_transform=img_transform,
-        task=task,
-        longstay_mintime=longstay_mintime,
-        ehr_data_path=data_path,
-    )
-    val_dataset = MM_dataset(
-        split="val",
-        img_transform=img_transform,
-        task=task,
-        longstay_mintime=longstay_mintime,
-        ehr_data_path=data_path,
-    )
-
-    train_loader = DataLoader(
-        train_dataset,
-        batch_size=8,
-        shuffle=True,
-        collate_fn=train_dataset.get_collate(),
-    )
-    test_loader = DataLoader(
-        test_dataset, batch_size=8, shuffle=False, collate_fn=test_dataset.get_collate()
-    )
-    val_loader = DataLoader(
-        val_dataset, batch_size=8, shuffle=False, collate_fn=val_dataset.get_collate()
-    )
-
-    model = EHR_module(device=device)
-    model = model.to(device)
-
-    if use_ratio:
-        ratio = (
-            (train_dataset.label.sum() + val_dataset.label.sum())
-            / (len(train_dataset) + len(val_dataset))
-        ).item()
-    else:
-        ratio = None
-
-    if best_test_only:
-        best_test(model, task, device, test_loader, val_loader, ratio)
-    else:
-        train(
-            model,
-            task,
-            device,
-            train_loader,
-            val_loader,
-            test_loader,
-            epochs,
-            learning_rate,
-            ratio,
-            saved_model_path=saved_model_path,
-            use_amp=use_amp,
-        )
-    # best_test(model, device, test_loader, val_loader, ratio)
 
 
 def train_epoch(
@@ -273,7 +166,7 @@ def train(
         criterion = nn.CrossEntropyLoss(
             weight=torch.tensor([1, 10], dtype=torch.float)
         ).to(device)
-    elif task == "longstay":
+    elif task == "los":
         criterion = nn.CrossEntropyLoss(
             weight=torch.tensor([1, 1], dtype=torch.float)
         ).to(device)
@@ -326,12 +219,3 @@ def train(
     # print('test metric -- predicted positive:{}'.format(positive_num))
     # print('test metric -- report:\n{}'.format(report))
     # best_test(model, device, test_loader, val_loader, ratio)
-
-
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument("data_path", type=str)  # required positional argument
-    parser.add_argument("saved_model_path", type=str, default="./saved_models")
-    args = parser.parse_args()
-
-    main(args)
