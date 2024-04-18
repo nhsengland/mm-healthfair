@@ -23,7 +23,7 @@ _**Note:** Only public or fake data are shared in this repository._
 
 ### Built With
 
-[![Python v3.10](https://img.shields.io/badge/Python-3.10-blue)](https://www.python.org/downloads/release/python-310/)
+[![Python v3.10](https://img.shields.io/badge/Python-3.10-blue)](https://www.python.org/downloads/release/python-3100/)
 
 ### Getting Started
 
