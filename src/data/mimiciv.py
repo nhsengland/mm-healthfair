@@ -107,55 +107,8 @@ def convert_icd9_to_icd10(diagnoses_df, keep_original=True):
     return diagnoses_df
 
 
-def map_itemids_to_labels(events, dictionary_fn):
-    item_dict = util.dataframe_from_csv(dictionary_fn)
+def map_itemids_to_labels(events, item_dict):
     return events.merge(item_dict[["itemid", "label"]], on="itemid")
-
-
-def read_labevents(table, mimic4_path):
-    return map_itemids_to_labels(table, os.path.join(mimic4_path, "d_labitems.csv.gz"))
-
-
-def read_vitalsign(table):
-    vitalsign_column_map = {
-        "temperature": "Temperature",
-        "heartrate": "Heart rate",
-        "resprate": "Respiratory rate",
-        "o2sat": "Oxygen saturation",
-        "sbp": "Systolic blood pressure",
-        "dbp": "Diastolic blood pressure",
-    }
-
-    table = table.rename(vitalsign_column_map, axis=1)
-    table = util.melt_table(
-        table,
-        id_vars=["subject_id", "stay_id", "charttime"],
-        value_vars=[
-            "Temperature",
-            "Heart rate",
-            "Respiratory rate",
-            "Oxygen saturation",
-            "Systolic blood pressure",
-            "Diastolic blood pressure",
-        ],
-    )
-
-    table = table.rename({"variable": "label"}, axis=1)
-
-    # create empty itemid and manually add valueuom
-    table["itemid"] = None
-
-    vitalsign_uom_map = {
-        "Temperature": "°F",
-        "Heart rate": "bpm",
-        "Respiratory rate": "insp/min",
-        "Oxygen saturation": "%",
-        "Systolic blood pressure": "mmHg",
-        "Diastolic blood pressure": "mmHg",
-    }
-    table["valueuom"] = table.label.apply(lambda x: vitalsign_uom_map[x])
-
-    return table
 
 
 def count_icd_codes(diagnoses, output_path=None):
@@ -334,13 +287,54 @@ def break_up_diagnoses_by_subject(diagnoses, output_path, subjects=None):
         ).to_csv(os.path.join(dn, "diagnoses.csv"), index=False)
 
 
-def read_events_table_by_row(table, nb_row=1000):
-    for i, row in table.iterrows():
-        if "hadm_id" not in row:
-            row["hadm_id"] = (
-                np.nan
-            )  # ensure hadm_id column is present (e.g., missing for vitalsign data)
-        yield row, i, nb_row
+# def read_labevents(table, label_dict):
+#     return map_itemids_to_labels(table, label_dict)
+
+
+def map_itemid_to_label(itemid, label_dict):
+    return label_dict[label_dict["itemid"] == itemid].label.values[0]
+
+
+def read_vitalsigns(table):
+    vitalsign_column_map = {
+        "temperature": "Temperature",
+        "heartrate": "Heart rate",
+        "resprate": "Respiratory rate",
+        "o2sat": "Oxygen saturation",
+        "sbp": "Systolic blood pressure",
+        "dbp": "Diastolic blood pressure",
+    }
+
+    table = table.rename(vitalsign_column_map, axis=1)
+    table = util.melt_table(
+        table,
+        id_vars=["subject_id", "stay_id", "charttime"],
+        value_vars=[
+            "Temperature",
+            "Heart rate",
+            "Respiratory rate",
+            "Oxygen saturation",
+            "Systolic blood pressure",
+            "Diastolic blood pressure",
+        ],
+    )
+
+    table = table.rename({"variable": "label"}, axis=1)
+
+    # create empty itemid and manually add valueuom
+    table["itemid"] = None
+
+    vitalsign_uom_map = {
+        "Temperature": "°F",
+        "Heart rate": "bpm",
+        "Respiratory rate": "insp/min",
+        "Oxygen saturation": "%",
+        "Systolic blood pressure": "mmHg",
+        "Diastolic blood pressure": "mmHg",
+    }
+    table["valueuom"] = table.label.apply(lambda x: vitalsign_uom_map[x])
+
+    return table
 
 
 def read_events_table_and_break_up_by_subject(
@@ -350,6 +344,7 @@ def read_events_table_and_break_up_by_subject(
     items_to_keep=None,
     subjects_to_keep=None,
     mimic4_path=None,
+    impute_missing_hadm_id=True,
 ):
     obs_header = [
         "subject_id",
@@ -360,6 +355,7 @@ def read_events_table_and_break_up_by_subject(
         "value",
         "valueuom",
         "label",
+        "linksto",
     ]
 
     class DataStats:
@@ -386,53 +382,85 @@ def read_events_table_and_break_up_by_subject(
         w.writerows(data_stats.curr_obs)
         data_stats.curr_obs = []
 
-    if table == "vitalsign":
-        table_df = read_vitalsign(util.dataframe_from_csv(table_path))
-    elif table == "labevents":
-        table_df = read_labevents(util.dataframe_from_csv(table_path), mimic4_path)
+    # if table == "vitalsign":
+    #     table_df = read_vitalsign(util.dataframe_from_csv(table_path), )
+    # elif table == "labevents":
+    #     table_df = read_labevents(util.dataframe_from_csv(table_path), mimic4_path)
 
     if table == "labevents" and items_to_keep is not None:
         # set specific itemids that we are interested in (labevents only)
-        items_to_keep = set([s for s in items_to_keep])
-    else:
-        # else allow all unique itemid's in event table
-        items_to_keep = table_df.itemid.unique()
         items_to_keep = set([s for s in items_to_keep])
 
     if subjects_to_keep is not None:
         subjects_to_keep = set([s for s in subjects_to_keep])
 
-    for row, _, _ in tqdm(
-        read_events_table_by_row(table_df),
-        total=len(table_df),
+    if table == "labevents":
+        # load dictionary and tables needed to process labevents
+        d_labitems = util.dataframe_from_csv(
+            os.path.join(mimic4_path, "d_labitems.csv.gz")
+        )
+        admits = util.dataframe_from_csv(os.path.join(mimic4_path, "admissions.csv.gz"))
+
+    for chunk in tqdm(
+        util.dataframe_from_csv(table_path, chunksize=1000),
+        total=(len(util.dataframe_from_csv(table_path))),
         desc=f"Processing {table} table",
     ):
-        if (subjects_to_keep is not None) and (
-            row["subject_id"] not in subjects_to_keep
-        ):
-            continue
-        if (items_to_keep is not None) and (row["itemid"] not in items_to_keep):
-            continue
+        # read one row at a time
+        for _, row in chunk.iterrows():
+            if (subjects_to_keep is not None) and (
+                row["subject_id"] not in subjects_to_keep
+            ):
+                continue
 
-        row_out = {
-            "subject_id": row["subject_id"],
-            "hadm_id": ""
-            if ("hadm_id" not in row) or (np.isnan(row["hadm_id"]))
-            else int(
-                row["hadm_id"]
-            ),  # labevents stored hadm_id's as floats so converts, and if missing (vitalsign) or nan (some labevents) then input as ''
-            "stay_id": "" if "stay_id" not in row else row["stay_id"],
-            "charttime": row["charttime"],
-            "itemid": row["itemid"],
-            "value": row["value"],
-            "valueuom": row["valueuom"],
-            "label": "" if "label" not in row else row["label"],
-        }
+            if (items_to_keep is not None) and (row["itemid"] not in items_to_keep):
+                continue
 
-        if data_stats.curr_subject_id not in ("", row["subject_id"]):
-            write_current_observations()
-        data_stats.curr_obs.append(row_out)
-        data_stats.curr_subject_id = row["subject_id"]
+            if table == "labevents":
+                row["label"] = map_itemid_to_label(row.itemid, d_labitems)
+
+                if impute_missing_hadm_id:
+                    # impute missing hadm_ids
+
+                    def get_hadm_id_from_charttime(time, admits):
+                        values = admits.loc[
+                            (admits["admittime"] <= time)
+                            & (time <= admits["dischtime"])
+                        ]
+                        if len(values) == 1:
+                            return values.hadm_id.values[0]
+                        else:
+                            return np.nan
+
+                    row["hadm_id"] = (
+                        get_hadm_id_from_charttime(row.charttime, admits)
+                        if np.isnan(row["hadm_id"])
+                        else row["hadm_id"]
+                    )
+
+            elif table == "vitalsign":
+                # map each variable to label
+                row = read_vitalsigns(row)  # noqa: PLW2901
+
+            row_out = {
+                "subject_id": row["subject_id"],
+                # labevents stored some hadm_id's as floats so converts, and if missing then record as ''
+                "hadm_id": ""
+                if ("hadm_id" not in row) or np.isnan(row["hadm_id"])
+                else int(row["hadm_id"]),
+                "stay_id": "" if "stay_id" not in row else row["stay_id"],
+                "charttime": row["charttime"],
+                "itemid": row["itemid"],
+                "value": row["value"],
+                "valueuom": row["valueuom"],
+                "label": row["label"],
+                "linksto": table,
+            }
+
+            if data_stats.curr_subject_id not in ("", row["subject_id"]):
+                write_current_observations()
+            data_stats.curr_obs.append(row_out)
+            data_stats.curr_subject_id = row["subject_id"]
 
     if data_stats.curr_subject_id != "":
         write_current_observations()
