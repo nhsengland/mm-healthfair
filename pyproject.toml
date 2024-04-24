@@ -7,7 +7,7 @@ readme = "README.md"
 package-mode = false
 
 [tool.poetry.dependencies]
-python = "^3.9"
+python = "^3.10"
 numpy = "^1.26.4"
 matplotlib = "^3.8.3"
 scikit-learn = "^1.4.1.post1"
@@ -27,10 +27,13 @@ opencv-python = "^4.9.0.80"
 ipywidgets = "^8.1.2"
 imblearn = "^0.0"
 captum = "^0.7.0"
+pytorch-lightning = "^2.2.2"
+icd-mappings = "^0.3.8"
+h5py = "^3.11.0"
+tables = "^3.9.2"
 
 [tool.ruff]
-target-version = "py37"
-extend-exclude = ["src/mimiciv-pipeline"]
+target-version = "py310"
 
 [tool.ruff.lint]
 extend-select = [
@@ -43,9 +46,6 @@ ignore = [
     "E501", # too many lines
     "PLR0913", # too many arguments in function
     ]
-
-[tool.ruff.lint.per-file-ignores]
-"src/utils/haim/MIMIC_IV_HAIM_API.py" = ["PLR2004"]
 
 [build-system]
 requires = ["poetry-core"]

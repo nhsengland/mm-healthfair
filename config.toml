@@ -1,11 +1,16 @@
+task = 'los'
+duration = 72
+
 [data]
-modalities = ['demo', 'ehr']
+features = ['labevents', 'vitalsign']
+batch_size = 50
+num_workers = 4
+bucket_size = 1
+with_notes = false
 
 [train]
 epochs = 20
-task = 'longstay'
 use_ratio = true
 best_test_only = false
-longstay_mintime = 72
 use_amp = true
 learning_rate = 1e-1
