@@ -1,7 +1,6 @@
 # Code adapted from
 
 import csv
-import datetime
 import os
 
 import icdmappings
@@ -48,10 +47,7 @@ def read_admissions_table(mimic4_path):
     admits.dischtime = pd.to_datetime(admits.dischtime)
     admits.deathtime = pd.to_datetime(admits.deathtime)
     # add los column (in fractional days)
-    diff = admits.dischtime - admits.admittime
-    admits["los"] = diff.apply(
-        lambda x: x.total_seconds() / datetime.timedelta(days=1).total_seconds()
-    )  # units: fractional day
+    admits["los"] = (admits.dischtime - admits.admittime) / pd.Timedelta(days=1)
     return admits
 
 
@@ -59,10 +55,7 @@ def read_stays_table(mimic4_ed_path):
     stays = util.dataframe_from_csv(os.path.join(mimic4_ed_path, "edstays.csv.gz"))
     stays.intime = pd.to_datetime(stays.intime)
     stays.outtime = pd.to_datetime(stays.outtime)
-    diff = stays.outtime - stays.intime
-    stays["los_ed"] = diff.apply(
-        lambda x: x.total_seconds() / datetime.timedelta(days=1).total_seconds()
-    )
+    stays["los_ed"] = (stays.outtime - stays.intime) / pd.Timedelta(days=1)
     return stays
 
 
@@ -86,7 +79,6 @@ def read_icd_diagnoses_table(mimic4_path):
 
 def read_ed_icd_diagnoses_table(mimic4_ed_path):
     codes = util.dataframe_from_csv(os.path.join(mimic4_ed_path, "diagnosis.csv.gz"))
-    # already has icd_title
     return codes
 
 
@@ -100,9 +92,11 @@ def convert_icd9_to_icd10(diagnoses_df, keep_original=True):
         diagnoses_df = diagnoses_df.assign(icd_version_orig=diagnoses_df["icd_version"])
 
     # update 'icd_code' and 'icd_version' to ICD10
-    diagnoses_df.loc[diagnoses_df.icd_version == ICD9, "icd_code"] = diagnoses_df.loc[
-        diagnoses_df.icd_version == ICD9, "icd_code"
-    ].apply(lambda x: mapper.map(x, source="icd9", target="icd10"))
+    idx = diagnoses_df["icd_version"] == ICD9
+    diagnoses_df.loc[idx, "icd_code"] = mapper.map(
+        diagnoses_df.loc[idx, "icd_code"], source="icd9", target="icd10"
+    )
+
     diagnoses_df = diagnoses_df.assign(icd_version=10)
     return diagnoses_df
 
@@ -154,28 +148,31 @@ def merge_on_subject_stay_admission(table1, table2, suffixes=("_x", "_y")):
     )
 
 
-def add_age_to_stays(stays):
-    stays["age"] = stays.apply(
-        lambda e: (
-            (e["admittime"].to_pydatetime().year - e["anchor_year"]) // 3
-            + e["anchor_age"]
-        ),
-        axis=1,
-    )  # increases age every 3 years based on time elapsed between admission year and birth year
-    stays.loc[stays.age < 0, "age"] = 91  # set negatives as max age
-    return stays
+# unlikely that age will change by more than 3 years between ED and admission to hospital so not using this function
+
+# def add_age_to_stays(stays):
+#     stays["age"] = stays.apply(
+#         lambda e: (
+#             (e["admittime"].to_pydatetime().year - e["anchor_year"]) // 3
+#             + e["anchor_age"]
+#         ),
+#         axis=1,
+#     )  # increases age every 3 years based on time elapsed between admission year and birth year
+#     stays.loc[stays.age < 0, "age"] = 91  # set negatives as max age
+#     return stays
 
 
 def add_omr_variable_to_stays(stays, mimic4_path, variable, tolerance=None):
     # get value of variable on stay/admission date using omr record's date
     # use tolerance to allow elapsed time between dates
     omr = read_omr_table(mimic4_path)
+    omr_names = [x for x in omr.result_name.unique() if variable.lower() in x.lower()]
 
-    def get_value_from_omr(omr, row, result_names):
-        date = row["admittime"].date()
-
-        omr["diff"] = (
-            omr["chartdate"].apply(lambda x: np.abs((date - x.date()).days)).astype(int)
+    def get_values_from_omr(omr, table, result_names, time_col: str = None):
+        table["admitdate"] = pd.to_datetime(table["admittime"].dt.date)
+        omr = omr.merge(table[["subject_id", "admitdate"]], on="subject_id")
+        omr["diff"] = np.abs(
+            (omr["admitdate"] - omr["chartdate"]) / pd.Timedelta(days=1)
         )
 
         if tolerance is None:
@@ -185,15 +182,18 @@ def add_omr_variable_to_stays(stays, mimic4_path, variable, tolerance=None):
             match = omr[omr["diff"] < tolerance].sort_values(by=["diff", "seq_num"])
 
         values = match[match["result_name"].isin(result_names)].result_value.values
+
         if len(values) != 0:
-            return values[0]  # take first value since sorted by diff, then seq_num
+            return values[
+                0
+            ]  # take first value since sorted by diff (so will be the closest), then seq_num
         else:
             return np.nan
 
-    omr_names = [x for x in omr.result_name.unique() if variable.lower() in x.lower()]
-    stays[variable.lower()] = stays.apply(
-        lambda r: get_value_from_omr(omr, r, omr_names), axis=1
+    stays[variable.lower()] = get_values_from_omr(
+        omr, stays, omr_names, time_col="admittime"
     )
+
     return stays
 
 
@@ -240,7 +240,7 @@ def filter_admissions_on_nb_stays(stays, min_nb_stays=1, max_nb_stays=1):
 
 def filter_stays_on_age(stays, min_age=18, max_age=np.inf):
     # must have already added age to stays table
-    stays = stays[(stays.age >= min_age) & (stays.age <= max_age)]
+    stays = stays[(stays.anchor_age >= min_age) & (stays.anchor_age <= max_age)]
     return stays
 
 
@@ -287,15 +287,17 @@ def break_up_diagnoses_by_subject(diagnoses, output_path, subjects=None):
         ).to_csv(os.path.join(dn, "diagnoses.csv"), index=False)
 
 
-# def read_labevents(table, label_dict):
-#     return map_itemids_to_labels(table, label_dict)
+def read_labevents(table, mimic4_path):
+    return map_itemids_to_labels(
+        table, util.dataframe_from_csv(os.path.join(mimic4_path, "d_labitems.csv.gz"))
+    )
 
 
 def map_itemid_to_label(itemid, label_dict):
     return label_dict[label_dict["itemid"] == itemid].label.values[0]
 
 
-def read_vitalsigns(table):
+def read_vitalsign(table):
     vitalsign_column_map = {
         "temperature": "Temperature",
         "heartrate": "Heart rate",
@@ -332,9 +334,14 @@ def read_vitalsigns(table):
         "Systolic blood pressure": "mmHg",
         "Diastolic blood pressure": "mmHg",
     }
-    table["valueuom"] = table.label.apply(lambda x: vitalsign_uom_map[x])
+    table["valueuom"] = table["label"].map(vitalsign_uom_map)
 
     return table
+
+
+def read_events_table_by_row(table):
+    for _, row in table.iterrows():
+        yield row
 
 
 def read_events_table_and_break_up_by_subject(
@@ -382,85 +389,74 @@ def read_events_table_and_break_up_by_subject(
         w.writerows(data_stats.curr_obs)
         data_stats.curr_obs = []
 
-    # if table == "vitalsign":
-    #     table_df = read_vitalsign(util.dataframe_from_csv(table_path), )
-    # elif table == "labevents":
-    #     table_df = read_labevents(util.dataframe_from_csv(table_path), mimic4_path)
+    if table == "vitalsign":
+        table_df = read_vitalsign(util.dataframe_from_csv(table_path))
 
-    if table == "labevents" and items_to_keep is not None:
-        # set specific itemids that we are interested in (labevents only)
-        items_to_keep = set([s for s in items_to_keep])
+    elif table == "labevents":
+        table_df = read_labevents(util.dataframe_from_csv(table_path), mimic4_path)
+        admits = util.dataframe_from_csv(os.path.join(mimic4_path, "admissions.csv.gz"))
+        if items_to_keep is not None:
+            # set specific itemids that we are interested in (labevents only)
+            items_to_keep = set([s for s in items_to_keep])
 
     if subjects_to_keep is not None:
         subjects_to_keep = set([s for s in subjects_to_keep])
 
-    if table == "labevents":
-        # load dictionary and tables needed to process labevents
-        d_labitems = util.dataframe_from_csv(
-            os.path.join(mimic4_path, "d_labitems.csv.gz")
-        )
-        admits = util.dataframe_from_csv(os.path.join(mimic4_path, "admissions.csv.gz"))
-
-    for chunk in tqdm(
-        util.dataframe_from_csv(table_path, chunksize=1000),
-        total=(len(util.dataframe_from_csv(table_path))),
+    for row in tqdm(
+        read_events_table_by_row(table_df),
+        total=len(table_df),
         desc=f"Processing {table} table",
     ):
-        # read one row at a time
-        for _, row in chunk.iterrows():
-            if (subjects_to_keep is not None) and (
-                row["subject_id"] not in subjects_to_keep
-            ):
-                continue
+        if (subjects_to_keep is not None) and (
+            row["subject_id"] not in subjects_to_keep
+        ):
+            continue
 
-            if (items_to_keep is not None) and (row["itemid"] not in items_to_keep):
-                continue
+        if (items_to_keep is not None) and (row["itemid"] not in items_to_keep):
+            continue
 
-            if table == "labevents":
-                row["label"] = map_itemid_to_label(row.itemid, d_labitems)
+        if table == "labevents" and impute_missing_hadm_id:
+            # impute missing hadm_ids (may slow code down)
 
-                if impute_missing_hadm_id:
-                    # impute missing hadm_ids
+            def get_hadm_id_from_charttime(time, subject_id, admits):
+                # create bool
+                idx = (
+                    (admits["admittime"] <= time)
+                    & (time <= admits["dischtime"])
+                    & (admits["subject_id"] == subject_id)
+                )
 
-                    def get_hadm_id_from_charttime(time, admits):
-                        values = admits.loc[
-                            (admits["admittime"] <= time)
-                            & (time <= admits["dischtime"])
-                        ]
-                        if len(values) == 1:
-                            return values.hadm_id.values[0]
-                        else:
-                            return np.nan
+                if any(idx) is True:
+                    # apply bool and return value
+                    return admits[idx].hadm_id.values[0]
+                else:
+                    return np.nan
 
-                    row["hadm_id"] = (
-                        get_hadm_id_from_charttime(row.charttime, admits)
-                        if np.isnan(row["hadm_id"])
-                        else row["hadm_id"]
-                    )
+            row["hadm_id"] = (
+                get_hadm_id_from_charttime(row.charttime, row.subject_id, admits)
+                if np.isnan(row["hadm_id"])
+                else row["hadm_id"]
+            )
 
-            elif table == "vitalsign":
-                # map each variable to label
-                row = read_vitalsigns(row)  # noqa: PLW2901
+        row_out = {
+            "subject_id": row["subject_id"],
+            # labevents stored some hadm_id's as floats so converts, and if missing then record as ''
+            "hadm_id": ""
+            if ("hadm_id" not in row) or np.isnan(row["hadm_id"])
+            else int(row["hadm_id"]),
+            "stay_id": "" if "stay_id" not in row else row["stay_id"],
+            "charttime": row["charttime"],
+            "itemid": row["itemid"],
+            "value": row["value"],
+            "valueuom": row["valueuom"],
+            "label": row["label"],
+            "linksto": table,
+        }
 
-            row_out = {
-                "subject_id": row["subject_id"],
-                # labevents stored some hadm_id's as floats so converts, and if missing then record as ''
-                "hadm_id": ""
-                if ("hadm_id" not in row) or np.isnan(row["hadm_id"])
-                else int(row["hadm_id"]),
-                "stay_id": "" if "stay_id" not in row else row["stay_id"],
-                "charttime": row["charttime"],
-                "itemid": row["itemid"],
-                "value": row["value"],
-                "valueuom": row["valueuom"],
-                "label": row["label"],
-                "linksto": table,
-            }
-
-            if data_stats.curr_subject_id not in ("", row["subject_id"]):
-                write_current_observations()
-            data_stats.curr_obs.append(row_out)
-            data_stats.curr_subject_id = row["subject_id"]
+        if data_stats.curr_subject_id not in ("", row["subject_id"]):
+            write_current_observations()
+        data_stats.curr_obs.append(row_out)
+        data_stats.curr_subject_id = row["subject_id"]
 
     if data_stats.curr_subject_id != "":
         write_current_observations()
