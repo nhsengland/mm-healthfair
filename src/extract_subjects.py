@@ -34,7 +34,7 @@ parser.add_argument(
     type=str,
     nargs="+",
     help="Tables from which to read events. Can be any from: labevents, vitalsign",
-    default=["labevents"],
+    default=["vitalsign"],
 )
 parser.add_argument(
     "--keep_items",
@@ -51,17 +51,23 @@ parser.add_argument(
     help="Verbosity in output",
 )
 parser.add_argument(
-    "--quiet",
-    "-q",
-    dest="verbose",
-    action="store_false",
-    help="Suspend printing of details",
+    "--n_subjects",
+    "-n",
+    type=int,
+    help="Number of subjects to include.",
 )
 parser.add_argument(
-    "--test",
+    "--stratify",
     action="store_true",
-    help="TEST MODE: process only 1000 subjects, 1000000 events.",
+    help="Whether to randomly stratify subjects by los.",
 )
+parser.add_argument(
+    "--los_thresh",
+    type=int,
+    default=2,
+    help="Threshold for subject stratification (fractional days).",
+)
+
 args, _ = parser.parse_known_args()
 
 if os.path.exists(args.output_path):
@@ -94,34 +100,86 @@ if args.verbose:
         f"REMOVE ED STAYS WITHOUT ADMISSION:\n\tSTAY_IDs: {stays.stay_id.unique().shape[0]}\n\tHADM_IDs: {stays.hadm_id.unique().shape[0]}\n\tSUBJECT_IDs: {stays.subject_id.unique().shape[0]}"
     )
 
-stays = m4c.merge_on_subject_admission(
-    admits, stays
-)  # order matters here ad stays has hadm_id as floats so merge with hadm_id instead
+# order matters here ad stays has hadm_id as floats so merge with hadm_id instead
+stays = m4c.merge_on_subject_admission(admits, stays)
+
+# add patient info to admissions data
 stays = m4c.merge_on_subject(stays, patients)
 
-# ensures one stay per hospital admission
+# ensure one ed stay per hospital admission
 stays = m4c.filter_admissions_on_nb_stays(stays)
 if args.verbose:
     print(
         f"REMOVE MULTIPLE ED STAYS PER ADMIT:\n\tSTAY_IDs: {stays.stay_id.unique().shape[0]}\n\tHADM_IDs: {stays.hadm_id.unique().shape[0]}\n\tSUBJECT_IDs: {stays.subject_id.unique().shape[0]}"
     )
 
-stays = m4c.add_age_to_stays(stays)  # ! not used, could remove
-stays = m4c.add_omr_variable_to_stays(stays, args.mimic4_path, "height", tolerance=365)
-stays = m4c.add_omr_variable_to_stays(
-    stays, args.mimic4_path, "weight", tolerance=365
-)  # using tolerance to find value
+# does nothing if "hospital_expire_flag" is available
+stays = m4c.add_inhospital_mortality_to_stays(stays)
 
-stays = m4c.add_inhospital_mortality_to_stays(
-    stays
-)  # will use hospital_expire_flag if exists
+# remove any subjects with anchor_age < 18
 stays = m4c.filter_stays_on_age(stays)
 if args.verbose:
     print(
         f"REMOVE PATIENTS AGE < 18:\n\tSTAY_IDs: {stays.stay_id.unique().shape[0]}\n\tHADM_IDs: {stays.hadm_id.unique().shape[0]}\n\tSUBJECT_IDs: {stays.subject_id.unique().shape[0]}"
     )
 
+# filter by n subjects if specified (can be used to test/speed up processing)
+if args.n_subjects is not None:
+    if not args.stratify:
+        mode = "random"
+        # random choice of n subjects (get all their stays)
+        subject_ids = np.random.choice(
+            stays.subject_id.unique(), size=args.n_subjects, replace=False
+        )
+
+    else:
+        mode = "stratified"
+        # use los column to stratify such that the distribution of los >= 48 hours (2 days) is roughly balanced
+        stays["los_flag"] = (stays["los"] >= args.los_thresh).astype(bool)
+
+        max_stratified_n = min(
+            [
+                len(stays[~stays["los_flag"]].subject_id.unique()),
+                len(stays[stays["los_flag"]].subject_id.unique()),
+            ]
+        )
+        assert (
+            args.n_subjects // 2 <= max_stratified_n
+        ), f"Maximum number of subjects available per group is {max_stratified_n}. Choose a different value for args.n_subjects"
+
+        # negative subjects
+        subject_ids = list(
+            np.random.choice(
+                stays[~stays["los_flag"]].subject_id.unique(),
+                size=args.n_subjects // 2,
+                replace=False,
+            )
+        )
+        remaining_stays = stays.query("subject_id not in @subject_ids")
+        # positive subjects
+        subject_ids += list(
+            np.random.choice(
+                remaining_stays[remaining_stays["los_flag"]].subject_id.unique(),
+                size=args.n_subjects // 2,
+                replace=False,
+            )
+        )
+
+        # stays.groupby(['los_flag'],as_index=False).apply(lambda x:x.sample(n=args.n_subjects//2), include_groups=False).reset_index(drop=True) # alternative to stratify by stay instead of subject
+
+    stays = stays.query("subject_id in @subject_ids")
+
+    # stratify by length of stay
+    print(
+        f"SELECTING {mode.upper()} SAMPLE OF {args.n_subjects} SUBJECTS:\n\tSTAY_IDs: {stays.stay_id.unique().shape[0]}\n\tHADM_IDs: {stays.hadm_id.unique().shape[0]}\n\tSUBJECT_IDs: {stays.subject_id.unique().shape[0]}"
+    )
+
+# add height/weight data using omr table: https://mimic.mit.edu/docs/iv/modules/hosp/omr/
+# use tolerance to find closest value within a year of admission
+stays = m4c.add_omr_variable_to_stays(stays, args.mimic4_path, "height", tolerance=365)
+stays = m4c.add_omr_variable_to_stays(stays, args.mimic4_path, "weight", tolerance=365)
 stays.to_csv(os.path.join(args.output_path, "all_stays.csv"), index=False)
+
 diagnoses = m4c.read_icd_diagnoses_table(args.mimic4_path)
 diagnoses = m4c.convert_icd9_to_icd10(
     diagnoses, keep_original=False
@@ -148,17 +206,12 @@ m4c.count_icd_codes(
     diagnoses, output_path=os.path.join(args.output_path, "diagnosis_counts.csv")
 )
 
-if args.test:  # test rest of script with 100 subjects
-    pat_idx = np.random.choice(patients.shape[0], size=100)
-    patients = patients.iloc[pat_idx]
-    stays = stays.merge(
-        patients[["subject_id"]], left_on="subject_id", right_on="subject_id"
-    )
-    print("Using only", stays.shape[0], "stays")
-
 subjects = stays.subject_id.unique()
 m4c.break_up_stays_by_subject(stays, args.output_path, subjects=subjects)
-m4c.break_up_diagnoses_by_subject(diagnoses, args.output_path, subjects=subjects)
+
+# for now skip this line since we aren't interested in the subject-level diagnoses
+# m4c.break_up_diagnoses_by_subject(diagnoses, args.output_path, subjects=subjects)
+
 items_to_keep = (
     set(
         [
