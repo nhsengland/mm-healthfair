@@ -490,6 +490,9 @@ def clean_height(df):
 
 
 def clean_events(events):
+    # label '__' and "" values as NaN
+    events = events.replace({"value": {"___": np.nan, "": np.nan}})
+
     clean_fns = {
         # 'Capillary refill rate': clean_crr,
         "Diastolic blood pressure": clean_dbp,
@@ -514,4 +517,5 @@ def clean_events(events):
             print("number of rows:", np.sum(idx))
             print("values:", events[idx])
             sys.exit()
-    return events.loc[events["value"].notnull()]
+
+    return events
