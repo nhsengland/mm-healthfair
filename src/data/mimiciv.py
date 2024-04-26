@@ -339,7 +339,12 @@ def read_vitalsign(table):
     return table
 
 
-def read_events_table_by_row(table):
+def read_events_table_by_row(table, mimic4_path=None):
+    if "labevent_id" in table.columns:
+        table = read_labevents(table, mimic4_path)
+    else:
+        table = read_vitalsign(table)
+
     for _, row in table.iterrows():
         yield row
 
@@ -389,12 +394,7 @@ def read_events_table_and_break_up_by_subject(
         w.writerows(data_stats.curr_obs)
         data_stats.curr_obs = []
 
-    if table == "vitalsign":
-        table_df = read_vitalsign(util.dataframe_from_csv(table_path))
-
-    elif table == "labevents":
-        table_df = read_labevents(util.dataframe_from_csv(table_path), mimic4_path)
-        admits = util.dataframe_from_csv(os.path.join(mimic4_path, "admissions.csv.gz"))
+    if table == "labevents":
         if items_to_keep is not None:
             # set specific itemids that we are interested in (labevents only)
             items_to_keep = set([s for s in items_to_keep])
@@ -402,61 +402,71 @@ def read_events_table_and_break_up_by_subject(
     if subjects_to_keep is not None:
         subjects_to_keep = set([s for s in subjects_to_keep])
 
-    for row in tqdm(
-        read_events_table_by_row(table_df),
-        total=len(table_df),
+    total_num_rows = util.dataframe_from_csv(table_path).index.size
+    chunksize = 500
+
+    # Read/write events in chunks
+    for chunk in tqdm(
+        util.dataframe_from_csv(table_path, chunksize=chunksize),
+        total=total_num_rows // chunksize,
         desc=f"Processing {table} table",
     ):
-        if (subjects_to_keep is not None) and (
-            row["subject_id"] not in subjects_to_keep
-        ):
-            continue
+        for row in read_events_table_by_row(chunk, mimic4_path=mimic4_path):
+            if (subjects_to_keep is not None) and (
+                row["subject_id"] not in subjects_to_keep
+            ):
+                continue
 
-        if (items_to_keep is not None) and (row["itemid"] not in items_to_keep):
-            continue
+            if (items_to_keep is not None) and (row["itemid"] not in items_to_keep):
+                continue
 
-        if table == "labevents" and impute_missing_hadm_id:
-            # impute missing hadm_ids (may slow code down)
+            if table == "labevents" and impute_missing_hadm_id:
+                # impute missing hadm_ids from admissions data
 
-            def get_hadm_id_from_charttime(time, subject_id, admits):
-                # create bool
-                idx = (
-                    (admits["admittime"] <= time)
-                    & (time <= admits["dischtime"])
-                    & (admits["subject_id"] == subject_id)
+                admits = util.dataframe_from_csv(
+                    os.path.join(mimic4_path, "admissions.csv.gz"),
+                    usecols=["subject_id", "hadm_id", "admittime", "dischtime"],
                 )
 
-                if any(idx) is True:
-                    # apply bool and return value
-                    return admits[idx].hadm_id.values[0]
-                else:
-                    return np.nan
+                def get_hadm_id_from_charttime(time, subject_id, admits):
+                    # create bool
+                    idx = (
+                        (admits["admittime"] <= time)
+                        & (time <= admits["dischtime"])
+                        & (admits["subject_id"] == subject_id)
+                    )
 
-            row["hadm_id"] = (
-                get_hadm_id_from_charttime(row.charttime, row.subject_id, admits)
-                if np.isnan(row["hadm_id"])
-                else row["hadm_id"]
-            )
+                    if any(idx) is True:
+                        # apply bool and return value
+                        return admits[idx].hadm_id.values[0]
+                    else:
+                        return np.nan
 
-        row_out = {
-            "subject_id": row["subject_id"],
-            # labevents stored some hadm_id's as floats so converts, and if missing then record as ''
-            "hadm_id": ""
-            if ("hadm_id" not in row) or np.isnan(row["hadm_id"])
-            else int(row["hadm_id"]),
-            "stay_id": "" if "stay_id" not in row else row["stay_id"],
-            "charttime": row["charttime"],
-            "itemid": row["itemid"],
-            "value": row["value"],
-            "valueuom": row["valueuom"],
-            "label": row["label"],
-            "linksto": table,
-        }
+                row["hadm_id"] = (
+                    get_hadm_id_from_charttime(row.charttime, row.subject_id, admits)
+                    if np.isnan(row["hadm_id"])
+                    else row["hadm_id"]
+                )
 
-        if data_stats.curr_subject_id not in ("", row["subject_id"]):
+            row_out = {
+                "subject_id": row["subject_id"],
+                # labevents stored some hadm_id's as floats so converts, and if missing then record as ''
+                "hadm_id": ""
+                if ("hadm_id" not in row) or np.isnan(row["hadm_id"])
+                else int(row["hadm_id"]),
+                "stay_id": "" if "stay_id" not in row else row["stay_id"],
+                "charttime": row["charttime"],
+                "itemid": row["itemid"],
+                "value": row["value"],
+                "valueuom": row["valueuom"],
+                "label": row["label"],
+                "linksto": table,
+            }
+
+            if data_stats.curr_subject_id not in ("", row["subject_id"]):
+                write_current_observations()
+            data_stats.curr_obs.append(row_out)
+            data_stats.curr_subject_id = row["subject_id"]
+
+        if data_stats.curr_subject_id != "":
             write_current_observations()
-        data_stats.curr_obs.append(row_out)
-        data_stats.curr_subject_id = row["subject_id"]
-
-    if data_stats.curr_subject_id != "":
-        write_current_observations()

@@ -1,8 +1,8 @@
 import pandas as pd
 
 
-def dataframe_from_csv(path, header=0):
-    return pd.read_csv(path, header=header)
+def dataframe_from_csv(path, header=0, chunksize=None, usecols=None):
+    return pd.read_csv(path, header=header, chunksize=chunksize, usecols=usecols)
 
 
 def melt_table(table, id_vars: list = None, value_vars: list = None):
