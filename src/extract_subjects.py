@@ -189,14 +189,26 @@ if args.sample is not None:
             ), f"Maximum number of stays available per group is {max_stratified_n}. Choose a different value for args.sample"
 
             # alternative to stratify by stay instead of subject
-            stays = (
-                stays.groupby(["los_flag"], as_index=False)
-                .apply(
-                    lambda x: x.sample(n=args.sample // 2, random_state=rng),
-                    include_groups=False,
+
+            # negative stays
+            stay_ids = list(
+                rng.choice(
+                    stays[~stays["los_flag"]].stay_id,
+                    size=args.sample // 2,
+                    replace=False,
                 )
-                .reset_index(drop=True)
             )
+            remaining_stays = stays.query("stay_id not in @stay_ids")
+
+            # positive stays
+            stay_ids += list(
+                rng.choice(
+                    remaining_stays[remaining_stays["los_flag"]].stay_id,
+                    size=args.sample // 2,
+                    replace=False,
+                )
+            )
+            stays = stays.query("stay_id in @stay_ids")
 
     # stratify by length of stay
     if args.verbose:
