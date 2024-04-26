@@ -357,6 +357,7 @@ def read_events_table_and_break_up_by_subject(
     subjects_to_keep=None,
     mimic4_path=None,
     impute_missing_hadm_id=True,
+    chunksize=None,
 ):
     obs_header = [
         "subject_id",
@@ -404,12 +405,11 @@ def read_events_table_and_break_up_by_subject(
 
     print(f"Calculating total size of {table} table...")
     total_num_rows = util.count_rows(table_path)
-    chunksize = 500
 
     # Read/write events in chunks
     for chunk in tqdm(
         util.dataframe_from_csv(table_path, chunksize=chunksize),
-        total=total_num_rows // chunksize,
+        total=(total_num_rows // chunksize),
         desc=f"Processing {table} table",
     ):
         for row in read_events_table_by_row(chunk, mimic4_path=mimic4_path):

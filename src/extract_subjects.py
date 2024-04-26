@@ -73,6 +73,12 @@ parser.add_argument(
     default=2,
     help="Threshold for subject stratification (fractional days).",
 )
+parser.add_argument(
+    "--chunksize",
+    "-cs",
+    type=int,
+    help="Chunksize to process large amount of data. Defaults to None (no chunking).",
+)
 
 args, _ = parser.parse_known_args()
 
@@ -279,5 +285,6 @@ for table in args.event_tables:
         items_to_keep=items_to_keep,
         subjects_to_keep=subjects,
         mimic4_path=args.mimic4_path,
+        chunksize=args.chunksize,
     )
 print("Subjects extracted.")
