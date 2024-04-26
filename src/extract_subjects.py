@@ -131,10 +131,13 @@ if args.verbose:
 
 # filter by n subjects if specified (can be used to test/speed up processing)
 if args.sample is not None:
+    # set the seed for reproducibility
+    rng = np.random.default_rng(0)
+
     if not args.stratify:
         mode = "random"
         # random choice of n subjects (get all their stays)
-        subject_ids = np.random.choice(
+        subject_ids = rng.choice(
             stays.subject_id.unique(), size=args.n_subjects, replace=False
         )
 
@@ -156,16 +159,17 @@ if args.sample is not None:
 
             # negative subjects
             subject_ids = list(
-                np.random.choice(
+                rng.choice(
                     stays[~stays["los_flag"]].subject_id.unique(),
                     size=args.sample // 2,
                     replace=False,
+                    random_state=0,
                 )
             )
             remaining_stays = stays.query("subject_id not in @subject_ids")
             # positive subjects
             subject_ids += list(
-                np.random.choice(
+                rng.choice(
                     remaining_stays[remaining_stays["los_flag"]].subject_id.unique(),
                     size=args.sample // 2,
                     replace=False,
@@ -185,9 +189,14 @@ if args.sample is not None:
             ), f"Maximum number of stays available per group is {max_stratified_n}. Choose a different value for args.sample"
 
             # alternative to stratify by stay instead of subject
-            stays.groupby(["los_flag"], as_index=False).apply(
-                lambda x: x.sample(n=args.sample // 2), include_groups=False
-            ).reset_index(drop=True)
+            stays = (
+                stays.groupby(["los_flag"], as_index=False)
+                .apply(
+                    lambda x: x.sample(n=args.sample // 2, random_state=rng),
+                    include_groups=False,
+                )
+                .reset_index(drop=True)
+            )
 
     # stratify by length of stay
     if args.verbose:
