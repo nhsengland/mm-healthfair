@@ -198,12 +198,11 @@ if args.sample is not None:
                     replace=False,
                 )
             )
-            remaining_stays = stays.query("stay_id not in @stay_ids")
 
             # positive stays
             stay_ids += list(
                 rng.choice(
-                    remaining_stays[remaining_stays["los_flag"]].stay_id,
+                    stays[stays["los_flag"]].stay_id,
                     size=args.sample // 2,
                     replace=False,
                 )
