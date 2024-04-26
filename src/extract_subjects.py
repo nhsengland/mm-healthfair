@@ -51,15 +51,21 @@ parser.add_argument(
     help="Verbosity in output",
 )
 parser.add_argument(
-    "--n_subjects",
-    "-n",
+    "--sample",
+    "-s",
     type=int,
-    help="Number of subjects to include.",
+    help="Number of subjects/stays to include.",
 )
 parser.add_argument(
     "--stratify",
     action="store_true",
     help="Whether to randomly stratify subjects by los.",
+)
+parser.add_argument(
+    "--stratify_level",
+    type=str,
+    default="stay",
+    help="Whether to stratify by subjects or stay.",
 )
 parser.add_argument(
     "--los_thresh",
@@ -124,7 +130,7 @@ if args.verbose:
     )
 
 # filter by n subjects if specified (can be used to test/speed up processing)
-if args.n_subjects is not None:
+if args.sample is not None:
     if not args.stratify:
         mode = "random"
         # random choice of n subjects (get all their stays)
@@ -137,42 +143,57 @@ if args.n_subjects is not None:
         # use los column to stratify such that the distribution of los >= 48 hours (2 days) is roughly balanced
         stays["los_flag"] = (stays["los"] >= args.los_thresh).astype(bool)
 
-        max_stratified_n = min(
-            [
-                len(stays[~stays["los_flag"]].subject_id.unique()),
-                len(stays[stays["los_flag"]].subject_id.unique()),
-            ]
-        )
-        assert (
-            args.n_subjects // 2 <= max_stratified_n
-        ), f"Maximum number of subjects available per group is {max_stratified_n}. Choose a different value for args.n_subjects"
-
-        # negative subjects
-        subject_ids = list(
-            np.random.choice(
-                stays[~stays["los_flag"]].subject_id.unique(),
-                size=args.n_subjects // 2,
-                replace=False,
+        if args.stratify_level == "subject":
+            max_stratified_n = min(
+                [
+                    len(stays[~stays["los_flag"]].subject_id.unique()),
+                    len(stays[stays["los_flag"]].subject_id.unique()),
+                ]
             )
-        )
-        remaining_stays = stays.query("subject_id not in @subject_ids")
-        # positive subjects
-        subject_ids += list(
-            np.random.choice(
-                remaining_stays[remaining_stays["los_flag"]].subject_id.unique(),
-                size=args.n_subjects // 2,
-                replace=False,
+            assert (
+                args.sample // 2 <= max_stratified_n
+            ), f"Maximum number of subjects available per group is {max_stratified_n}. Choose a different value for args.sample"
+
+            # negative subjects
+            subject_ids = list(
+                np.random.choice(
+                    stays[~stays["los_flag"]].subject_id.unique(),
+                    size=args.sample // 2,
+                    replace=False,
+                )
             )
-        )
+            remaining_stays = stays.query("subject_id not in @subject_ids")
+            # positive subjects
+            subject_ids += list(
+                np.random.choice(
+                    remaining_stays[remaining_stays["los_flag"]].subject_id.unique(),
+                    size=args.sample // 2,
+                    replace=False,
+                )
+            )
+            stays = stays.query("subject_id in @subject_ids")
 
-        # stays.groupby(['los_flag'],as_index=False).apply(lambda x:x.sample(n=args.n_subjects//2), include_groups=False).reset_index(drop=True) # alternative to stratify by stay instead of subject
+        elif args.stratify_level == "stay":
+            max_stratified_n = min(
+                [
+                    len(stays[~stays["los_flag"]]),
+                    len(stays[stays["los_flag"]]),
+                ]
+            )
+            assert (
+                args.sample // 2 <= max_stratified_n
+            ), f"Maximum number of stays available per group is {max_stratified_n}. Choose a different value for args.sample"
 
-    stays = stays.query("subject_id in @subject_ids")
+            # alternative to stratify by stay instead of subject
+            stays.groupby(["los_flag"], as_index=False).apply(
+                lambda x: x.sample(n=args.sample // 2), include_groups=False
+            ).reset_index(drop=True)
 
     # stratify by length of stay
-    print(
-        f"SELECTING {mode.upper()} SAMPLE OF {args.n_subjects} SUBJECTS:\n\tSTAY_IDs: {stays.stay_id.unique().shape[0]}\n\tHADM_IDs: {stays.hadm_id.unique().shape[0]}\n\tSUBJECT_IDs: {stays.subject_id.unique().shape[0]}"
-    )
+    if args.verbose:
+        print(
+            f"SELECTING {mode.upper()} SAMPLE OF {args.sample} {'SUBJECTS' if args.stratify_level == 'subject' else 'STAYS'}:\n\tSTAY_IDs: {stays.stay_id.unique().shape[0]}\n\tHADM_IDs: {stays.hadm_id.unique().shape[0]}\n\tSUBJECT_IDs: {stays.subject_id.unique().shape[0]}"
+        )
 
 # add height/weight data using omr table: https://mimic.mit.edu/docs/iv/modules/hosp/omr/
 # use tolerance to find closest value within a year of admission
