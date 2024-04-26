@@ -138,7 +138,7 @@ if args.sample is not None:
         mode = "random"
         # random choice of n subjects (get all their stays)
         subject_ids = rng.choice(
-            stays.subject_id.unique(), size=args.n_subjects, replace=False
+            stays.subject_id.unique(), size=args.sample, replace=False
         )
 
     else:
