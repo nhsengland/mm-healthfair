@@ -402,7 +402,8 @@ def read_events_table_and_break_up_by_subject(
     if subjects_to_keep is not None:
         subjects_to_keep = set([s for s in subjects_to_keep])
 
-    total_num_rows = util.dataframe_from_csv(table_path).index.size
+    print(f"Calculating total size of {table} table...")
+    total_num_rows = util.count_rows(table_path)
     chunksize = 500
 
     # Read/write events in chunks
