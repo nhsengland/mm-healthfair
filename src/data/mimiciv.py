@@ -287,10 +287,8 @@ def break_up_diagnoses_by_subject(diagnoses, output_path, subjects=None):
         ).to_csv(os.path.join(dn, "diagnoses.csv"), index=False)
 
 
-def read_labevents(table, mimic4_path):
-    return map_itemids_to_labels(
-        table, util.dataframe_from_csv(os.path.join(mimic4_path, "d_labitems.csv.gz"))
-    )
+def read_labevents(table, dictionary_table):
+    return map_itemids_to_labels(table, dictionary_table)
 
 
 def map_itemid_to_label(itemid, label_dict):
@@ -339,9 +337,9 @@ def read_vitalsign(table):
     return table
 
 
-def read_events_table_by_row(table, mimic4_path=None):
+def read_events_table_by_row(table, d_items=None):
     if "labevent_id" in table.columns:
-        table = read_labevents(table, mimic4_path)
+        table = read_labevents(table, d_items)
     else:
         table = read_vitalsign(table)
 
@@ -399,6 +397,16 @@ def read_events_table_and_break_up_by_subject(
         if items_to_keep is not None:
             # set specific itemids that we are interested in (labevents only)
             items_to_keep = set([s for s in items_to_keep])
+        admits = util.dataframe_from_csv(
+            os.path.join(mimic4_path, "admissions.csv.gz"),
+            usecols=["subject_id", "hadm_id", "admittime", "dischtime"],
+        )
+        d_items = util.dataframe_from_csv(
+            os.path.join(mimic4_path, "d_labitems.csv.gz")
+        )
+
+    else:
+        d_items = None
 
     if subjects_to_keep is not None:
         subjects_to_keep = set([s for s in subjects_to_keep])
@@ -412,7 +420,7 @@ def read_events_table_and_break_up_by_subject(
         total=(total_num_rows // chunksize),
         desc=f"Processing {table} table",
     ):
-        for row in read_events_table_by_row(chunk, mimic4_path=mimic4_path):
+        for row in read_events_table_by_row(chunk, d_items):
             if (subjects_to_keep is not None) and (
                 row["subject_id"] not in subjects_to_keep
             ):
@@ -423,11 +431,6 @@ def read_events_table_and_break_up_by_subject(
 
             if table == "labevents" and impute_missing_hadm_id:
                 # impute missing hadm_ids from admissions data
-
-                admits = util.dataframe_from_csv(
-                    os.path.join(mimic4_path, "admissions.csv.gz"),
-                    usecols=["subject_id", "hadm_id", "admittime", "dischtime"],
-                )
 
                 def get_hadm_id_from_charttime(time, subject_id, admits):
                     # create bool
