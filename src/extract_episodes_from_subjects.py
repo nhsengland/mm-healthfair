@@ -13,6 +13,7 @@ from data.subject import (
     read_events,
     read_stays,
 )
+from data.util import dataframe_from_csv
 from tqdm import tqdm
 
 parser = argparse.ArgumentParser(description="Extract episodes from per-subject data.")
@@ -28,9 +29,21 @@ parser.add_argument(
 parser.add_argument(
     "--max_events", type=int, default=20, help="Maximum number of events per stay."
 )
+parser.add_argument(
+    "--subject_list",
+    type=str,
+    help="File containing list of subject folders to include.",
+)
 parser.add_argument("--verbose", "-v", action="store_true", help="Verbosity.")
 
 args = parser.parse_args()
+
+if args.subject_list is not None:
+    subject_list = (
+        dataframe_from_csv(args.subject_list, header=None)[0].astype(str).to_list()
+    )
+else:
+    subject_list = os.listdir(args.subjects_root_path)
 
 if args.verbose:
     print(
@@ -41,9 +54,7 @@ failed_to_read = 0
 filter_by_nb_stays = 0
 filter_by_nb_events = 0
 
-for subject_dir in tqdm(
-    os.listdir(args.subjects_root_path), desc="Iterating over subjects"
-):
+for subject_dir in tqdm(subject_list, desc="Iterating over subjects"):
     dn = os.path.join(args.subjects_root_path, subject_dir)
 
     try:
