@@ -154,7 +154,7 @@ def read_events_table_and_break_up_by_subject(
                 "Diastolic blood pressure",
             ],
             variable_name="label",
-        )
+        ).sort(by="charttime")
 
         # create empty itemid and manually add valueuom
         table_df = table_df.with_columns(itemid=pl.lit(None))
@@ -180,7 +180,9 @@ def read_events_table_and_break_up_by_subject(
     # write events to subject-level directories
     # loop over subjects by filtering df, extracting all events/items and writing to events.csv
     for subject in tqdm(subjects_to_keep, desc=f"Processing {table} table"):
-        events = table_df.filter(pl.col("subject_id") == subject).collect()
+        events = table_df.filter(pl.col("subject_id") == subject).collect(
+            streaming=True
+        )
 
         subject_fp = os.path.join(output_path, str(subject), "events.csv")
 
