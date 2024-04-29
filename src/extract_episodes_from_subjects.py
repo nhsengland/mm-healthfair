@@ -62,7 +62,7 @@ for subject_dir in tqdm(subject_list, desc="Iterating over subjects"):
         if not os.path.isdir(dn):
             raise Exception
     except Exception:
-        print(f"Cannot find subject dir for {subject_id}. Exiting...")
+        print(f"Cannot find subject dir for {int(subject_dir)}. Exiting...")
         sys.exit()
 
     try:
