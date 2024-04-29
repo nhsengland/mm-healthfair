@@ -281,6 +281,7 @@ for table in args.event_tables:
             with gzip.open(os.path.join(mimic_dir, f"{table}.csv.gz"), "rb") as f_in:
                 with open(os.path.join(mimic_dir, f"{table}.csv"), "wb") as f_out:
                     shutil.copyfileobj(f_in, f_out)
+            table_path = os.path.join(mimic_dir, f"{table}.csv")
 
     except Exception:
         print(f"Event tables for {table} cannot be found in MIMICIV directory.")

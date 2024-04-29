@@ -94,20 +94,20 @@ def read_events_table_and_break_up_by_subject(
 
     if "stay_id" not in table_df.columns:
         # add column for stay_id
-        table_df = table_df.with_columns(stay_id=pl.lit(None))
+        table_df = table_df.with_columns(stay_id=pl.lit(None, dtype=pl.UInt64))
 
     if "hadm_id" not in table_df.columns:
         # add column for stay_id
-        table_df = table_df.with_columns(hadm_id=pl.lit(None))
+        table_df = table_df.with_columns(hadm_id=pl.lit(None, dtype=pl.UInt64))
 
     # if not specified then use all subjects in df
-    if subjects_to_keep is not None:
-        subjects_to_keep = (
-            table_df.unique(subset="subject_id")
-            .collect()
-            .get_column("subject_id")
-            .to_list()
-        )
+    # if subjects_to_keep is not None:
+    #     subjects_to_keep = (
+    #         table_df.unique(subset="subject_id")
+    #         .collect()
+    #         .get_column("subject_id")
+    #         .to_list()
+    #     )
 
     # labevents only
     if table == "labevents":
@@ -175,14 +175,12 @@ def read_events_table_and_break_up_by_subject(
             "label",
             "linksto",
         ]
-    )
+    ).collect(streaming=True)
 
     # write events to subject-level directories
     # loop over subjects by filtering df, extracting all events/items and writing to events.csv
     for subject in tqdm(subjects_to_keep, desc=f"Processing {table} table"):
-        events = table_df.filter(pl.col("subject_id") == subject).collect(
-            streaming=True
-        )
+        events = table_df.filter(pl.col("subject_id") == subject)
 
         subject_fp = os.path.join(output_path, str(subject), "events.csv")
 
@@ -193,7 +191,7 @@ def read_events_table_and_break_up_by_subject(
         if os.path.exists(subject_fp):
             # append to csv if already exists e.g., from another events table
             with open(subject_fp, "a") as output_file:
-                output_file.write(events.write_csv(file=None, include_header=False))
+                output_file.write(events.write_csv(include_header=False))
         else:
             events.write_csv(file=subject_fp, include_header=True)
 
