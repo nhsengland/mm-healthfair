@@ -27,7 +27,7 @@ parser.add_argument(
     "--min_events", type=int, default=5, help="Minimum number of events per stay."
 )
 parser.add_argument(
-    "--max_events", type=int, default=20, help="Maximum number of events per stay."
+    "--max_events", type=int, default=None, help="Maximum number of events per stay."
 )
 parser.add_argument(
     "--subject_list",
@@ -111,6 +111,9 @@ for subject_dir in tqdm(subject_list, desc="Iterating over subjects"):
 
         # get ed events during this specific ed/hosp stay (within certain window of time (optional))
         episode = get_events_in_period(timeseries, stay_id, hadm_id, intime, dischtime)
+
+        min_events = 1 if args.min_events is None else args.min_events
+        max_events = 1e6 if args.max_events is None else args.max_events
 
         if episode.shape[0] < args.min_events or episode.shape[0] > args.max_events:
             # if no data for this episode (or less than min or more than max) then continue

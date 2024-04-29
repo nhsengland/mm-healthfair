@@ -393,9 +393,9 @@ def read_events_table_and_break_up_by_subject(
         w.writerows(data_stats.curr_obs)
         data_stats.curr_obs = []
 
+    # (labevents only)
     if table == "labevents":
         if items_to_keep is not None:
-            # set specific itemids that we are interested in (labevents only)
             items_to_keep = set([s for s in items_to_keep])
         admits = util.dataframe_from_csv(
             os.path.join(mimic4_path, "admissions.csv.gz"),
@@ -426,31 +426,34 @@ def read_events_table_and_break_up_by_subject(
             ):
                 continue
 
-            if (items_to_keep is not None) and (row["itemid"] not in items_to_keep):
-                continue
+            if table == "labevents":
+                if (items_to_keep is not None) and (row["itemid"] not in items_to_keep):
+                    continue
 
-            if table == "labevents" and impute_missing_hadm_id:
-                # impute missing hadm_ids from admissions data
+                if impute_missing_hadm_id:
+                    # try to impute missing hadm_id from mimiciv admissions data using charttime
 
-                def get_hadm_id_from_charttime(time, subject_id, admits):
-                    # create bool
-                    idx = (
-                        (admits["admittime"] <= time)
-                        & (time <= admits["dischtime"])
-                        & (admits["subject_id"] == subject_id)
+                    def get_hadm_id_from_charttime(time, subject_id, admits):
+                        # create bool
+                        idx = (
+                            (admits["admittime"] <= time)
+                            & (time <= admits["dischtime"])
+                            & (admits["subject_id"] == subject_id)
+                        )
+
+                        if any(idx) is True:
+                            # apply bool and return value
+                            return admits[idx].hadm_id.values[0]
+                        else:
+                            return np.nan
+
+                    row["hadm_id"] = (
+                        get_hadm_id_from_charttime(
+                            row.charttime, row.subject_id, admits
+                        )
+                        if np.isnan(row["hadm_id"])
+                        else row["hadm_id"]
                     )
-
-                    if any(idx) is True:
-                        # apply bool and return value
-                        return admits[idx].hadm_id.values[0]
-                    else:
-                        return np.nan
-
-                row["hadm_id"] = (
-                    get_hadm_id_from_charttime(row.charttime, row.subject_id, admits)
-                    if np.isnan(row["hadm_id"])
-                    else row["hadm_id"]
-                )
 
             row_out = {
                 "subject_id": row["subject_id"],
