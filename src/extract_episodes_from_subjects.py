@@ -53,8 +53,7 @@ if args.verbose:
 failed_to_read = 0
 filter_by_nb_stays = 0
 filter_by_nb_events = 0
-# counter for subject that are processed, cleaned and successfully written to disk
-n = 0
+completed_subjects = 0
 
 for subject_dir in tqdm(subject_list, desc="Iterating over subjects"):
     dn = os.path.join(args.subjects_root_path, subject_dir)
@@ -64,8 +63,7 @@ for subject_dir in tqdm(subject_list, desc="Iterating over subjects"):
         if not os.path.isdir(dn):
             raise Exception
     except Exception:
-        print(f"Cannot find subject dir for {int(subject_dir)}. Exiting...")
-        sys.exit()
+        continue
 
     try:
         # reading tables of this subject
@@ -73,9 +71,10 @@ for subject_dir in tqdm(subject_list, desc="Iterating over subjects"):
         # diagnoses = read_diagnoses(os.path.join(args.subjects_root_path, subject_dir))
         events = read_events(os.path.join(args.subjects_root_path, subject_dir))
     except Exception:
-        sys.stderr.write(
-            f"Error reading data for subject: {subject_id}. Events table likely to be missing/empty. \n"
-        )
+        if args.verbose:
+            sys.stderr.write(
+                f"Error: Reading data for subject {subject_id}. Events table likely to be missing/empty. \n"
+            )
         failed_to_read += 1
         continue
 
@@ -94,12 +93,14 @@ for subject_dir in tqdm(subject_list, desc="Iterating over subjects"):
 
     if events.shape[0] == 0:
         # no valid events for this subject
-        print(f"No events found for subject {subject_id}")
+        if args.verbose:
+            sys.stderr.write(f"Warning: No events found for subject {subject_id}")
         continue
 
     timeseries = convert_events_to_timeseries(events)
 
     # extracting separate episodes per stay
+    n = 0
     for stay_idx in range(stays.shape[0]):
         stay_id = stays.stay_id.iloc[stay_idx]
         intime = stays.intime.iloc[stay_idx]
@@ -144,10 +145,12 @@ for subject_dir in tqdm(subject_list, desc="Iterating over subjects"):
             index_label="hours",
         )
 
-    # add to counter once data has been written to disk
-    n += 1
+        # add to counter once data has been written to disk
+        n += 1
 
-print(f"SUCCESSFULLY EXTRACTED DATA FOR {n} SUBJECTS. \n")
+    completed_subjects += 1
+
+print(f"SUCCESSFULLY EXTRACTED DATA FOR {completed_subjects} SUBJECTS. \n")
 print(
     f"SKIPPING {filter_by_nb_events} EVENTS, AND {filter_by_nb_stays} STAYS, FAILED TO READ {failed_to_read} SUBJECTS"
 )
