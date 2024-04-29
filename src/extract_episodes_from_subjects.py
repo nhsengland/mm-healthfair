@@ -62,7 +62,8 @@ for subject_dir in tqdm(subject_list, desc="Iterating over subjects"):
         if not os.path.isdir(dn):
             raise Exception
     except Exception:
-        continue
+        print(f"Cannot find subject dir for {subject_id}. Exiting...")
+        sys.exit()
 
     try:
         # reading tables of this subject
@@ -148,7 +149,7 @@ for subject_dir in tqdm(subject_list, desc="Iterating over subjects"):
         # add to counter once data has been written to disk
         n += 1
 
-
+print(f"SUCCESSFULLY EXTRACTED DATA FOR {n} SUBJECTS. \n")
 print(
     f"SKIPPING {filter_by_nb_events} EVENTS, AND {filter_by_nb_stays} STAYS, FAILED TO READ {failed_to_read} SUBJECTS"
 )
