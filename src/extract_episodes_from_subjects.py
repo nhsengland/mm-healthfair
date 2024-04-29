@@ -53,6 +53,8 @@ if args.verbose:
 failed_to_read = 0
 filter_by_nb_stays = 0
 filter_by_nb_events = 0
+# counter for subject that are processed, cleaned and successfully written to disk
+n = 0
 
 for subject_dir in tqdm(subject_list, desc="Iterating over subjects"):
     dn = os.path.join(args.subjects_root_path, subject_dir)
@@ -97,11 +99,7 @@ for subject_dir in tqdm(subject_list, desc="Iterating over subjects"):
 
     timeseries = convert_events_to_timeseries(events)
 
-    # extracting separate episodes
-
-    # counter for stays that are processed, cleaned and successfully written to disk
-    n = 0
-
+    # extracting separate episodes per stay
     for stay_idx in range(stays.shape[0]):
         stay_id = stays.stay_id.iloc[stay_idx]
         intime = stays.intime.iloc[stay_idx]
@@ -146,8 +144,8 @@ for subject_dir in tqdm(subject_list, desc="Iterating over subjects"):
             index_label="hours",
         )
 
-        # add to counter once data has been written to disk
-        n += 1
+    # add to counter once data has been written to disk
+    n += 1
 
 print(f"SUCCESSFULLY EXTRACTED DATA FOR {n} SUBJECTS. \n")
 print(
