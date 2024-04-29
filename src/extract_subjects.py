@@ -83,7 +83,7 @@ parser.add_argument(
 args, _ = parser.parse_known_args()
 
 if os.path.exists(args.output_path):
-    response = input("Will need to overwriting existing directory... continue? (y/n)")
+    response = input("Will need to overwrite existing directory... continue? (y/n)")
     if response == "y":
         try:
             shutil.rmtree(args.output_path)  # delete old dir
@@ -101,6 +101,7 @@ else:
 patients = m4c.read_patients_table(args.mimic4_path)
 admits = m4c.read_admissions_table(args.mimic4_path)
 stays = m4c.read_stays_table(args.mimic4_ed_path)
+
 if args.verbose:
     print(
         f"START:\n\tED STAY_IDs: {stays.stay_id.unique().shape[0]}\n\tHADM_IDs: {stays.hadm_id.unique().shape[0]}\n\tSUBJECT_IDs: {stays.subject_id.unique().shape[0]}"
@@ -285,6 +286,5 @@ for table in args.event_tables:
         items_to_keep=items_to_keep,
         subjects_to_keep=subjects,
         mimic4_path=args.mimic4_path,
-        chunksize=args.chunksize,
     )
 print("Subjects extracted.")
