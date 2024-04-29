@@ -1217,6 +1217,13 @@ pillow==10.3.0 ; python_version >= "3.10" and python_version < "4.0" \
 platformdirs==4.2.1 ; python_version >= "3.10" and python_version < "4.0" \
     --hash=sha256:031cd18d4ec63ec53e82dceaac0417d218a6863f7745dfcc9efe7793b7039bdf \
     --hash=sha256:17d5a1161b3fd67b390023cb2d3b026bbd40abde6fdb052dfbd3a29c3ba22ee1
+polars==0.20.23 ; python_version >= "3.10" and python_version < "4.0" \
+    --hash=sha256:4503c446c7771d5b52d5bff4f2dbf2e999a87a1cc3c89931db255cff43218436 \
+    --hash=sha256:7de724f9b7f94c76008023b1ef9319e7dccada97e98d48d548be487be8dc2ea6 \
+    --hash=sha256:9b1001a29e785126f0e189786223c45bf9c7696ed3d221a61dd629ff5e8229d3 \
+    --hash=sha256:bfd10ffabafecba3bb836f9e267405abc8259da5fb8d5e74096d46eea802a295 \
+    --hash=sha256:de69adcfe4a92821f28c0223b801e56a36682a7aac32df8e860e6df7678f4c8a \
+    --hash=sha256:f109512a456f9f8bdc20e5b19e5794471d4a1a507f99daf1afe1b41eb3227c41
 pre-commit==3.7.0 ; python_version >= "3.10" and python_version < "4.0" \
     --hash=sha256:5eae9e10c2b5ac51577c3452ec0a490455c45a0533f7960f993a0d01e59decab \
     --hash=sha256:e209d61b8acdcf742404408531f0c37d49d2c734fd7cff2d6076083d191cb060
