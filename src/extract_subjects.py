@@ -2,7 +2,7 @@ import argparse  # noqa: I001
 import os
 import sys
 import shutil
-
+import gzip
 import numpy as np
 
 import data.mimiciv as m4c
@@ -271,11 +271,17 @@ items_to_keep = (
     else None
 )
 for table in args.event_tables:
+    mimic_dir = args.mimic4_path if table == "labevents" else args.mimic4_ed_path
     try:
-        if os.path.exists(os.path.join(args.mimic4_path, f"{table}.csv.gz")):
-            table_path = os.path.join(args.mimic4_path, f"{table}.csv.gz")
-        elif os.path.exists(os.path.join(args.mimic4_ed_path, f"{table}.csv.gz")):
-            table_path = os.path.join(args.mimic4_ed_path, f"{table}.csv.gz")
+        if os.path.exists(os.path.join(mimic_dir, f"{table}.csv")):
+            table_path = os.path.join(mimic_dir, f"{table}.csv")
+        # read compressed and write to file since lazy polars API can only scan uncompressed csv's
+        elif os.path.exists(os.path.join(mimic_dir, f"{table}.csv.gz")):
+            print(f"Uncompressing {table} data... (required)")
+            with gzip.open(os.path.join(mimic_dir, f"{table}.csv.gz"), "rb") as f_in:
+                with open(os.path.join(mimic_dir, f"{table}.csv"), "wb") as f_out:
+                    shutil.copyfileobj(f_in, f_out)
+
     except Exception:
         print(f"Event tables for {table} cannot be found in MIMICIV directory.")
 

@@ -85,9 +85,9 @@ def read_events_table_and_break_up_by_subject(
     subjects_to_keep=None,
     mimic4_path=None,
 ):
-    #  Load in csv using polars lazy API (requires RAM)
+    #  Load in csv using polars lazy API (requires table to be in csv format)
     print(f"Reading {table} table...")
-    table_df = pl.read_csv(table_path).lazy()
+    table_df = pl.scan_csv(table_path)
 
     # add column for linksto
     table_df = table_df.with_columns(linksto=pl.lit(table))
