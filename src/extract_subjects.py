@@ -6,7 +6,7 @@ import gzip
 import numpy as np
 
 import data.mimiciv as m4c
-from data.util import dataframe_from_csv
+from data.util import dataframe_from_csv, get_n_unique_values
 
 parser = argparse.ArgumentParser(
     description="Extract per-subject data from MIMIC-IV CSV files."
@@ -104,13 +104,13 @@ stays = m4c.read_stays_table(args.mimic4_ed_path)
 
 if args.verbose:
     print(
-        f"START:\n\tED STAY_IDs: {stays.stay_id.unique().shape[0]}\n\tHADM_IDs: {stays.hadm_id.unique().shape[0]}\n\tSUBJECT_IDs: {stays.subject_id.unique().shape[0]}"
+        f"START:\n\tED STAY_IDs: {get_n_unique_values(stays, 'stay_id')}\n\tHADM_IDs: {get_n_unique_values(stays, 'hadm_id')}\n\tSUBJECT_IDs: {get_n_unique_values(stays)}"
     )
 
 stays = m4c.remove_stays_without_admission(stays)
 if args.verbose:
     print(
-        f"REMOVE ED STAYS WITHOUT ADMISSION:\n\tSTAY_IDs: {stays.stay_id.unique().shape[0]}\n\tHADM_IDs: {stays.hadm_id.unique().shape[0]}\n\tSUBJECT_IDs: {stays.subject_id.unique().shape[0]}"
+        f"REMOVE ED STAYS WITHOUT ADMISSION:\n\tSTAY_IDs: {get_n_unique_values(stays, 'stay_id')}\n\tHADM_IDs: {get_n_unique_values(stays, 'hadm_id')}\n\tSUBJECT_IDs: {get_n_unique_values(stays)}"
     )
 
 # order matters here ad stays has hadm_id as floats so merge with hadm_id instead
@@ -123,7 +123,7 @@ stays = m4c.merge_on_subject(stays, patients)
 stays = m4c.filter_admissions_on_nb_stays(stays)
 if args.verbose:
     print(
-        f"REMOVE MULTIPLE ED STAYS PER ADMIT:\n\tSTAY_IDs: {stays.stay_id.unique().shape[0]}\n\tHADM_IDs: {stays.hadm_id.unique().shape[0]}\n\tSUBJECT_IDs: {stays.subject_id.unique().shape[0]}"
+        f"REMOVE MULTIPLE ED STAYS PER ADMIT:\n\tSTAY_IDs: {get_n_unique_values(stays, 'stay_id')}\n\tHADM_IDs: {get_n_unique_values(stays, 'hadm_id')}\n\tSUBJECT_IDs: {get_n_unique_values(stays)}"
     )
 
 # does nothing if "hospital_expire_flag" is available
@@ -133,7 +133,7 @@ stays = m4c.add_inhospital_mortality_to_stays(stays)
 stays = m4c.filter_stays_on_age(stays)
 if args.verbose:
     print(
-        f"REMOVE PATIENTS AGE < 18:\n\tSTAY_IDs: {stays.stay_id.unique().shape[0]}\n\tHADM_IDs: {stays.hadm_id.unique().shape[0]}\n\tSUBJECT_IDs: {stays.subject_id.unique().shape[0]}"
+        f"REMOVE PATIENTS AGE < 18:\n\tSTAY_IDs: {get_n_unique_values(stays, 'stay_id')}\n\tHADM_IDs: {get_n_unique_values(stays, 'hadm_id')}\n\tSUBJECT_IDs: {get_n_unique_values(stays)}"
     )
 
 # filter by n subjects if specified (can be used to test/speed up processing)

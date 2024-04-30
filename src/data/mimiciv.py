@@ -4,34 +4,33 @@ import os
 
 import icdmappings
 import numpy as np
-import pandas as pd
 import polars as pl
 from tqdm import tqdm
-
-from . import util
 
 ICD9 = 9
 
 
-def read_patients_table(mimic4_path):
-    pats = util.dataframe_from_csv(os.path.join(mimic4_path, "patients.csv.gz"))
-    pats = pats[
-        ["subject_id", "gender", "anchor_age", "anchor_year", "dod"]
-    ]  # dod for out of hospital mortality
-    pats.dod = pd.to_datetime(pats.dod)
-    return pats
+def read_patients_table(mimic4_path, lazy_mode=False):
+    pats = pl.read_csv(
+        os.path.join(mimic4_path, "patients.csv.gz"),
+        columns=["subject_id", "gender", "anchor_age", "anchor_year", "dod"],
+        dtypes=[pl.UInt64, pl.String, pl.UInt64, pl.UInt64, pl.Datetime],
+    )
+    return pats.lazy() if lazy_mode else pats
 
 
-def read_omr_table(mimic4_path):
-    omr = util.dataframe_from_csv(os.path.join(mimic4_path, "omr.csv.gz"))
-    omr.chartdate = pd.to_datetime(omr.chartdate)
-    return omr
+def read_omr_table(mimic4_path, lazy_mode=False):
+    omr = pl.read_csv(
+        os.path.join(mimic4_path, "omr.csv.gz"),
+        dtypes=[pl.UInt64, pl.Datetime, pl.UInt64, pl.String, pl.String],
+    )
+    return omr.lazy() if lazy_mode else omr
 
 
-def read_admissions_table(mimic4_path):
-    admits = util.dataframe_from_csv(os.path.join(mimic4_path, "admissions.csv.gz"))
-    admits = admits[
-        [
+def read_admissions_table(mimic4_path, lazy_mode=False):
+    admits = pl.read_csv(
+        os.path.join(mimic4_path, "admissions.csv.gz"),
+        columns=[
             "subject_id",
             "hadm_id",
             "admittime",
@@ -41,40 +40,62 @@ def read_admissions_table(mimic4_path):
             "marital_status",
             "race",
             "hospital_expire_flag",
-        ]
-    ]
-    admits.admittime = pd.to_datetime(admits.admittime)
-    admits.dischtime = pd.to_datetime(admits.dischtime)
-    admits.deathtime = pd.to_datetime(admits.deathtime)
-    # add los column (in fractional days)
-    admits["los"] = (admits.dischtime - admits.admittime) / pd.Timedelta(days=1)
-    return admits
+        ],
+        dtypes=[
+            pl.UInt64,
+            pl.UInt64,
+            pl.Datetime,
+            pl.Datetime,
+            pl.Datetime,
+            pl.String,
+            pl.String,
+            pl.String,
+            pl.UInt64,
+        ],
+    )
+    admits = admits.with_columns(
+        ((pl.col("dischtime") - pl.col("admittime")) / pl.duration(days=1)).alias("los")
+    )
+    return admits.lazy() if lazy_mode else admits
 
 
-def read_stays_table(mimic4_ed_path):
-    stays = util.dataframe_from_csv(os.path.join(mimic4_ed_path, "edstays.csv.gz"))
-    stays.intime = pd.to_datetime(stays.intime)
-    stays.outtime = pd.to_datetime(stays.outtime)
-    stays["los_ed"] = (stays.outtime - stays.intime) / pd.Timedelta(days=1)
-    return stays
+def read_stays_table(mimic4_ed_path, lazy_mode=False):
+    stays = pl.read_csv(
+        os.path.join(mimic4_ed_path, "edstays.csv.gz"),
+        columns=[
+            "subject_id",
+            "hadm_id",
+            "stay_id",
+            "intime",
+            "outtime",
+            "disposition",
+        ],
+        dtypes=[pl.UInt64, pl.UInt64, pl.UInt64, pl.Datetime, pl.Datetime, pl.String],
+    )
+    # stays = stays.with_columns(((pl.col("outtime") - pl.col("intime"))/pl.duration(days=1)).alias("los_ed"))
+    return stays.lazy() if lazy_mode else stays
 
 
-def read_icd_diagnoses_table(mimic4_path):
-    codes = util.dataframe_from_csv(os.path.join(mimic4_path, "d_icd_diagnoses.csv.gz"))
-    codes = codes[["icd_code", "icd_version", "long_title"]]
-    diagnoses = util.dataframe_from_csv(
-        os.path.join(mimic4_path, "diagnoses_icd.csv.gz")
+def read_icd_diagnoses_table(mimic4_path, lazy_mode=False):
+    codes = pl.read_csv(os.path.join(mimic4_path, "d_icd_diagnoses.csv.gz"))
+    diagnoses = pl.read_csv(
+        os.path.join(mimic4_path, "diagnoses_icd.csv.gz"),
+        dtypes=[pl.UInt64, pl.UInt64, pl.UInt64, pl.String, pl.String],
     )
     diagnoses = diagnoses.merge(
         codes,
         how="inner",
-        left_on=["icd_code", "icd_version"],
-        right_on=["icd_code", "icd_version"],
+        on=["icd_code", "icd_version"],
     )
-    diagnoses[["subject_id", "hadm_id", "seq_num"]] = diagnoses[
-        ["subject_id", "hadm_id", "seq_num"]
-    ].astype(int)
-    return diagnoses
+    return diagnoses.lazy() if lazy_mode else diagnoses
+
+
+def read_ed_icd_diagnoses_table(mimic4_ed_path, lazy_mode=False):
+    diagnoses = pl.read_csv(
+        os.path.join(mimic4_ed_path, "diagnosis.csv.gz"),
+        dtypes=[pl.UInt64, pl.UInt64, pl.UInt64, pl.String, pl.UInt64, pl.String],
+    ).lazy()
+    return diagnoses.lazy() if lazy_mode else diagnoses
 
 
 def read_events_table_and_break_up_by_subject(
@@ -196,11 +217,6 @@ def read_events_table_and_break_up_by_subject(
             events.write_csv(file=subject_fp, include_header=True)
 
 
-def read_ed_icd_diagnoses_table(mimic4_ed_path):
-    codes = util.dataframe_from_csv(os.path.join(mimic4_ed_path, "diagnosis.csv.gz"))
-    return codes
-
-
 def convert_icd9_to_icd10(diagnoses_df, keep_original=True):
     print("Converting ICD9 codes to ICD10...".upper())
     mapper = icdmappings.Mapper()
@@ -234,31 +250,26 @@ def count_icd_codes(diagnoses, output_path=None):
 
 
 def remove_stays_without_admission(stays):
-    stays = stays[stays.disposition == "ADMITTED"].dropna(subset=["hadm_id"])
-    return stays[["subject_id", "hadm_id", "stay_id", "intime", "outtime"]]
+    return (
+        stays.filter(pl.col("disposition") == "ADMITTED")
+        .drop_nulls(subset="hadm_id")
+        .drop("disposition")
+    )
 
 
 def merge_on_subject(table1, table2):
-    return table1.merge(
-        table2, how="inner", left_on=["subject_id"], right_on=["subject_id"]
-    )
+    return table1.join(table2, how="inner", on="subject_id")
 
 
 def merge_on_subject_admission(table1, table2):
-    return table1.merge(
-        table2,
-        how="inner",
-        left_on=["subject_id", "hadm_id"],
-        right_on=["subject_id", "hadm_id"],
-    )
+    return table1.join(table2, how="inner", on=["subject_id", "hadm_id"])
 
 
 def merge_on_subject_stay_admission(table1, table2, suffixes=("_x", "_y")):
-    return table1.merge(
+    return table1.join(
         table2,
         how="inner",
-        left_on=["subject_id", "hadm_id", "stay_id"],
-        right_on=["subject_id", "hadm_id", "stay_id"],
+        on=["subject_id", "hadm_id", "stay_id"],
         suffixes=suffixes,
     )
 
@@ -281,40 +292,51 @@ def add_omr_variable_to_stays(stays, mimic4_path, variable, tolerance=None):
     # get value of variable on stay/admission date using omr record's date
     # use tolerance to allow elapsed time between dates
     omr = read_omr_table(mimic4_path)
-    omr_names = [x for x in omr.result_name.unique() if variable.lower() in x.lower()]
+    omr_names = [
+        x
+        for x in omr.unique(subset="result_name").get_column("result_name").to_list()
+        if variable.lower() in x.lower()
+    ]
 
-    def get_values_from_omr(omr, table, result_names, time_col: str = None):
-        table["admitdate"] = pd.to_datetime(table["admittime"].dt.date)
-        omr = omr.merge(table[["subject_id", "admitdate"]], on="subject_id")
-        omr["diff"] = np.abs(
-            (omr["admitdate"] - omr["chartdate"]) / pd.Timedelta(days=1)
+    def get_values_from_omr(omr, table, result_names):
+        table = table.with_columns((pl.col("admittime").dt.date).alias("admitdate"))
+        omr = omr.join(
+            table.select(["subject_id", "admitdate"]), how="inner", on="subject_id"
+        )
+
+        omr = omr.with_columns(
+            ((pl.col("admitdate") - pl.col("chartdate")) / pl.duration(days=1)).alias(
+                "diff"
+            )
         )
 
         if tolerance is None:
-            match = omr[omr["diff"] == 0].sort_values(by=["diff", "seq_num"])
+            match = omr.filter(pl.col("diff") == 0).sort(by=["diff", "seq_num"])
         else:
             # allow window (days) of tolerance
-            match = omr[omr["diff"] < tolerance].sort_values(by=["diff", "seq_num"])
+            match = omr.filter(pl.col("diff") < tolerance).sort(by=["diff", "seq_num"])
 
-        values = match[match["result_name"].isin(result_names)].result_value.values
+        values = (
+            match.filter(pl.col("result_name").isin(result_names))
+            .get_column("result_value")
+            .to_list()
+        )
 
         if len(values) != 0:
             return values[
                 0
-            ]  # take first value since sorted by diff (so will be the closest), then seq_num
+            ]  # take first value since sorted by diff (so will be the closest in time), then seq_num
         else:
             return np.nan
 
-    stays[variable.lower()] = get_values_from_omr(
-        omr, stays, omr_names, time_col="admittime"
-    )
+    stays = get_values_from_omr(omr, stays, omr_names, time_col="admittime")
 
     return stays
 
 
 def add_inhospital_mortality_to_stays(stays):
     if "hospital_expire_flag" in stays:
-        stays = stays.rename(columns={"hospital_expire_flag": "mortality"})
+        stays = stays.rename({"hospital_expire_flag": "mortality"})
     else:
         mortality = stays.dod.notnull() & (
             (stays.admittime <= stays.dod) & (stays.dischtime >= stays.dod)
@@ -345,17 +367,19 @@ def add_ined_mortality_to_stays(stays):
 
 def filter_admissions_on_nb_stays(stays, min_nb_stays=1, max_nb_stays=1):
     # Only keep hospital admissions that are associated with a certain number of ED stays (within min and max)
-    to_keep = stays.groupby("hadm_id").count()[["stay_id"]].reset_index()
-    to_keep = to_keep[
-        (to_keep.stay_id >= min_nb_stays) & (to_keep.stay_id <= max_nb_stays)
-    ][["hadm_id"]]
-    stays = stays.merge(to_keep, how="inner", left_on="hadm_id", right_on="hadm_id")
+    to_keep = stays.group_by("hadm_id").agg(pl.col("stay_id").count())
+    to_keep = to_keep.filter(
+        (pl.col("stay_id") >= min_nb_stays) & (pl.col("stay_id") <= max_nb_stays)
+    ).select("hadm_id")
+    stays = stays.join(to_keep, how="inner", on="hadm_id")
     return stays
 
 
 def filter_stays_on_age(stays, min_age=18, max_age=np.inf):
     # must have already added age to stays table
-    stays = stays[(stays.anchor_age >= min_age) & (stays.anchor_age <= max_age)]
+    stays = stays.filter(
+        (pl.col("anchor_age") >= min_age) & (pl.col("anchor_age") <= max_age)
+    )
     return stays
 
 
