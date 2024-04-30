@@ -26,7 +26,7 @@ def read_events(subject_path):
     events = dataframe_from_csv(os.path.join(subject_path, "events.csv"))
     stays = dataframe_from_csv(os.path.join(subject_path, "stays.csv"))
 
-    events.charttime = pd.to_datetime(events.charttime)
+    events.charttime = pd.to_datetime(events.charttime, format="ISO8601")
     events.valueuom = events.valueuom.fillna("").astype(str)
 
     # then use transform to apply function to fill in missing hadm_id or stay_id from stay table

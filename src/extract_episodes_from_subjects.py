@@ -13,6 +13,7 @@ from data.subject import (
     read_events,
     read_stays,
 )
+from data.util import dataframe_from_csv
 from tqdm import tqdm
 
 parser = argparse.ArgumentParser(description="Extract episodes from per-subject data.")
@@ -26,11 +27,23 @@ parser.add_argument(
     "--min_events", type=int, default=5, help="Minimum number of events per stay."
 )
 parser.add_argument(
-    "--max_events", type=int, default=20, help="Maximum number of events per stay."
+    "--max_events", type=int, default=None, help="Maximum number of events per stay."
+)
+parser.add_argument(
+    "--subject_list",
+    type=str,
+    help="File containing list of subject folders to include.",
 )
 parser.add_argument("--verbose", "-v", action="store_true", help="Verbosity.")
 
 args = parser.parse_args()
+
+if args.subject_list is not None:
+    subject_list = (
+        dataframe_from_csv(args.subject_list, header=None)[0].astype(str).to_list()
+    )
+else:
+    subject_list = os.listdir(args.subjects_root_path)
 
 if args.verbose:
     print(
@@ -40,10 +53,9 @@ if args.verbose:
 failed_to_read = 0
 filter_by_nb_stays = 0
 filter_by_nb_events = 0
+completed_subjects = 0
 
-for subject_dir in tqdm(
-    os.listdir(args.subjects_root_path), desc="Iterating over subjects"
-):
+for subject_dir in tqdm(subject_list, desc="Iterating over subjects"):
     dn = os.path.join(args.subjects_root_path, subject_dir)
 
     try:
@@ -59,9 +71,10 @@ for subject_dir in tqdm(
         # diagnoses = read_diagnoses(os.path.join(args.subjects_root_path, subject_dir))
         events = read_events(os.path.join(args.subjects_root_path, subject_dir))
     except Exception:
-        sys.stderr.write(
-            f"Error reading data for subject: {subject_id}. Events table likely to be missing/empty. \n"
-        )
+        if args.verbose:
+            sys.stderr.write(
+                f"Error: Reading data for subject {subject_id}. Events table likely to be missing/empty. \n"
+            )
         failed_to_read += 1
         continue
 
@@ -80,16 +93,14 @@ for subject_dir in tqdm(
 
     if events.shape[0] == 0:
         # no valid events for this subject
-        print(f"No events found for subject {subject_id}")
+        if args.verbose:
+            sys.stderr.write(f"Warning: No events found for subject {subject_id}")
         continue
 
     timeseries = convert_events_to_timeseries(events)
 
-    # extracting separate episodes
-
-    # counter for stays that are processed, cleaned and successfully written to disk
+    # extracting separate episodes per stay
     n = 0
-
     for stay_idx in range(stays.shape[0]):
         stay_id = stays.stay_id.iloc[stay_idx]
         intime = stays.intime.iloc[stay_idx]
@@ -100,6 +111,9 @@ for subject_dir in tqdm(
 
         # get ed events during this specific ed/hosp stay (within certain window of time (optional))
         episode = get_events_in_period(timeseries, stay_id, hadm_id, intime, dischtime)
+
+        min_events = 1 if args.min_events is None else args.min_events
+        max_events = 1e6 if args.max_events is None else args.max_events
 
         if episode.shape[0] < args.min_events or episode.shape[0] > args.max_events:
             # if no data for this episode (or less than min or more than max) then continue
@@ -137,7 +151,9 @@ for subject_dir in tqdm(
         # add to counter once data has been written to disk
         n += 1
 
+    completed_subjects += 1
 
+print(f"SUCCESSFULLY EXTRACTED DATA FOR {completed_subjects} SUBJECTS. \n")
 print(
     f"SKIPPING {filter_by_nb_events} EVENTS, AND {filter_by_nb_stays} STAYS, FAILED TO READ {failed_to_read} SUBJECTS"
 )

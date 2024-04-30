@@ -2,7 +2,7 @@ import argparse  # noqa: I001
 import os
 import sys
 import shutil
-
+import gzip
 import numpy as np
 
 import data.mimiciv as m4c
@@ -83,7 +83,7 @@ parser.add_argument(
 args, _ = parser.parse_known_args()
 
 if os.path.exists(args.output_path):
-    response = input("Will need to overwriting existing directory... continue? (y/n)")
+    response = input("Will need to overwrite existing directory... continue? (y/n)")
     if response == "y":
         try:
             shutil.rmtree(args.output_path)  # delete old dir
@@ -101,6 +101,7 @@ else:
 patients = m4c.read_patients_table(args.mimic4_path)
 admits = m4c.read_admissions_table(args.mimic4_path)
 stays = m4c.read_stays_table(args.mimic4_ed_path)
+
 if args.verbose:
     print(
         f"START:\n\tED STAY_IDs: {stays.stay_id.unique().shape[0]}\n\tHADM_IDs: {stays.hadm_id.unique().shape[0]}\n\tSUBJECT_IDs: {stays.subject_id.unique().shape[0]}"
@@ -270,11 +271,18 @@ items_to_keep = (
     else None
 )
 for table in args.event_tables:
+    mimic_dir = args.mimic4_path if table == "labevents" else args.mimic4_ed_path
     try:
-        if os.path.exists(os.path.join(args.mimic4_path, f"{table}.csv.gz")):
-            table_path = os.path.join(args.mimic4_path, f"{table}.csv.gz")
-        elif os.path.exists(os.path.join(args.mimic4_ed_path, f"{table}.csv.gz")):
-            table_path = os.path.join(args.mimic4_ed_path, f"{table}.csv.gz")
+        if os.path.exists(os.path.join(mimic_dir, f"{table}.csv")):
+            table_path = os.path.join(mimic_dir, f"{table}.csv")
+        # read compressed and write to file since lazy polars API can only scan uncompressed csv's
+        elif os.path.exists(os.path.join(mimic_dir, f"{table}.csv.gz")):
+            print(f"Uncompressing {table} data... (required)")
+            with gzip.open(os.path.join(mimic_dir, f"{table}.csv.gz"), "rb") as f_in:
+                with open(os.path.join(mimic_dir, f"{table}.csv"), "wb") as f_out:
+                    shutil.copyfileobj(f_in, f_out)
+            table_path = os.path.join(mimic_dir, f"{table}.csv")
+
     except Exception:
         print(f"Event tables for {table} cannot be found in MIMICIV directory.")
 
@@ -285,6 +293,5 @@ for table in args.event_tables:
         items_to_keep=items_to_keep,
         subjects_to_keep=subjects,
         mimic4_path=args.mimic4_path,
-        chunksize=args.chunksize,
     )
 print("Subjects extracted.")
