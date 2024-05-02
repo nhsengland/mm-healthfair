@@ -152,7 +152,6 @@ def convert_events_to_timeseries(events):
         .sort_index(axis=0)
         .reset_index()
     )
-
     return timeseries
 
 
