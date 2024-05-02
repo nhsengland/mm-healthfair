@@ -3,6 +3,7 @@ import glob
 import os
 import sys
 
+import polars as pl
 from tqdm import tqdm
 from utils.functions import dataframe_from_csv, get_pop_means
 from utils.preprocessing import (
@@ -81,6 +82,25 @@ completed_subjects = 0
 
 # mean_values = get_pop_means(args.subjects_root_path)
 
+
+def get_feature_list():
+    features = (
+        pl.concat(
+            [
+                pl.scan_csv(f).select(pl.col("label"))
+                for f in glob.glob(
+                    os.path.join(args.subjects_root_path, "*", "events.csv")
+                )
+            ]
+        )
+        .unique()
+        .collect()
+    )
+    return features.get_column("label").to_list()
+
+
+feature_names = get_feature_list()
+
 for subject_dir in tqdm(subject_list, desc="Iterating over subjects"):
     dn = os.path.join(args.subjects_root_path, subject_dir)
 
@@ -127,6 +147,12 @@ for subject_dir in tqdm(subject_list, desc="Iterating over subjects"):
         continue
 
     timeseries = convert_events_to_timeseries(events)
+
+    # Ensure timeseries have same number of columns (hours + features)
+    timeseries = timeseries.reindex(
+        columns=list(set().union(feature_names, timeseries.columns))
+    )
+
     min_events = 1 if args.min_events is None else args.min_events
     max_events = 1e6 if args.max_events is None else args.max_events
 
@@ -156,7 +182,9 @@ for subject_dir in tqdm(subject_list, desc="Iterating over subjects"):
             elif args.impute_strategy == "ffill":
                 # Fill missing values using forward fill
                 episode = episode.ffill()
-                episode = episode.bfill()  # for remaining null values
+                episode = episode.bfill()
+                # for remaining null values use -999
+                episode = episode.fillna(-999)
 
             elif args.impute_strategy == "mean":
                 mean_map = get_pop_means(args.subjects_root_path)
@@ -180,7 +208,8 @@ for subject_dir in tqdm(subject_list, desc="Iterating over subjects"):
             .sort_index(axis=0)
         )
 
-        # TODO: Drop rows with negative "hours"
+        # Drop rows with negative "hours"
+        episode = episode[episode.index > 0]
 
         # round everything to 1.dp
         episode = episode.round(1)
@@ -196,8 +225,6 @@ for subject_dir in tqdm(subject_list, desc="Iterating over subjects"):
         sorted_indices = [
             i[0] for i in sorted(enumerate(columns_str), key=lambda x: x[1])
         ]
-
-        # TODO: Ensure episodes all have same columns even if missing from episodes
 
         episode = episode[[episode.columns[i] for i in sorted_indices]]
         episode.to_csv(
