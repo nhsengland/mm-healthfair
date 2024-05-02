@@ -7,7 +7,7 @@ import icdmappings
 import numpy as np
 from pandas import DataFrame, Series, concat
 
-from .util import dataframe_from_csv
+from .functions import dataframe_from_csv
 
 ###############################
 # Non-time series preprocessing
@@ -73,10 +73,11 @@ def transform_race(race_series):
 
 def assemble_episodic_data(stays, diagnoses=None):
     data = {
-        "hadm_id": stays.hadm_id,  # originally 'stay' was 'stay_id'
+        "hadm_id": stays.hadm_id,
         "stay_id": stays.stay_id,
         "age": stays.anchor_age,
         "los": stays.los,
+        "los_ed": stays.los_ed,
         "mortality": stays.mortality,
         "height": stays.height,
         "weight": stays.weight,
@@ -96,6 +97,7 @@ def assemble_episodic_data(stays, diagnoses=None):
             "height",
             "weight",
             "los",
+            "los_ed",
             "mortality",
             "stay_id",
         ]
@@ -360,10 +362,10 @@ def clean_sbp(df):
 
 
 def clean_dbp(df):
-    v = df["value"].astype(str).copy()
+    v = df["value"].astype(str).copy()  # convert to string
     idx = v.apply(lambda s: "/" in s)
     v.loc[idx] = v[idx].apply(lambda s: re.match("^(\d+)/(\d+)$", s).group(2))
-    return v.astype(float)
+    return v.astype(float)  # convert back to
 
 
 # CRR: strings with brisk, <3 normal, delayed, or >3 abnormal
@@ -383,26 +385,7 @@ def clean_crr(df):
 # FIO2: many 0s, some 0<x<0.2 or 1<x<20
 def clean_fio2(df):
     v = df["value"].astype(float).copy()
-
-    """ The line below is the correct way of doing the cleaning, since we will not compare 'str' to 'float'.
-    If we use that line it will create mismatches from the data of the paper in ~50 ICU stays.
-    The next releases of the benchmark should use this line.
-    """
-    # idx = df['valueuom'].fillna('').apply(lambda s: 'torr' not in s.lower()) & (v>1.0)
-
-    """ The line below was used to create the benchmark dataset that the paper used. Note this line will not work
-    in python 3, since it may try to compare 'str' to 'float'.
-    """
-    # idx = df['valueuom'].fillna('').apply(lambda s: 'torr' not in s.lower()) & (df['value'] > 1.0)
-
-    """ The two following lines implement the code that was used to create the benchmark dataset that the paper used.
-    This works with both python 2 and python 3.
-    """
-    is_str = np.array(map(lambda x: x.isinstance(str), list(df["value"])), dtype=bool)
-    idx = df["valueuom"].fillna("").apply(lambda s: "torr" not in s.lower()) & (
-        is_str | (~is_str & (v > 1.0))
-    )
-
+    idx = df["valueuom"].fillna("").apply(lambda s: "torr" not in s.lower()) & (v > 1.0)
     v.loc[idx] = v[idx] / 100.0
     return v
 
@@ -434,16 +417,13 @@ def clean_o2sat(df):
 
 # Temperature: map Farenheit to Celsius, some ambiguous 50<x<80
 def clean_temperature(df, min_temp=79):
-    # change ""___" to NaN
-    v = df["value"].replace(to_replace={"___": np.nan})
-
-    v = v.astype(float).copy()
+    v = df["value"].astype(float).copy()
     idx = (
         df["valueuom"].fillna("").apply(lambda s: "F" in s.lower())
         | df["label"].apply(lambda s: "F" in s.lower())
         | (v >= min_temp)
     )  # noqa: PLR2004
-    v.loc[idx] = (v[idx] - 32) * 5.0 / 9
+    v.loc[idx] = ((v[idx] - 32) * 5.0 / 9).round(1)
     return v
 
 
@@ -490,20 +470,14 @@ def clean_height(df):
 
 
 def clean_events(events):
-    # label '__' and "" values as NaN
-    events = events.replace({"value": {"___": np.nan, "": np.nan}})
-
+    # TODO: Check these cleaning functions work as expected
     clean_fns = {
-        # 'Capillary refill rate': clean_crr,
         "Diastolic blood pressure": clean_dbp,
         "Systolic blood pressure": clean_sbp,
         "Fraction inspired oxygen": clean_fio2,
         "Oxygen saturation": clean_o2sat,
-        # 'Glucose': clean_lab,
-        # 'pH': clean_lab,
+        "Glucose": clean_lab,
         "Temperature": clean_temperature,
-        # 'Weight': clean_weight,
-        # 'Height': clean_height
     }
     for var_name, clean_fn in clean_fns.items():
         idx = events.label == var_name

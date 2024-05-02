@@ -8,13 +8,13 @@ import pandas as pd
 import polars as pl
 from tqdm import tqdm
 
-from . import util
+from . import functions
 
 ICD9 = 9
 
 
 def read_patients_table(mimic4_path):
-    pats = util.dataframe_from_csv(os.path.join(mimic4_path, "patients.csv.gz"))
+    pats = functions.dataframe_from_csv(os.path.join(mimic4_path, "patients.csv.gz"))
     pats = pats[
         ["subject_id", "gender", "anchor_age", "anchor_year", "dod"]
     ]  # dod for out of hospital mortality
@@ -23,13 +23,15 @@ def read_patients_table(mimic4_path):
 
 
 def read_omr_table(mimic4_path):
-    omr = util.dataframe_from_csv(os.path.join(mimic4_path, "omr.csv.gz"))
+    omr = functions.dataframe_from_csv(os.path.join(mimic4_path, "omr.csv.gz"))
     omr.chartdate = pd.to_datetime(omr.chartdate)
     return omr
 
 
 def read_admissions_table(mimic4_path):
-    admits = util.dataframe_from_csv(os.path.join(mimic4_path, "admissions.csv.gz"))
+    admits = functions.dataframe_from_csv(
+        os.path.join(mimic4_path, "admissions.csv.gz")
+    )
     admits = admits[
         [
             "subject_id",
@@ -52,7 +54,17 @@ def read_admissions_table(mimic4_path):
 
 
 def read_stays_table(mimic4_ed_path):
-    stays = util.dataframe_from_csv(os.path.join(mimic4_ed_path, "edstays.csv.gz"))
+    stays = functions.dataframe_from_csv(
+        os.path.join(mimic4_ed_path, "edstays.csv.gz"),
+        usecols=[
+            "subject_id",
+            "hadm_id",
+            "stay_id",
+            "intime",
+            "outtime",
+            "disposition",
+        ],
+    )
     stays.intime = pd.to_datetime(stays.intime)
     stays.outtime = pd.to_datetime(stays.outtime)
     stays["los_ed"] = (stays.outtime - stays.intime) / pd.Timedelta(days=1)
@@ -60,9 +72,11 @@ def read_stays_table(mimic4_ed_path):
 
 
 def read_icd_diagnoses_table(mimic4_path):
-    codes = util.dataframe_from_csv(os.path.join(mimic4_path, "d_icd_diagnoses.csv.gz"))
+    codes = functions.dataframe_from_csv(
+        os.path.join(mimic4_path, "d_icd_diagnoses.csv.gz")
+    )
     codes = codes[["icd_code", "icd_version", "long_title"]]
-    diagnoses = util.dataframe_from_csv(
+    diagnoses = functions.dataframe_from_csv(
         os.path.join(mimic4_path, "diagnoses_icd.csv.gz")
     )
     diagnoses = diagnoses.merge(
@@ -197,7 +211,9 @@ def read_events_table_and_break_up_by_subject(
 
 
 def read_ed_icd_diagnoses_table(mimic4_ed_path):
-    codes = util.dataframe_from_csv(os.path.join(mimic4_ed_path, "diagnosis.csv.gz"))
+    codes = functions.dataframe_from_csv(
+        os.path.join(mimic4_ed_path, "diagnosis.csv.gz")
+    )
     return codes
 
 
@@ -234,8 +250,12 @@ def count_icd_codes(diagnoses, output_path=None):
 
 
 def remove_stays_without_admission(stays):
-    stays = stays[stays.disposition == "ADMITTED"].dropna(subset=["hadm_id"])
-    return stays[["subject_id", "hadm_id", "stay_id", "intime", "outtime"]]
+    stays = (
+        stays[stays.disposition == "ADMITTED"]
+        .dropna(subset=["hadm_id"])
+        .drop(columns="disposition")
+    )
+    return stays
 
 
 def merge_on_subject(table1, table2):

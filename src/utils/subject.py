@@ -5,7 +5,8 @@ import os
 import numpy as np
 import pandas as pd
 
-from .util import dataframe_from_csv
+from .functions import dataframe_from_csv
+from .mimiciv import read_admissions_table
 
 
 def read_stays(subject_path):
@@ -22,33 +23,43 @@ def read_diagnoses(subject_path):
     return dataframe_from_csv(os.path.join(subject_path, "diagnoses.csv"))
 
 
-def read_events(subject_path):
+def read_events(subject_path, mimic4_path, drop_na_hadm_stay=True):
     events = dataframe_from_csv(os.path.join(subject_path, "events.csv"))
     stays = dataframe_from_csv(os.path.join(subject_path, "stays.csv"))
 
     events.charttime = pd.to_datetime(events.charttime, format="ISO8601")
     events.valueuom = events.valueuom.fillna("").astype(str)
 
+    # use admissions table to impute missing hadm_ids based on charttime
+    admits = read_admissions_table(mimic4_path)
+    events["hadm_id"] = events.apply(
+        lambda row: get_hadm_id_from_admits(row, admits)
+        if pd.isnull(row["hadm_id"])
+        else row["hadm_id"],
+        axis=1,
+    )
+
     # then use transform to apply function to fill in missing hadm_id or stay_id from stay table
     events.hadm_id = events.apply(
         lambda row: impute_missing(
             impute_to=row, impute_from=stays, use_col="stay_id", value_col="hadm_id"
         )
-        if np.isnan(row.hadm_id)
-        else row.hadm_id,
+        if pd.isnull(row.hadm_id)
+        else int(row.hadm_id),
         axis=1,
     )
     events.stay_id = events.apply(
         lambda row: impute_missing(
             impute_to=row, impute_from=stays, use_col="hadm_id", value_col="stay_id"
         )
-        if ("stay_id" not in row) or np.isnan(row.stay_id)
-        else row.stay_id,
+        if ("stay_id" not in row) or pd.isnull(row.stay_id)
+        else int(row.stay_id),
         axis=1,
     )
 
-    # if both hadm_id and stay_id still can't be found then drop
-    events = events.dropna(subset=["hadm_id", "stay_id"], how="all")
+    # if both hadm_id and stay_id still can't be found then drop row
+    if drop_na_hadm_stay:
+        events = events.dropna(subset=["hadm_id", "stay_id"], how="all")
 
     # for remaining rows with only one ID mark with -1 (for identification later / quality checking)
     events.stay_id = events.stay_id.fillna(value=-1).astype(int)
@@ -70,6 +81,21 @@ def impute_missing(
         return impute_from[idx][value_col]  # get value
     else:
         return cannot_impute_val  # fill na with missing val if cannot be matched
+
+
+def get_hadm_id_from_admits(row, admits, time_col="charttime"):
+    # create bool
+    idx = (
+        (admits["admittime"] <= row[time_col])
+        & (row[time_col] <= admits["dischtime"])
+        & (admits["subject_id"] == row["subject_id"])
+    )
+
+    if any(idx) is True:
+        # apply bool and returns hadm_id value
+        return admits[idx].hadm_id.values[0]
+    else:
+        return np.nan
 
 
 def get_events_in_period(events, stay_id, hadm_id, starttime=None, endtime=None):
