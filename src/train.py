@@ -2,11 +2,12 @@ import argparse
 import glob
 import os
 
+import lightning as L
 import numpy as np
 import polars as pl
-import pytorch_lightning as lightning
+import toml
 import torch
-import yaml
+import torchmetrics
 from models import LSTM
 from sklearn.model_selection import train_test_split
 from torch.utils.data import DataLoader, Dataset
@@ -21,13 +22,14 @@ parser.add_argument(
 #                     type=str,
 #                     help="Path to file containing list of train subjects.")
 parser.add_argument(
-    "--config", type=str, help="Path to config file containing parameters."
+    "--config", "-c", type=str, help="Path to config file containing parameters."
 )
 args = parser.parse_args()
-config = yaml.load(args.config)
+config = toml.load(args.config)
+batch_size = config["data"]["batch_size"]
 LOS_THRESHOLD = config["threshold"]
 
-lightning.seed_everything(0)
+L.seed_everything(0)
 
 
 def generate_training_test_subjects(test_ratio=0.15, val_ratio=0.2):
@@ -48,30 +50,26 @@ def generate_training_test_subjects(test_ratio=0.15, val_ratio=0.2):
 
 
 def collate_rugged_timeseries(batch, method="pad"):
+    events, static, labels = zip(*batch, strict=False)
+
     if method == "pad":
         # Function to pad batch-wise due to timeseries of different lengths
         max_events = max([data[0].shape[0] for data in batch])
         n_ftrs = batch[0][0].shape[1]
-
-        _, static, labels = zip(*batch, strict=False)
-        labels = torch.tensor(labels).unsqueeze(1)
-
-        events = torch.zeros((len(batch), max_events, n_ftrs))
-
+        events = np.zeros((len(batch), max_events, n_ftrs))
         for i in range(len(batch)):
             j, k = batch[i][0].shape[0], batch[i][0].shape[1]
-            events[i] = torch.cat([batch[i][0], torch.zeros((max_events - j, k))])
+            events[i] = np.concatenate([batch[i][0], np.zeros((max_events - j, k))])
 
     elif method == "truncate":
         # Truncate to minimum num of events in batch
         min_events = min([data[0].shape[0] for data in batch])
+        events = [event[:min_events] for event in events]
 
-        events, static, labels = zip(*batch, strict=False)
-        labels = torch.tensor(labels).unsqueeze(1)
+    labels = torch.tensor(labels).unsqueeze(1).to(torch.float32)
+    events = torch.tensor(events).to(torch.float32)
 
-        events = torch.tensor([event[:min_events] for event in events])
-
-    return events.float(), static, labels
+    return events, static, labels
 
 
 # Create subject-level training and validation
@@ -101,45 +99,52 @@ class MIMICData(Dataset):
         self.label = self.static.select("label").item()
         self.static = self.static.drop(["label", "los"])
 
-        return (
-            torch.from_numpy(self.dynamic.to_numpy()),
-            torch.from_numpy(self.static.to_numpy()),
-            torch.tensor(self.label),
-        )
+        return (self.dynamic.to_numpy(), self.static.to_numpy(), self.label)
 
     def get_all_episodes(self):
-        return glob.glob(os.path.join(self.root_dir, "*", "episode*_timeseries.csv"))
+        return pl.concat(
+            [
+                pl.read_csv(f)
+                for f in glob.glob(
+                    os.path.join(self.root_dir, "*", "episode*_timeseries.csv")
+                )
+            ]
+        )
 
 
 training_set = MIMICData(args.subjects_root_dir, training_subjects)
 training_dataloader = DataLoader(
-    training_set, batch_size=4, collate_fn=collate_rugged_timeseries
+    training_set, batch_size=batch_size, collate_fn=collate_rugged_timeseries
 )
 
 
-def train(model, trainloader, n_epochs):
-    loss_function = torch.nn.BCEWithLogitsLoss()
-    optimizer = torch.optim.SGD(model.parameters(), lr=0.1)
+# define the LightningModule
+class LitLSTM(L.LightningModule):
+    def __init__(self, input_dim, hidden_dim, target_size, lr=0.1):
+        super().__init__()
+        self.net = LSTM(input_dim, hidden_dim, target_size)
+        self.criterion = torch.nn.BCEWithLogitsLoss()
+        self.lr = lr
+        self.acc = torchmetrics.Accuracy(task="binary")
 
-    history = {"loss": []}
-    for epoch in range(n_epochs):
-        losses = []
-        for _, data in enumerate(trainloader, 0):
-            inputs, _, labels = data
+    def training_step(self, batch, batch_idx):
+        # training_step defines the train loop.
+        # it is independent of forward
+        x, _, y = batch
+        x_hat = self.net(x)
+        loss = self.criterion(x_hat, y)
+        accuracy = self.acc(x_hat, y)
+        self.log("train_loss", loss, prog_bar=True)
+        self.log("train_acc", accuracy, prog_bar=True)
+        return loss
 
-            model.zero_grad()
-
-            tag_scores = model(inputs)
-            loss = loss_function(tag_scores, labels)
-
-            loss.backward()
-            optimizer.step()
-            losses.append(float(loss))
-        avg_loss = np.mean(losses)
-        history["loss"].append(avg_loss)
-        print(f"Epoch {epoch+1} / {n_epochs}: Loss = {avg_loss:.3f}")
-    return history
+    def configure_optimizers(self):
+        optimizer = torch.optim.SGD(self.parameters(), lr=self.lr)
+        return optimizer
 
 
-model = LSTM(input_dim=16, hidden_dim=1024, target_size=1)
-train(model, trainloader=training_dataloader, n_epochs=10)
+lstm = LitLSTM(input_dim=15, hidden_dim=1024, target_size=1)
+
+# trainer
+trainer = L.Trainer(limit_train_batches=100, max_epochs=10)
+trainer.fit(model=lstm, train_dataloaders=training_dataloader)
