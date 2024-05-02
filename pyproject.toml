@@ -27,11 +27,11 @@ opencv-python = "^4.9.0.80"
 ipywidgets = "^8.1.2"
 imblearn = "^0.0"
 captum = "^0.7.0"
-pytorch-lightning = "^2.2.2"
 icd-mappings = "^0.3.8"
 h5py = "^3.11.0"
 tables = "^3.9.2"
 polars = "^0.20.23"
+lightning = "^2.2.4"
 
 [tool.ruff]
 target-version = "py310"
