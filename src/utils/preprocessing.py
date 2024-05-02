@@ -1,7 +1,6 @@
 # Code adapted from
 
 import re
-import sys
 
 import icdmappings
 import numpy as np
@@ -470,26 +469,29 @@ def clean_height(df):
 
 
 def clean_events(events):
-    # TODO: Check these cleaning functions work as expected
-    clean_fns = {
-        "Diastolic blood pressure": clean_dbp,
-        "Systolic blood pressure": clean_sbp,
-        "Fraction inspired oxygen": clean_fio2,
-        "Oxygen saturation": clean_o2sat,
-        "Glucose": clean_lab,
-        "Temperature": clean_temperature,
-    }
-    for var_name, clean_fn in clean_fns.items():
-        idx = events.label == var_name
-        try:
-            events.loc[idx, "value"] = clean_fn(events[idx])
-        except Exception as e:
-            import traceback
+    # label '__' as NaN
+    # also converts to 2 d.p. floats
+    events["value"] = events["value"].replace({"___": np.nan}).astype(float)
 
-            print("Exception in clean_events:", clean_fn.__name__, e)
-            print(traceback.format_exc())
-            print("number of rows:", np.sum(idx))
-            print("values:", events[idx])
-            sys.exit()
+    # clean_fns = {
+    #     "Diastolic blood pressure": clean_dbp,
+    #     "Systolic blood pressure": clean_sbp,
+    #     "Fraction inspired oxygen": clean_fio2,
+    #     "Oxygen saturation": clean_o2sat,
+    #     "Glucose": clean_lab,
+    #     "Temperature": clean_temperature,
+    # }
+    # for var_name, clean_fn in clean_fns.items():
+    #     idx = events.label == var_name
+    #     try:
+    #         events.loc[idx, "value"] = clean_fn(events[idx])
+    #     except Exception as e:
+    #         import traceback
+
+    #         print("Exception in clean_events:", clean_fn.__name__, e)
+    #         print(traceback.format_exc())
+    #         print("number of rows:", np.sum(idx))
+    #         print("values:", events[idx])
+    #         sys.exit()
 
     return events

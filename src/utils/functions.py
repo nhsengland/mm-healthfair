@@ -56,7 +56,7 @@ def get_pop_means(subjects_root_dir: str, output_dir: str = None) -> dict | None
         ]
     )
 
-    events = (
+    mean_values = (
         events.group_by(pl.col("label"))
         .agg(pl.col("value").mean())
         .drop_nulls(subset="value")
@@ -65,7 +65,7 @@ def get_pop_means(subjects_root_dir: str, output_dir: str = None) -> dict | None
 
     # Write to disk
     if output_dir is not None:
-        events.write_csv(os.path.join(output_dir, "mean_values.csv"))
+        mean_values.write_csv(os.path.join(output_dir, "mean_values.csv"))
 
     # Or return mapping as a dictionary
-    return events.to_dict()
+    return dict(mean_values.iter_rows())
