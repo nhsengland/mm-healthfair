@@ -5,8 +5,8 @@ import shutil
 import gzip
 import numpy as np
 
-import data.mimiciv as m4c
-from data.util import dataframe_from_csv
+import utils.mimiciv as m4c
+from utils.functions import dataframe_from_csv
 
 parser = argparse.ArgumentParser(
     description="Extract per-subject data from MIMIC-IV CSV files."
@@ -72,12 +72,6 @@ parser.add_argument(
     type=int,
     default=2,
     help="Threshold for subject stratification (fractional days).",
-)
-parser.add_argument(
-    "--chunksize",
-    "-cs",
-    type=int,
-    help="Chunksize to process large amount of data. Defaults to None (no chunking).",
 )
 
 args, _ = parser.parse_known_args()
