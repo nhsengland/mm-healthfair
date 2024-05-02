@@ -9,7 +9,4 @@ with_notes = false
 
 [train]
 epochs = 20
-use_ratio = true
-best_test_only = false
-use_amp = true
 learning_rate = 1e-1

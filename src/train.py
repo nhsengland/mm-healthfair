@@ -27,6 +27,8 @@ parser.add_argument(
 args = parser.parse_args()
 config = toml.load(args.config)
 batch_size = config["data"]["batch_size"]
+n_epochs = config["train"]["epochs"]
+lr = config["train"]["learning_rate"]
 LOS_THRESHOLD = config["threshold"]
 
 L.seed_everything(0)
@@ -143,8 +145,8 @@ class LitLSTM(L.LightningModule):
         return optimizer
 
 
-lstm = LitLSTM(input_dim=15, hidden_dim=1024, target_size=1)
+lstm = LitLSTM(input_dim=15, hidden_dim=1024, target_size=1, lr=lr)
 
 # trainer
-trainer = L.Trainer(limit_train_batches=100, max_epochs=10)
+trainer = L.Trainer(limit_train_batches=100, max_epochs=n_epochs)
 trainer.fit(model=lstm, train_dataloaders=training_dataloader)
