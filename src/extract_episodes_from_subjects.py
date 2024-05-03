@@ -89,8 +89,6 @@ filter_by_nb_stays = 0
 filter_by_nb_events = 0
 completed_subjects = 0
 
-# mean_values = get_pop_means(args.subjects_root_path)
-
 
 def get_feature_list():
     features = (
@@ -100,7 +98,8 @@ def get_feature_list():
                 for f in glob.glob(
                     os.path.join(args.subjects_root_path, "*", "events.csv")
                 )
-            ]
+            ],
+            how="diagonal",
         )
         .unique()
         .collect()
