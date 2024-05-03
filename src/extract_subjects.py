@@ -4,9 +4,10 @@ import sys
 import shutil
 import gzip
 import numpy as np
+import polars as pl
 
 import data.mimiciv as m4c
-from data.util import dataframe_from_csv, get_n_unique_values
+from data.util import get_n_unique_values
 
 parser = argparse.ArgumentParser(
     description="Extract per-subject data from MIMIC-IV CSV files."
@@ -48,7 +49,7 @@ parser.add_argument(
     dest="verbose",
     action="store_true",
     default=True,
-    help="Verbosity in output",
+    help="Control verbosity. If true, will make more .collect() calls to compute dataset size.",
 )
 parser.add_argument(
     "--sample",
@@ -72,12 +73,6 @@ parser.add_argument(
     type=int,
     default=2,
     help="Threshold for subject stratification (fractional days).",
-)
-parser.add_argument(
-    "--chunksize",
-    "-cs",
-    type=int,
-    help="Chunksize to process large amount of data. Defaults to None (no chunking).",
 )
 
 args, _ = parser.parse_known_args()
@@ -126,7 +121,6 @@ if args.verbose:
         f"REMOVE MULTIPLE ED STAYS PER ADMIT:\n\tSTAY_IDs: {get_n_unique_values(stays, 'stay_id')}\n\tHADM_IDs: {get_n_unique_values(stays, 'hadm_id')}\n\tSUBJECT_IDs: {get_n_unique_values(stays)}"
     )
 
-# does nothing if "hospital_expire_flag" is available
 stays = m4c.add_inhospital_mortality_to_stays(stays)
 
 # remove any subjects with anchor_age < 18
@@ -144,20 +138,23 @@ if args.sample is not None:
     if not args.stratify:
         mode = "random"
         # random choice of n subjects (get all their stays)
-        subject_ids = rng.choice(
-            stays.subject_id.unique(), size=args.sample, replace=False
-        )
+        stays = stays.sample(n=args.sample, seed=0)
 
     else:
         mode = "stratified"
         # use los column to stratify such that the distribution of los >= 48 hours (2 days) is roughly balanced
-        stays["los_flag"] = (stays["los"] >= args.los_thresh).astype(bool)
+        stays = stays.with_columns(
+            los_flag=(pl.col("los") >= args.thresh).cast(pl.Boolean)
+        )
 
         if args.stratify_level == "subject":
+            # Get maximum n based on stratified samples
             max_stratified_n = min(
                 [
-                    len(stays[~stays["los_flag"]].subject_id.unique()),
-                    len(stays[stays["los_flag"]].subject_id.unique()),
+                    stays.filter(pl.col("los_flag")).unique(subset="subject_id").height,
+                    stays.filter(~pl.col("los_flag"))
+                    .unique(subset="subject_id")
+                    .height,
                 ]
             )
             assert (
@@ -165,32 +162,33 @@ if args.sample is not None:
             ), f"Maximum number of subjects available per group is {max_stratified_n}. Choose a different value for args.sample"
 
             # negative subjects
-            subject_ids = list(
-                rng.choice(
-                    stays[~stays["los_flag"]].subject_id.unique(),
-                    size=args.sample // 2,
-                    replace=False,
-                    random_state=0,
-                )
+            subject_ids = (
+                stays.filter(~pl.col("los_flag"))
+                .get_column("subject_id")
+                .sample(n=args.sample // 2, seed=0)
+                .to_list()
             )
-            remaining_stays = stays.query("subject_id not in @subject_ids")
+
+            remaining_stays = stays.filter(~pl.col("subject_id").is_in(subject_ids))
+
             # positive subjects
-            subject_ids += list(
-                rng.choice(
-                    remaining_stays[remaining_stays["los_flag"]].subject_id.unique(),
-                    size=args.sample // 2,
-                    replace=False,
-                )
+            subject_ids += (
+                remaining_stays.filter(pl.col("los_flag"))
+                .get_column("subject_id")
+                .sample(n=args.sample // 2, seed=0)
+                .to_list()
             )
-            stays = stays.query("subject_id in @subject_ids")
+
+            stays = stays.filter(pl.col("subject_id").is_in(subject_ids))
 
         elif args.stratify_level == "stay":
             max_stratified_n = min(
                 [
-                    len(stays[~stays["los_flag"]]),
-                    len(stays[stays["los_flag"]]),
+                    stays.filter(pl.col("los_flag")).height,
+                    stays.filter(~pl.col("los_flag")).height,
                 ]
             )
+
             assert (
                 args.sample // 2 <= max_stratified_n
             ), f"Maximum number of stays available per group is {max_stratified_n}. Choose a different value for args.sample"
@@ -198,78 +196,77 @@ if args.sample is not None:
             # alternative to stratify by stay instead of subject
 
             # negative stays
-            stay_ids = list(
-                rng.choice(
-                    stays[~stays["los_flag"]].stay_id,
-                    size=args.sample // 2,
-                    replace=False,
-                )
+            negative_stays = stays.filter(~pl.col("los_flag")).sample(
+                n=args.sample // 2, seed=0
             )
 
             # positive stays
-            stay_ids += list(
-                rng.choice(
-                    stays[stays["los_flag"]].stay_id,
-                    size=args.sample // 2,
-                    replace=False,
-                )
+            positive_stays = stays.filter(pl.col("los_flag")).sample(
+                n=args.sample // 2, seed=0
             )
-            stays = stays.query("stay_id in @stay_ids")
+
+            stays = pl.concat([negative_stays, positive_stays])
 
     # stratify by length of stay
     if args.verbose:
         print(
-            f"SELECTING {mode.upper()} SAMPLE OF {args.sample} {'SUBJECTS' if args.stratify_level == 'subject' else 'STAYS'}:\n\tSTAY_IDs: {stays.stay_id.unique().shape[0]}\n\tHADM_IDs: {stays.hadm_id.unique().shape[0]}\n\tSUBJECT_IDs: {stays.subject_id.unique().shape[0]}"
+            f"SELECTING {mode.upper()} SAMPLE OF {args.sample} {'SUBJECTS' if args.stratify_level == 'subject' else 'STAYS'}:\n\tSTAY_IDs: {get_n_unique_values(stays, 'stay_id')}\n\tHADM_IDs: {get_n_unique_values(stays, 'hadm_id')}\n\tSUBJECT_IDs: {get_n_unique_values(stays)}"
         )
 
 # add height/weight data using omr table: https://mimic.mit.edu/docs/iv/modules/hosp/omr/
 # use tolerance to find closest value within a year of admission
 stays = m4c.add_omr_variable_to_stays(stays, args.mimic4_path, "height", tolerance=365)
 stays = m4c.add_omr_variable_to_stays(stays, args.mimic4_path, "weight", tolerance=365)
-stays.to_csv(os.path.join(args.output_path, "all_stays.csv"), index=False)
 
-diagnoses = m4c.read_icd_diagnoses_table(args.mimic4_path)
-diagnoses = m4c.convert_icd9_to_icd10(
-    diagnoses, keep_original=False
-)  # convert to ICD10
-diagnoses = m4c.filter_diagnoses_on_stays(
-    diagnoses, stays, by_col="hadm_id"
-)  # use hadm_id to filter diagnoses by selected stays
+# Write all stays
+stays.write_csv(os.path.join(args.output_path, "all_stays.csv"))
 
-ed_diagnoses = m4c.read_ed_icd_diagnoses_table(args.mimic4_ed_path)
-ed_diagnoses = m4c.convert_icd9_to_icd10(
-    ed_diagnoses, keep_original=False
-)  # convert to ICD10
-ed_diagnoses = m4c.filter_diagnoses_on_stays(
-    ed_diagnoses, stays
-)  # use stay_id (default) to filter diagnoses by selected stays
-
-# merge into one diagnoses table on both hadm_id and stay_id
-diagnoses = m4c.merge_on_subject_stay_admission(
-    diagnoses, ed_diagnoses, suffixes=(None, "_ed")
-)
-
-diagnoses.to_csv(os.path.join(args.output_path, "all_diagnoses.csv"), index=False)
-m4c.count_icd_codes(
-    diagnoses, output_path=os.path.join(args.output_path, "diagnosis_counts.csv")
-)
-
-subjects = stays.subject_id.unique()
+# Break up into subject-level stays
+subjects = stays.unique(subset="subject_id").get_column("subject_id").to_numpy()
 m4c.break_up_stays_by_subject(stays, args.output_path, subjects=subjects)
 
-# for now skip this line since we aren't interested in the subject-level diagnoses
+# for now skip this stuff since we aren't interested in the diagnoses
+
+# diagnoses = m4c.read_icd_diagnoses_table(args.mimic4_path)
+# diagnoses = m4c.convert_icd9_to_icd10(
+#     diagnoses, keep_original=False
+# )  # convert to ICD10
+# diagnoses = m4c.filter_diagnoses_on_stays(
+#     diagnoses, stays, by_col="hadm_id"
+# )  # use hadm_id to filter diagnoses by selected stays
+
+# ed_diagnoses = m4c.read_ed_icd_diagnoses_table(args.mimic4_ed_path)
+# ed_diagnoses = m4c.convert_icd9_to_icd10(
+#     ed_diagnoses, keep_original=False
+# )  # convert to ICD10
+# ed_diagnoses = m4c.filter_diagnoses_on_stays(
+#     ed_diagnoses, stays
+# )  # use stay_id (default) to filter diagnoses by selected stays
+
+# # merge into one diagnoses table on both hadm_id and stay_id
+# diagnoses = m4c.merge_on_subject_stay_admission(
+#     diagnoses, ed_diagnoses, suffixes=(None, "_ed")
+# )
+
+# diagnoses.collect(streaming=True).write_csv(os.path.join(args.output_path, "all_diagnoses.csv"))
+# m4c.count_icd_codes(
+#     diagnoses, output_path=os.path.join(args.output_path, "diagnosis_counts.csv")
+# )
+
 # m4c.break_up_diagnoses_by_subject(diagnoses, args.output_path, subjects=subjects)
 
 items_to_keep = (
     set(
-        [
-            int(itemid)
-            for itemid in dataframe_from_csv(args.keep_items)["itemid"].unique()
-        ]
+        pl.read_csv(args.keep_items)
+        .unique(subset="itemid")
+        .get_column("itemid")
+        .cast(pl.UInt64)
+        .to_numpy()
     )
     if args.keep_items
     else None
 )
+
 for table in args.event_tables:
     mimic_dir = args.mimic4_path if table == "labevents" else args.mimic4_ed_path
     try:

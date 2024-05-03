@@ -1,5 +1,3 @@
-# Code adapted from
-
 import os
 
 import icdmappings
@@ -291,77 +289,103 @@ def merge_on_subject_stay_admission(table1, table2, suffixes=("_x", "_y")):
 def add_omr_variable_to_stays(stays, mimic4_path, variable, tolerance=None):
     # get value of variable on stay/admission date using omr record's date
     # use tolerance to allow elapsed time between dates
-    omr = read_omr_table(mimic4_path)
+    omr = read_omr_table(mimic4_path).drop("seq_num")
     omr_names = [
         x
         for x in omr.unique(subset="result_name").get_column("result_name").to_list()
         if variable.lower() in x.lower()
     ]
 
-    def get_values_from_omr(omr, table, result_names):
-        table = table.with_columns((pl.col("admittime").dt.date).alias("admitdate"))
-        omr = omr.join(
-            table.select(["subject_id", "admitdate"]), how="inner", on="subject_id"
+    # filter omr readings by variable of interest
+    omr = omr.filter(pl.col("result_name").is_in(omr_names))
+
+    # get dates of all stays
+    data = stays.with_columns(admitdate=pl.col("admittime").dt.date()).select(
+        ["subject_id", "stay_id", "admitdate"]
+    )
+
+    # for all the recorded values get column with the admitdate
+    data = data.join(omr, how="inner", on="subject_id")
+
+    # filter omr values for when the charttime is within tolerance
+    data = data.with_columns(
+        chart_diff=((pl.col("admitdate") - pl.col("chartdate")).dt.days()).abs()
+    )
+
+    if tolerance is not None:
+        data = (
+            data.filter(pl.col("chart_diff") <= tolerance)
+            .sort(by="chart_diff")
+            .drop("chart_diff")
+            .unique(subset="stay_id", keep="first")
+        )
+    else:
+        data = (
+            data.filter(pl.col("chart_diff") == 0)
+            .sort(by="chart_diff")
+            .drop("chart_diff")
+            .unique(subset="stay_id", keep="first")
         )
 
-        omr = omr.with_columns(
-            ((pl.col("admitdate") - pl.col("chartdate")) / pl.duration(days=1)).alias(
-                "diff"
-            )
-        )
+    # pivot result_name column
+    data = data.melt(
+        id_vars=["subject_id", "stay_id"],
+        value_name=variable,
+        value_vars="result_value",
+    ).drop("variable")
 
-        if tolerance is None:
-            match = omr.filter(pl.col("diff") == 0).sort(by=["diff", "seq_num"])
-        else:
-            # allow window (days) of tolerance
-            match = omr.filter(pl.col("diff") < tolerance).sort(by=["diff", "seq_num"])
-
-        values = (
-            match.filter(pl.col("result_name").isin(result_names))
-            .get_column("result_value")
-            .to_list()
-        )
-
-        if len(values) != 0:
-            return values[
-                0
-            ]  # take first value since sorted by diff (so will be the closest in time), then seq_num
-        else:
-            return np.nan
-
-    stays = get_values_from_omr(omr, stays, omr_names, time_col="admittime")
+    # left join with stays
+    stays = stays.join(data, how="left", on=["subject_id", "stay_id"])
 
     return stays
 
 
 def add_inhospital_mortality_to_stays(stays):
-    if "hospital_expire_flag" in stays:
+    if "hospital_expire_flag" in stays.columns:
         stays = stays.rename({"hospital_expire_flag": "mortality"})
     else:
-        mortality = stays.dod.notnull() & (
-            (stays.admittime <= stays.dod) & (stays.dischtime >= stays.dod)
-        )
-        mortality = mortality | (
-            stays.deathtime.notnull()
-            & (
-                (stays.admittime <= stays.deathtime)
-                & (stays.dischtime >= stays.deathtime)
+        stays = stays.with_columns(
+            (
+                pl.col("dod").is_not_null()
+                & (
+                    (pl.col("admittime") <= pl.col("dod"))
+                    & (pl.col("dischtime") >= pl.col("dod"))
+                )
             )
+            | (
+                pl.col("deathtime").is_not_null()
+                & (
+                    (pl.col("admittime") <= pl.col("deathtime"))
+                    & (pl.col("dischtime") >= pl.col("deathtime"))
+                )
+            )
+            .cast(pl.UInt8)
+            .alias("mortality")
         )
-        stays["mortality"] = mortality.astype(int)
     return stays
 
 
 # not used, if died in ED not considered
 def add_ined_mortality_to_stays(stays):
-    mortality = stays.dod.notnull() & (
-        (stays.intime <= stays.dod) & (stays.outtime >= stays.dod)
+    stays = stays.with_columns(
+        (
+            pl.col("dod").is_not_null()
+            & (
+                (pl.col("inttime") <= pl.col("dod"))
+                & (pl.col("outtime") >= pl.col("dod"))
+            )
+        )
+        | (
+            pl.col("deathtime").is_not_null()
+            & (
+                (pl.col("inttime") <= pl.col("deathtime"))
+                & (pl.col("outtime") >= pl.col("deathtime"))
+            )
+        )
+        .cast(pl.UInt8)
+        .alias("mortality_ined")
     )
-    mortality = mortality | (
-        stays.deathtime.notnull()
-        & ((stays.intime <= stays.deathtime) & (stays.outtime >= stays.deathtime))
-    )
-    stays["mortality_ined"] = mortality.astype(int)
+
     return stays
 
 
@@ -384,17 +408,20 @@ def filter_stays_on_age(stays, min_age=18, max_age=np.inf):
 
 
 def filter_diagnoses_on_stays(diagnoses, stays, by_col="stay_id"):
-    return diagnoses.merge(
-        stays[["subject_id", "hadm_id", "stay_id"]].drop_duplicates(),
+    return diagnoses.join(
+        stays.select(["subject_id", "hadm_id", "stay_id"]).unique(),
         how="inner",
-        left_on=["subject_id", by_col],
-        right_on=["subject_id", by_col],
+        on=["subject_id", by_col],
     )
 
 
 def break_up_stays_by_subject(stays, output_path, subjects=None):
-    subjects = stays.subject_id.unique() if subjects is None else subjects
-    nb_subjects = subjects.shape[0]
+    subjects = (
+        stays.unique(subset="subject_id").get_column("subject_id").to_list()
+        if subjects is None
+        else subjects
+    )
+    nb_subjects = len(subjects)
     for subject_id in tqdm(
         subjects, total=nb_subjects, desc="Breaking up stays by subjects"
     ):
@@ -404,14 +431,18 @@ def break_up_stays_by_subject(stays, output_path, subjects=None):
         except Exception:
             pass
 
-        stays[stays.subject_id == subject_id].sort_values(by="intime").to_csv(
-            os.path.join(dn, "stays.csv"), index=False
+        stays.filter(pl.col("subject_id") == subject_id).sort(by="intime").write_csv(
+            os.path.join(dn, "stays.csv")
         )
 
 
 def break_up_diagnoses_by_subject(diagnoses, output_path, subjects=None):
-    subjects = diagnoses.subject_id.unique() if subjects is None else subjects
-    nb_subjects = subjects.shape[0]
+    subjects = (
+        diagnoses.unique(subset="subject_id").get_column("subject_id").to_list()
+        if subjects is None
+        else subjects
+    )
+    nb_subjects = len(subjects)
     for subject_id in tqdm(
         subjects, total=nb_subjects, desc="Breaking up diagnoses by subjects"
     ):
@@ -421,6 +452,6 @@ def break_up_diagnoses_by_subject(diagnoses, output_path, subjects=None):
         except Exception:
             pass
 
-        diagnoses[diagnoses.subject_id == subject_id].sort_values(
+        diagnoses.filter(pl.col("subject_id" == subject_id)).sort(
             by=["stay_id", "seq_num"]
-        ).to_csv(os.path.join(dn, "diagnoses.csv"), index=False)
+        ).write_csv(os.path.join(dn, "diagnoses.csv"))
