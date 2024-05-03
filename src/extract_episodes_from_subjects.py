@@ -26,6 +26,10 @@ parser.add_argument(
     "mimic4_path", type=str, help="Directory containing MIMIC-IV HOSP CSV files."
 )
 parser.add_argument(
+    "--output_dir", "-o", type=str, help="Optional new directory to save episodic data."
+)
+
+parser.add_argument(
     "--min_stays", type=int, default=1, help="Minimum number of stays per subject."
 )
 parser.add_argument(
@@ -61,11 +65,16 @@ if args.verbose:
         f"EXTRACTING EPISODES FROM {len(os.listdir(args.subjects_root_path))} subjects..."
     )
 
+if args.output_dir is None:
+    output_dir = args.subjects_root_path
+else:
+    output_dir = args.output_dir
+
 # If episodes exist then remove and start over
-if len(glob.glob(os.path.join(args.subjects_root_path, "*", "episode*"))) > 0:
+if len(glob.glob(os.path.join(output_dir, "*", "episode*"))) > 0:
     response = input("Will need to overwrite existing episodes... continue? (y/n)")
     if response == "y":
-        for f in glob.glob(os.path.join(args.subjects_root_path, "*", "episode*")):
+        for f in glob.glob(os.path.join(output_dir, "*", "episode*")):
             try:
                 os.remove(f)
             except OSError as ex:
@@ -216,7 +225,7 @@ for subject_dir in tqdm(subject_list, desc="Iterating over subjects"):
 
         # note some stay_id = -1 but this file is just for linking to static variables and can be linked via hadm_id instead
         episodic_data.loc[episodic_data.index == stay_id].to_csv(
-            os.path.join(args.subjects_root_path, subject_dir, f"episode{n+1}.csv"),
+            os.path.join(output_dir, subject_dir, f"episode{n+1}.csv"),
             index_label="stay_id",
         )
 
@@ -227,10 +236,9 @@ for subject_dir in tqdm(subject_list, desc="Iterating over subjects"):
         ]
 
         episode = episode[[episode.columns[i] for i in sorted_indices]]
+
         episode.to_csv(
-            os.path.join(
-                args.subjects_root_path, subject_dir, f"episode{n+1}_timeseries.csv"
-            ),
+            os.path.join(output_dir, subject_dir, f"episode{n+1}_timeseries.csv"),
             index_label="hours",
         )
 
