@@ -6,8 +6,8 @@ import gzip
 import numpy as np
 import polars as pl
 
-import data.mimiciv as m4c
-from data.util import get_n_unique_values
+import utils.mimiciv as m4c
+from utils.functions import get_n_unique_values
 
 parser = argparse.ArgumentParser(
     description="Extract per-subject data from MIMIC-IV CSV files."

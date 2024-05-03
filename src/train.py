@@ -1,221 +1,152 @@
+import argparse
+import glob
 import os
-from pathlib import Path
 
+import lightning as L
 import numpy as np
+import polars as pl
+import toml
 import torch
-from sklearn.metrics import (
-    auc,
-    average_precision_score,
-    classification_report,
-    precision_recall_curve,
-    roc_auc_score,
+import torchmetrics
+from models import LSTM
+from sklearn.model_selection import train_test_split
+from torch.utils.data import DataLoader, Dataset
+
+parser = argparse.ArgumentParser()
+parser.add_argument(
+    "subjects_root_dir",
+    type=str,
+    help="Path to the subject-level data",
 )
-from torch import nn
-from torch.cuda.amp import autocast
-from torch.cuda.amp.grad_scaler import GradScaler
-from tqdm import tqdm
+# parser.add_argument("train_subjects",
+#                     type=str,
+#                     help="Path to file containing list of train subjects.")
+parser.add_argument(
+    "--config", "-c", type=str, help="Path to config file containing parameters."
+)
+args = parser.parse_args()
+config = toml.load(args.config)
+batch_size = config["data"]["batch_size"]
+n_epochs = config["train"]["epochs"]
+lr = config["train"]["learning_rate"]
+LOS_THRESHOLD = config["threshold"]
+
+L.seed_everything(0)
 
 
-def train_epoch(
-    model, device, train_loader, optimizer, criterion, scaler=None, use_amp=False
-):
-    model.train()
-    total_loss = []
-    for batch_idx, ((input, ce_ts, le_ts, pe_ts, timestamps), _, _, label) in enumerate(
-        train_loader
-    ):
-        torch.cuda.empty_cache()
-        with autocast(enabled=use_amp):
-            demo = input.to(device)
-            target = label.to(device)
-            pred = model(demo, ce_ts, le_ts, pe_ts, timestamps)
-            loss = criterion(pred, target)
-
-        optimizer.zero_grad()
-
-        if scaler is not None:
-            scaler.scale(loss).backward()
-            scaler.step(optimizer)
-            scaler.update()
-        # optimizer.step()
-
-        loss_num = loss.data.item()
-        total_loss.append(loss.data * len(target))
-        if batch_idx % 50 == 0:
-            print(f"batch [{batch_idx + 1}/{len(train_loader)}] loss: {loss_num:.3f}")
-
-    avg_loss = torch.sum(torch.stack(total_loss)) / len(train_loader.dataset)
-    return avg_loss
-
-
-@torch.no_grad()
-def val_epoch(model, device, val_loader, use_amp=False):
-    all_targets = []
-    all_preds = []
-    for _, ((input, ce_ts, le_ts, pe_ts, timestamps), _, _, label) in enumerate(
-        val_loader
-    ):
-        torch.cuda.empty_cache()
-        with autocast(enabled=use_amp):
-            demo = input.to(device)
-            target = label.to(device)
-            pred = model(demo, ce_ts, le_ts, pe_ts, timestamps)
-        all_targets.append(target)
-        all_preds.append(pred.to("cpu"))
-    all_targets = torch.cat(all_targets).to("cpu").float().numpy()
-    all_preds = torch.cat(all_preds).float()
-    all_preds = torch.softmax(all_preds, dim=1)[:, 1].to("cpu").numpy()
-    auroc = roc_auc_score(all_targets, all_preds)
-    return auroc
-
-
-@torch.no_grad()
-def cal_threshold(model, device, test_loader, ratio=None, use_amp=False):
-    model.eval()
-    if ratio is None:
-        return None
-    all_preds = []
-    for _, ((input, ce_ts, le_ts, pe_ts, timestamps), _, _, _) in enumerate(
-        test_loader
-    ):
-        torch.cuda.empty_cache()
-        with autocast(enabled=use_amp):
-            demo = input.to(device)
-            # target = label.to(device)
-            pred = model(demo, ce_ts, le_ts, pe_ts, timestamps)
-        all_preds.append(pred.to("cpu"))
-    all_preds = torch.cat(all_preds).float()
-    all_probs = torch.softmax(all_preds, dim=1).to("cpu").numpy()
-    pos_prob = all_probs[:, 1]
-    neg_num = int(len(pos_prob) * (1 - ratio))
-    partition = np.partition(pos_prob, neg_num)
-    x1, x2 = np.max(partition[:neg_num]), partition[neg_num]
-    return (x1 + x2) / 2
-
-
-@torch.no_grad()
-def test(model, task, device, test_loader, threshold=None, use_amp=False):
-    model.eval()
-    all_targets = []
-    all_preds = []
-    for _, ((input, ce_ts, le_ts, pe_ts, timestamps), _, _, label) in enumerate(
-        test_loader
-    ):
-        torch.cuda.empty_cache()
-        with autocast(enabled=use_amp):
-            demo = input.to(device)
-            target = label.to(device)
-            pred = model(demo, ce_ts, le_ts, pe_ts, timestamps)
-        all_targets.append(target)
-        all_preds.append(pred.to("cpu"))
-    all_targets = torch.cat(all_targets).to("cpu").float().numpy()
-    all_preds = torch.cat(all_preds).float()
-    all_probs = torch.softmax(all_preds, dim=1).to("cpu").numpy()
-    if threshold is None:
-        all_preds = np.argmax(all_probs, axis=1)
-    else:
-        all_preds = (all_probs[:, 1] >= threshold).astype("int")
-    all_probs = all_probs[:, 1]
-    auroc = roc_auc_score(all_targets, all_probs)
-    precision, recall, t = precision_recall_curve(all_targets, all_probs)
-    auprc = auc(recall, precision)
-    ap = average_precision_score(all_targets, all_probs)
-    report = classification_report(
-        all_targets, all_preds, target_names=["negative", "positive"]
-    )
-    positive_num = all_preds.sum()
-    return auroc, ap, auprc, report, positive_num
-
-
-@torch.no_grad()
-def best_test(
-    model, task, device, test_loader, val_loader=None, ratio=None, saved_model_path=None
-):
-    model.load_state_dict(
-        torch.load(os.path.join(saved_model_path, f"best_ehr_partial_model_{task}.pth"))
-    )
-    if val_loader is not None:
-        threshold = cal_threshold(model, device, val_loader, ratio)
-    else:
-        threshold = None
-    auroc, ap, auprc, report, positive_num = test(model, device, test_loader, threshold)
-    print(f"test metric -- auroc:{auroc:.3f}")
-    print(f"test metric -- ap:{ap:.3f}")
-    print(f"test metric -- auprc:{auprc:.3f}")
-    print(f"test metric -- predicted positive:{positive_num}")
-    print(f"test metric -- report:\n{report}")
-    return auroc, ap, auprc, report, positive_num
-
-
-def train(
-    model,
-    task,
-    device,
-    train_loader,
-    val_loader,
-    test_loader,
-    epoch,
-    learning_rate,
-    ratio=None,
-    saved_model_path=None,
-    use_amp=None,
-):
-    best_roc = 0
-
-    if task == "mortality":
-        criterion = nn.CrossEntropyLoss(
-            weight=torch.tensor([1, 10], dtype=torch.float)
-        ).to(device)
-    elif task == "los":
-        criterion = nn.CrossEntropyLoss(
-            weight=torch.tensor([1, 1], dtype=torch.float)
-        ).to(device)
-    elif task == "readmission":
-        criterion = nn.CrossEntropyLoss(
-            weight=torch.tensor([1, 20], dtype=torch.float)
-        ).to(device)
-
-    optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
-
-    scaler = GradScaler() if use_amp else None
-
-    for epoch_idx in tqdm(range(epoch)):
-        print(f"Epoch [{epoch_idx + 1}/{epoch}] ")
-        epoch_loss = train_epoch(
-            model,
-            device,
-            train_loader,
-            optimizer,
-            criterion,
-            scaler=scaler,
-            use_amp=use_amp,
-        )
-        torch.cuda.empty_cache()
-        print(f"Epoch [{epoch_idx + 1}/{epoch}] loss:{epoch_loss:.3f}")
-
-        auroc = val_epoch(model, device, val_loader, use_amp=use_amp)
-        torch.cuda.empty_cache()
-
-        if auroc > best_roc:
-            print(f"new best auroc: {best_roc} -> {auroc}")
-            best_roc = auroc
-            print("model saved.")
-
-            if not os.path.exists(saved_model_path):
-                print(
-                    f"Creating directory to save best model epoch: {saved_model_path}"
-                )
-                Path(saved_model_path).mkdir(parents=True)
-
-            torch.save(
-                model.state_dict(),
-                os.path.join(saved_model_path, f"best_ehr_partial_model_{task}.pth"),
+def generate_training_test_subjects(test_ratio=0.15, val_ratio=0.2):
+    # Get all subjects with episodes
+    all_subjects = set(
+        [
+            os.path.dirname(i).split("/")[-1]
+            for i in glob.glob(
+                os.path.join(args.subjects_root_dir, "*", "*timeseries.csv")
             )
+        ]
+    )
+    train_subjects, test_subjects = train_test_split(
+        list(all_subjects), test_size=test_ratio
+    )
+    train_subjects, val_subjects = train_test_split(train_subjects, test_size=val_ratio)
+    return train_subjects, val_subjects, test_subjects
 
-    # model.load_state_dict(torch.load('./saved_model/best_cxr_model.pth'))
-    # auroc, report, positive_num = test(model, device, test_loader)
-    # torch.cuda.empty_cache()
-    # print('test metric -- auroc:{:.3f}'.format(auroc))
-    # print('test metric -- predicted positive:{}'.format(positive_num))
-    # print('test metric -- report:\n{}'.format(report))
-    # best_test(model, device, test_loader, val_loader, ratio)
+
+def collate_rugged_timeseries(batch, method="pad"):
+    events, static, labels = zip(*batch, strict=False)
+
+    if method == "pad":
+        # Function to pad batch-wise due to timeseries of different lengths
+        max_events = max([data[0].shape[0] for data in batch])
+        n_ftrs = batch[0][0].shape[1]
+        events = np.zeros((len(batch), max_events, n_ftrs))
+        for i in range(len(batch)):
+            j, k = batch[i][0].shape[0], batch[i][0].shape[1]
+            events[i] = np.concatenate([batch[i][0], np.zeros((max_events - j, k))])
+
+    elif method == "truncate":
+        # Truncate to minimum num of events in batch
+        min_events = min([data[0].shape[0] for data in batch])
+        events = [event[:min_events] for event in events]
+
+    labels = torch.tensor(labels).unsqueeze(1).to(torch.float32)
+    events = torch.tensor(events).to(torch.float32)
+
+    return events, static, labels
+
+
+# Create subject-level training and validation
+training_subjects, _, _ = generate_training_test_subjects()
+
+
+class MIMICData(Dataset):
+    def __init__(self, root_dir=None, subjects=None) -> None:
+        super().__init__()
+        self.subjects = subjects
+        self.root_dir = root_dir
+        # self.episodes = self.get_all_episodes()
+
+    def __len__(self):
+        return len(self.subjects)
+
+    def __getitem__(self, idx):
+        subject = self.subjects[idx]
+        self.dynamic = pl.read_csv(
+            os.path.join(self.root_dir, subject, "episode1_timeseries.csv")
+        )
+
+        self.static = pl.read_csv(os.path.join(self.root_dir, subject, "episode1.csv"))
+        self.static = self.static.with_columns(
+            label=pl.when(pl.col("los") > LOS_THRESHOLD).then(1.0).otherwise(0.0)
+        )
+        self.label = self.static.select("label").item()
+        self.static = self.static.drop(["label", "los"])
+
+        return (self.dynamic.to_numpy(), self.static.to_numpy(), self.label)
+
+    def get_all_episodes(self):
+        return pl.concat(
+            [
+                pl.read_csv(f)
+                for f in glob.glob(
+                    os.path.join(self.root_dir, "*", "episode*_timeseries.csv")
+                )
+            ]
+        )
+
+
+training_set = MIMICData(args.subjects_root_dir, training_subjects)
+training_dataloader = DataLoader(
+    training_set, batch_size=batch_size, collate_fn=collate_rugged_timeseries
+)
+
+
+# define the LightningModule
+class LitLSTM(L.LightningModule):
+    def __init__(self, input_dim, hidden_dim, target_size, lr=0.1):
+        super().__init__()
+        self.net = LSTM(input_dim, hidden_dim, target_size)
+        self.criterion = torch.nn.BCEWithLogitsLoss()
+        self.lr = lr
+        self.acc = torchmetrics.Accuracy(task="binary")
+
+    def training_step(self, batch, batch_idx):
+        # training_step defines the train loop.
+        # it is independent of forward
+        x, _, y = batch
+        x_hat = self.net(x)
+        loss = self.criterion(x_hat, y)
+        accuracy = self.acc(x_hat, y)
+        self.log("train_loss", loss, prog_bar=True)
+        self.log("train_acc", accuracy, prog_bar=True)
+        return loss
+
+    def configure_optimizers(self):
+        optimizer = torch.optim.SGD(self.parameters(), lr=self.lr)
+        return optimizer
+
+
+lstm = LitLSTM(input_dim=15, hidden_dim=1024, target_size=1, lr=lr)
+
+# trainer
+trainer = L.Trainer(limit_train_batches=100, max_epochs=n_epochs)
+trainer.fit(model=lstm, train_dataloaders=training_dataloader)
