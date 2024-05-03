@@ -120,6 +120,9 @@ for subject_dir in tqdm(subject_list, desc="Iterating over subjects"):
     except Exception:
         continue
 
+    if not os.path.isdir(os.path.join(output_dir, subject_dir)):
+        os.mkdir(os.path.join(output_dir, subject_dir), parents=True, exist_ok=True)
+
     try:
         # reading tables of this subject
         stays = read_stays(os.path.join(args.subjects_root_path, subject_dir))
