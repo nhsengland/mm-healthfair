@@ -119,7 +119,7 @@ for subject_dir in tqdm(subject_list, desc="Iterating over subjects"):
         continue
 
     if not os.path.isdir(os.path.join(output_dir, subject_dir)):
-        os.mkdir(os.path.join(output_dir, subject_dir), exist_ok=True)
+        os.makedirs(os.path.join(output_dir, subject_dir), exist_ok=True)
 
     try:
         # reading tables of this subject
