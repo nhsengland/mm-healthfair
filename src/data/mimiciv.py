@@ -8,24 +8,24 @@ from tqdm import tqdm
 ICD9 = 9
 
 
-def read_patients_table(mimic4_path, lazy_mode=False):
+def read_patients_table(mimic4_path, use_lazy=False):
     pats = pl.read_csv(
         os.path.join(mimic4_path, "patients.csv.gz"),
         columns=["subject_id", "gender", "anchor_age", "anchor_year", "dod"],
         dtypes=[pl.UInt64, pl.String, pl.UInt64, pl.UInt64, pl.Datetime],
     )
-    return pats.lazy() if lazy_mode else pats
+    return pats.lazy() if use_lazy else pats
 
 
-def read_omr_table(mimic4_path, lazy_mode=False):
+def read_omr_table(mimic4_path, use_lazy=False):
     omr = pl.read_csv(
         os.path.join(mimic4_path, "omr.csv.gz"),
         dtypes=[pl.UInt64, pl.Datetime, pl.UInt64, pl.String, pl.String],
     )
-    return omr.lazy() if lazy_mode else omr
+    return omr.lazy() if use_lazy else omr
 
 
-def read_admissions_table(mimic4_path, lazy_mode=False):
+def read_admissions_table(mimic4_path, use_lazy=False):
     admits = pl.read_csv(
         os.path.join(mimic4_path, "admissions.csv.gz"),
         columns=[
@@ -54,10 +54,10 @@ def read_admissions_table(mimic4_path, lazy_mode=False):
     admits = admits.with_columns(
         ((pl.col("dischtime") - pl.col("admittime")) / pl.duration(days=1)).alias("los")
     )
-    return admits.lazy() if lazy_mode else admits
+    return admits.lazy() if use_lazy else admits
 
 
-def read_stays_table(mimic4_ed_path, lazy_mode=False):
+def read_stays_table(mimic4_ed_path, use_lazy=False):
     stays = pl.read_csv(
         os.path.join(mimic4_ed_path, "edstays.csv.gz"),
         columns=[
@@ -71,10 +71,10 @@ def read_stays_table(mimic4_ed_path, lazy_mode=False):
         dtypes=[pl.UInt64, pl.UInt64, pl.UInt64, pl.Datetime, pl.Datetime, pl.String],
     )
     # stays = stays.with_columns(((pl.col("outtime") - pl.col("intime"))/pl.duration(days=1)).alias("los_ed"))
-    return stays.lazy() if lazy_mode else stays
+    return stays.lazy() if use_lazy else stays
 
 
-def read_icd_diagnoses_table(mimic4_path, lazy_mode=False):
+def read_icd_diagnoses_table(mimic4_path, use_lazy=False):
     codes = pl.read_csv(os.path.join(mimic4_path, "d_icd_diagnoses.csv.gz"))
     diagnoses = pl.read_csv(
         os.path.join(mimic4_path, "diagnoses_icd.csv.gz"),
@@ -85,15 +85,15 @@ def read_icd_diagnoses_table(mimic4_path, lazy_mode=False):
         how="inner",
         on=["icd_code", "icd_version"],
     )
-    return diagnoses.lazy() if lazy_mode else diagnoses
+    return diagnoses.lazy() if use_lazy else diagnoses
 
 
-def read_ed_icd_diagnoses_table(mimic4_ed_path, lazy_mode=False):
+def read_ed_icd_diagnoses_table(mimic4_ed_path, use_lazy=False):
     diagnoses = pl.read_csv(
         os.path.join(mimic4_ed_path, "diagnosis.csv.gz"),
         dtypes=[pl.UInt64, pl.UInt64, pl.UInt64, pl.String, pl.UInt64, pl.String],
     ).lazy()
-    return diagnoses.lazy() if lazy_mode else diagnoses
+    return diagnoses.lazy() if use_lazy else diagnoses
 
 
 def read_events_table_and_break_up_by_subject(
@@ -286,15 +286,21 @@ def merge_on_subject_stay_admission(table1, table2, suffixes=("_x", "_y")):
 #     return stays
 
 
-def add_omr_variable_to_stays(stays, mimic4_path, variable, tolerance=None):
+def add_omr_variable_to_stays(stays, omr, variable, tolerance=None):
     # get value of variable on stay/admission date using omr record's date
     # use tolerance to allow elapsed time between dates
-    omr = read_omr_table(mimic4_path).drop("seq_num")
-    omr_names = [
-        x
-        for x in omr.unique(subset="result_name").get_column("result_name").to_list()
-        if variable.lower() in x.lower()
-    ]
+    omr = omr.drop("seq_num")
+
+    omr_result_names = (
+        omr.select("result_name").collect() if type(omr) == pl.LazyFrame else omr
+    )
+    omr_result_names = (
+        omr_result_names.unique(subset="result_name")
+        .get_column("result_name")
+        .to_list()
+    )
+
+    omr_names = [x for x in omr_result_names if variable.lower() in x.lower()]
 
     # filter omr readings by variable of interest
     omr = omr.filter(pl.col("result_name").is_in(omr_names))

@@ -75,6 +75,12 @@ parser.add_argument(
     help="Threshold for subject stratification (fractional days).",
 )
 
+parser.add_argument(
+    "--lazy",
+    action="store_true",
+    help="Whether to use lazy mode for reading in data. Defaults to False (except for events tables - always uses lazymode).",
+)
+
 args, _ = parser.parse_known_args()
 
 if os.path.exists(args.output_path):
@@ -93,9 +99,14 @@ else:
     print(f"Creating output directory for extracted subjects at {args.output_path}")
     os.makedirs(args.output_path)
 
-patients = m4c.read_patients_table(args.mimic4_path)
-admits = m4c.read_admissions_table(args.mimic4_path)
-stays = m4c.read_stays_table(args.mimic4_ed_path)
+# Read in csv files
+patients = m4c.read_patients_table(args.mimic4_path, use_lazy=args.lazy)
+admits = m4c.read_admissions_table(args.mimic4_path, use_lazy=args.lazy)
+stays = m4c.read_stays_table(args.mimic4_ed_path, use_lazy=args.lazy)
+omr = m4c.read_omr_table(args.mimic4_path, use_lazy=args.lazy)
+
+# diagnoses = m4c.read_icd_diagnoses_table(args.mimic4_path, use_lazy=args.lazy)
+# ed_diagnoses = m4c.read_ed_icd_diagnoses_table(args.mimic4_ed_path, use_lazy=args.lazy)
 
 if args.verbose:
     print(
@@ -121,14 +132,23 @@ if args.verbose:
         f"REMOVE MULTIPLE ED STAYS PER ADMIT:\n\tSTAY_IDs: {get_n_unique_values(stays, 'stay_id')}\n\tHADM_IDs: {get_n_unique_values(stays, 'hadm_id')}\n\tSUBJECT_IDs: {get_n_unique_values(stays)}"
     )
 
-stays = m4c.add_inhospital_mortality_to_stays(stays)
-
 # remove any subjects with anchor_age < 18
 stays = m4c.filter_stays_on_age(stays)
 if args.verbose:
     print(
         f"REMOVE PATIENTS AGE < 18:\n\tSTAY_IDs: {get_n_unique_values(stays, 'stay_id')}\n\tHADM_IDs: {get_n_unique_values(stays, 'hadm_id')}\n\tSUBJECT_IDs: {get_n_unique_values(stays)}"
     )
+
+stays = m4c.add_inhospital_mortality_to_stays(stays)
+# add height/weight data using omr table: https://mimic.mit.edu/docs/iv/modules/hosp/omr/
+# use tolerance to find closest value within a year of admission
+stays = m4c.add_omr_variable_to_stays(stays, omr, "height", tolerance=365)
+stays = m4c.add_omr_variable_to_stays(stays, omr, "weight", tolerance=365)
+
+### IF LAZY COLLECT HERE SINCE .SAMPLE IS A DATAFRAME FUNCTION
+if type(stays) == pl.LazyFrame:
+    print("Collecting...")
+    stays = stays.collect(streaming=True)
 
 # filter by n subjects if specified (can be used to test/speed up processing)
 if args.sample is not None:
@@ -213,11 +233,6 @@ if args.sample is not None:
             f"SELECTING {mode.upper()} SAMPLE OF {args.sample} {'SUBJECTS' if args.stratify_level == 'subject' else 'STAYS'}:\n\tSTAY_IDs: {get_n_unique_values(stays, 'stay_id')}\n\tHADM_IDs: {get_n_unique_values(stays, 'hadm_id')}\n\tSUBJECT_IDs: {get_n_unique_values(stays)}"
         )
 
-# add height/weight data using omr table: https://mimic.mit.edu/docs/iv/modules/hosp/omr/
-# use tolerance to find closest value within a year of admission
-stays = m4c.add_omr_variable_to_stays(stays, args.mimic4_path, "height", tolerance=365)
-stays = m4c.add_omr_variable_to_stays(stays, args.mimic4_path, "weight", tolerance=365)
-
 # Write all stays
 stays.write_csv(os.path.join(args.output_path, "all_stays.csv"))
 
@@ -227,7 +242,6 @@ m4c.break_up_stays_by_subject(stays, args.output_path, subjects=subjects)
 
 # for now skip this stuff since we aren't interested in the diagnoses
 
-# diagnoses = m4c.read_icd_diagnoses_table(args.mimic4_path)
 # diagnoses = m4c.convert_icd9_to_icd10(
 #     diagnoses, keep_original=False
 # )  # convert to ICD10
@@ -235,7 +249,6 @@ m4c.break_up_stays_by_subject(stays, args.output_path, subjects=subjects)
 #     diagnoses, stays, by_col="hadm_id"
 # )  # use hadm_id to filter diagnoses by selected stays
 
-# ed_diagnoses = m4c.read_ed_icd_diagnoses_table(args.mimic4_ed_path)
 # ed_diagnoses = m4c.convert_icd9_to_icd10(
 #     ed_diagnoses, keep_original=False
 # )  # convert to ICD10
