@@ -60,10 +60,9 @@ if args.subject_list is not None:
 else:
     subject_list = os.listdir(args.subjects_root_path)
 
-if args.verbose:
-    print(
-        f"EXTRACTING EPISODES FROM {len(os.listdir(args.subjects_root_path))} subjects..."
-    )
+print(
+    f"EXTRACTING EPISODES FROM {len(os.listdir(args.subjects_root_path))} subjects..."
+)
 
 if args.output_dir is None:
     output_dir = args.subjects_root_path
@@ -120,7 +119,7 @@ for subject_dir in tqdm(subject_list, desc="Iterating over subjects"):
         continue
 
     if not os.path.isdir(os.path.join(output_dir, subject_dir)):
-        os.mkdir(os.path.join(output_dir, subject_dir), parents=True, exist_ok=True)
+        os.mkdir(os.path.join(output_dir, subject_dir), exist_ok=True)
 
     try:
         # reading tables of this subject
