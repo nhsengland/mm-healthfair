@@ -1,7 +1,7 @@
 import polars as pl
 
 
-def get_n_unique_values(df: pl.DataFrame, use_col="subject_id"):
+def get_n_unique_values(df: pl.DataFrame | pl.LazyFrame, use_col="subject_id"):
     unique_vals = df.select(use_col).unique()
     return (
         len(unique_vals.collect())
