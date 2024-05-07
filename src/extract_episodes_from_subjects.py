@@ -196,38 +196,6 @@ for subject_dir in tqdm(subject_list, desc="Iterating over subjects"):
             filter_by_nb_events += 1
             continue
 
-        # TODO: Move this to data loading process?
-
-        # Aggregate into time-windows e.g., every 2hr by upsampling then downsampling
-        # episode = episode.collect().upsample(time_column="charttime", every='2h').lazy()
-        # episode = (episode.group_by_dynamic(
-        #             "charttime",
-        #             every="2h"
-        #         ).agg(pl.exclude('charttime')).mean())
-
-        # # Imputating of missing values using masking (adds features) or filling
-        # if args.impute_strategy is not None:
-        #     if args.impute_strategy == "mask":
-        #         # Add new feature column with mask for whether row is nan or not
-        #         for i in episode.columns:
-        #             episode[i + "_isna"] = episode.loc[:, i].isna()
-
-        #     elif args.impute_strategy == "ffill":
-        #         # Fill missing values using forward fill
-        #         episode = episode.ffill()
-        #         episode = episode.bfill()
-        #         # for remaining null values use -999
-        #         episode = episode.fillna(-999)
-
-        #     elif args.impute_strategy == "mean":
-        #         mean_map = get_pop_means(args.subjects_root_path)
-        #         episode = episode.fillna(mean_map)
-
-        #     else:
-        #         raise ValueError(
-        #             "impute_strategy must be one of [None, mask, ffill, mean]"
-        #         )
-
         # set index of episode as the time elapsed since ED intime
         episode = add_hours_elapsed_to_events(episode, intime).sort(by="hours")
 

@@ -8,6 +8,7 @@ import polars as pl
 import toml
 import torch
 import torchmetrics
+import utils
 from models import LSTM
 from sklearn.model_selection import train_test_split
 from torch.utils.data import DataLoader, Dataset
@@ -75,7 +76,7 @@ def collate_rugged_timeseries(batch, method="pad"):
 
 
 # Create subject-level training and validation
-training_subjects, _, _ = generate_training_test_subjects()
+training_subjects, val_subjects, _ = generate_training_test_subjects()
 
 
 class MIMICData(Dataset):
@@ -83,18 +84,16 @@ class MIMICData(Dataset):
         super().__init__()
         self.subjects = subjects
         self.root_dir = root_dir
-        # self.episodes = self.get_all_episodes()
+        self.dynamic_data = []
+        self.static_data = []
 
     def __len__(self):
-        return len(self.subjects)
+        return len(self.dynamic_data)
 
     def __getitem__(self, idx):
-        subject = self.subjects[idx]
-        self.dynamic = pl.read_csv(
-            os.path.join(self.root_dir, subject, "episode1_timeseries.csv")
-        )
+        self.dynamic = self.dynamic_data[idx].collect()
+        self.static = self.static_data[idx].collect()
 
-        self.static = pl.read_csv(os.path.join(self.root_dir, subject, "episode1.csv"))
         self.static = self.static.with_columns(
             label=pl.when(pl.col("los") > LOS_THRESHOLD).then(1.0).otherwise(0.0)
         )
@@ -103,20 +102,91 @@ class MIMICData(Dataset):
 
         return (self.dynamic.to_numpy(), self.static.to_numpy(), self.label)
 
-    def get_all_episodes(self):
-        return pl.concat(
-            [
-                pl.read_csv(f)
-                for f in glob.glob(
-                    os.path.join(self.root_dir, "*", "episode*_timeseries.csv")
+    def prepare_data(self, preprocess=True):
+        filepaths = [
+            f
+            for f in glob.glob(
+                os.path.join(self.root_dir, "*", "episode1_timeseries.csv")
+            )
+            if os.path.dirname(f).split("/")[-1] in self.subjects
+        ]
+
+        self.static_data = [
+            pl.scan_csv(
+                os.path.join(
+                    os.path.dirname(f), os.path.basename(f).split("_")[0] + ".csv"
                 )
+            )
+            for f in filepaths
+        ]
+
+        # Preprocess the data
+        if preprocess:
+            self.dynamic_data = [
+                self.preprocess_data(
+                    pl.scan_csv(f).with_columns(pl.all().cast(pl.Float64))
+                )
+                for f in filepaths
             ]
-        )
+
+        else:
+            self.dynamic_data = [
+                pl.scan_csv(f).with_columns(pl.all().cast(pl.Float64))
+                for f in filepaths
+            ]
+
+    def preprocess_data(self, input_data, impute_strategy="ffill"):
+        # assumes data is a lazyframe
+
+        # TODO: Ensure this works for lazyframe
+        # Aggregate into time-windows e.g., every 2hr by upsampling then downsampling
+        # input_data = input_data.collect().upsample(time_column="charttime", every='2h').lazy()
+        # input_data = (input_data.group_by_dynamic(
+        #             "charttime",
+        #             every="2h"
+        #         ).agg(pl.exclude('charttime')).mean())
+
+        # Imputating of missing values using masking (adds features) or filling
+        if impute_strategy is not None:
+            if impute_strategy == "mask":
+                # Add new feature column with mask for whether row is nan or not
+                for i in input_data.columns:
+                    input_data = input_data.with_columns(
+                        pl.col(i).is_null().alias(i + "_isna")
+                    )
+
+            elif impute_strategy == "ffill":
+                # Fill missing values using forward fill
+                input_data = input_data.fill_null(strategy="forward")
+                input_data = input_data.fill_null(strategy="backward")
+
+                # for remaining null values use -999
+                input_data = input_data.fill_null(value=-999)
+
+            elif impute_strategy == "mean":
+                mean_map = utils.get_pop_means(self.subjects_root_path)
+                input_data = input_data.fill_null(
+                    mean_map
+                )  # TODO: check this is working
+
+            else:
+                raise ValueError(
+                    "impute_strategy must be one of [None, mask, ffill, mean]"
+                )
+
+        return input_data
 
 
 training_set = MIMICData(args.subjects_root_dir, training_subjects)
+training_set.prepare_data()
 training_dataloader = DataLoader(
     training_set, batch_size=batch_size, collate_fn=collate_rugged_timeseries
+)
+
+validation_set = MIMICData(args.subjects_root_dir, val_subjects)
+validation_set.prepare_data()
+val_dataloader = DataLoader(
+    validation_set, batch_size=batch_size, collate_fn=collate_rugged_timeseries
 )
 
 
@@ -140,13 +210,24 @@ class LitLSTM(L.LightningModule):
         self.log("train_acc", accuracy, prog_bar=True)
         return loss
 
+    def validation_step(self, batch, batch_idx):
+        x, _, y = batch
+        x_hat = self.net(x)
+        loss = self.criterion(x_hat, y)
+        accuracy = self.acc(x_hat, y)
+        self.log("val_loss", loss, prog_bar=True)
+        self.log("val_acc", accuracy, prog_bar=True)
+        return loss
+
     def configure_optimizers(self):
         optimizer = torch.optim.SGD(self.parameters(), lr=self.lr)
         return optimizer
 
 
-lstm = LitLSTM(input_dim=15, hidden_dim=1024, target_size=1, lr=lr)
+lstm = LitLSTM(input_dim=15, hidden_dim=256, target_size=1, lr=lr)
 
 # trainer
 trainer = L.Trainer(limit_train_batches=100, max_epochs=n_epochs)
-trainer.fit(model=lstm, train_dataloaders=training_dataloader)
+trainer.fit(
+    model=lstm, train_dataloaders=training_dataloader, val_dataloaders=val_dataloader
+)
