@@ -72,7 +72,7 @@ else:
 if args.features is not None:
     f = open(args.features)
     feature_names = f.read().splitlines()
-    print(feature_names)
+    print(f"Using predefined feature set: {feature_names}")
 else:
     feature_names = None
 
