@@ -1,43 +1,26 @@
-# Code adapted from
-
 import re
 
-import icdmappings
 import numpy as np
-from pandas import DataFrame, Series, concat
-
-from .functions import dataframe_from_csv
+import polars as pl
 
 ###############################
 # Non-time series preprocessing
 ###############################
 
 
-def transform_gender(gender_series):
-    g_map = {"F": 1, "M": 2, "OTHER": 3, "": 0}
-    return {
-        "gender": gender_series.fillna("").apply(
-            lambda s: g_map[s] if s in g_map else g_map["OTHER"]
-        )
-    }
+def transform_gender(data):
+    g_map = {"F": 1, "M": 2, "OTHER": 3}
+    return data.with_columns(gender=pl.col("gender").replace(g_map, default=0))
 
 
-def transform_marital(marital_series):
-    m_map = {"MARRIED": 1, "SINGLE": 2, "WIDOWED": 3, "DIVORCED": 4, "": 0}
-    return {
-        "marital_status": marital_series.fillna("").apply(
-            lambda m: m_map[m] if m in m_map else m_map[""]
-        )
-    }
+def transform_marital(data):
+    m_map = {"MARRIED": 1, "SINGLE": 2, "WIDOWED": 3, "DIVORCED": 4}
+    return data.with_columns(gender=pl.col("marital_status").replace(m_map, default=0))
 
 
-def transform_insurance(insurance_series):
-    i_map = {"Medicare": 1, "Medicaid": 2, "Other": 3, "": 0}  # TODO: 0 or nan?
-    return {
-        "insurance": insurance_series.fillna("").apply(
-            lambda i: i_map[i] if i in i_map else i_map[""]
-        )
-    }
+def transform_insurance(data):
+    i_map = {"Medicare": 1, "Medicaid": 2, "Other": 3}  # TODO: 0 or nan?
+    return data.with_columns(gender=pl.col("insurance").replace(i_map, default=0))
 
 
 def transform_race(race_series):
@@ -56,234 +39,240 @@ def transform_race(race_series):
         "PATIENT DECLINED TO ANSWER": 0,
         "UNKNOWN": 0,
         "OTHER": 0,
-        "": 0,
     }
 
-    def aggregate_race(race_str):
-        return race_str.replace(" OR ", "/").split(" - ")[0].split("/")[0]
+    race_series = race_series.with_columns(
+        race=pl.col("race").str.replace(" OR ", "/", literal=True)
+    )
+    race_series = race_series.with_columns(
+        pl.col("race")
+        .str.split_exact(" - ", n=1)
+        .struct.rename_fields(["race_a", "race_b"])
+        .alias("race")
+    ).unnest("race")
+    race_series = race_series.with_columns(
+        pl.col("race_a")
+        .str.split_exact("/", n=1)
+        .struct.rename_fields(["race_c", "race_d"])
+        .alias("race")
+    ).unnest("race")
 
-    race_series = race_series.apply(aggregate_race)
-    return {
-        "race": race_series.fillna("").apply(
-            lambda s: r_map[s] if s in r_map else r_map["OTHER"]
-        )
-    }
+    race_series = race_series.with_columns(
+        race=pl.col("race_c").replace(r_map, default=0)
+    ).drop(columns=["race_d", "race_c"])
+    return race_series
 
 
 def assemble_episodic_data(stays, diagnoses=None):
-    data = {
-        "hadm_id": stays.hadm_id,
-        "stay_id": stays.stay_id,
-        "age": stays.anchor_age,
-        "los": stays.los,
-        "los_ed": stays.los_ed,
-        "mortality": stays.mortality,
-        "height": stays.height,
-        "weight": stays.weight,
-    }
-    data.update(transform_gender(stays.gender))
-    data.update(transform_race(stays.race))
-    data.update(transform_marital(stays.marital_status))
-    data.update(transform_insurance(stays.insurance))
-    data = DataFrame(data).set_index("hadm_id")
-    data = data[
-        [
-            "race",
-            "gender",
-            "age",
-            "insurance",
-            "marital_status",
-            "height",
-            "weight",
-            "los",
-            "los_ed",
-            "mortality",
-            "stay_id",
-        ]
-    ]
+    data = (
+        stays.select(
+            [
+                "hadm_id",
+                "stay_id",
+                "anchor_age",
+                "gender",
+                "race",
+                "marital_status",
+                "insurance",
+                "los",
+                "los_ed",
+                "mortality",
+                "height",
+                "weight",
+            ]
+        )
+        .cast({"los": pl.Float64, "los_ed": pl.Float64})
+        .collect(streaming=True)
+    )
+
+    data = transform_gender(data)
+    data = transform_race(data)
+    data = transform_marital(data)
+    data = transform_insurance(data)
+
     # not using diagnoses
-    if diagnoses is not None:
-        return data.merge(
-            extract_diagnosis_labels(diagnoses), left_index=True, right_index=True
-        ).set_index("stay_id")
-    else:
-        return data.set_index("stay_id")
+    # if diagnoses is not None:
+    #     return data.merge(
+    #         extract_diagnosis_labels(diagnoses), left_index=True, right_index=True
+    #     ).set_index("stay_id")
+    # else:
+    #     return data.set_index("stay_id")
+    return data.lazy()
 
 
-def extract_diagnosis_labels(diagnoses):
-    # TODO: Decide on subset of labels to consider, this list is taken from mimic3benchmark repository
-    diagnosis_labels = [
-        "4019",
-        "4280",
-        "41401",
-        "42731",
-        "25000",
-        "5849",
-        "2724",
-        "51881",
-        "53081",
-        "5990",
-        "2720",
-        "2859",
-        "2449",
-        "486",
-        "2762",
-        "2851",
-        "496",
-        "V5861",
-        "99592",
-        "311",
-        "0389",
-        "5859",
-        "5070",
-        "40390",
-        "3051",
-        "412",
-        "V4581",
-        "2761",
-        "41071",
-        "2875",
-        "4240",
-        "V1582",
-        "V4582",
-        "V5867",
-        "4241",
-        "40391",
-        "78552",
-        "5119",
-        "42789",
-        "32723",
-        "49390",
-        "9971",
-        "2767",
-        "2760",
-        "2749",
-        "4168",
-        "5180",
-        "45829",
-        "4589",
-        "73300",
-        "5845",
-        "78039",
-        "5856",
-        "4271",
-        "4254",
-        "4111",
-        "V1251",
-        "30000",
-        "3572",
-        "60000",
-        "27800",
-        "41400",
-        "2768",
-        "4439",
-        "27651",
-        "V4501",
-        "27652",
-        "99811",
-        "431",
-        "28521",
-        "2930",
-        "7907",
-        "E8798",
-        "5789",
-        "79902",
-        "V4986",
-        "V103",
-        "42832",
-        "E8788",
-        "00845",
-        "5715",
-        "99591",
-        "07054",
-        "42833",
-        "4275",
-        "49121",
-        "V1046",
-        "2948",
-        "70703",
-        "2809",
-        "5712",
-        "27801",
-        "42732",
-        "99812",
-        "4139",
-        "3004",
-        "2639",
-        "42822",
-        "25060",
-        "V1254",
-        "42823",
-        "28529",
-        "E8782",
-        "30500",
-        "78791",
-        "78551",
-        "E8889",
-        "78820",
-        "34590",
-        "2800",
-        "99859",
-        "V667",
-        "E8497",
-        "79092",
-        "5723",
-        "3485",
-        "5601",
-        "25040",
-        "570",
-        "71590",
-        "2869",
-        "2763",
-        "5770",
-        "V5865",
-        "99662",
-        "28860",
-        "36201",
-        "56210",
-    ]
+# not used
 
-    diagnoses["value"] = 1
+# def extract_diagnosis_labels(diagnoses):
+#     # TODO: Decide on subset of labels to consider, this list is taken from mimic3benchmark repository
+#     diagnosis_labels = [
+#         "4019",
+#         "4280",
+#         "41401",
+#         "42731",
+#         "25000",
+#         "5849",
+#         "2724",
+#         "51881",
+#         "53081",
+#         "5990",
+#         "2720",
+#         "2859",
+#         "2449",
+#         "486",
+#         "2762",
+#         "2851",
+#         "496",
+#         "V5861",
+#         "99592",
+#         "311",
+#         "0389",
+#         "5859",
+#         "5070",
+#         "40390",
+#         "3051",
+#         "412",
+#         "V4581",
+#         "2761",
+#         "41071",
+#         "2875",
+#         "4240",
+#         "V1582",
+#         "V4582",
+#         "V5867",
+#         "4241",
+#         "40391",
+#         "78552",
+#         "5119",
+#         "42789",
+#         "32723",
+#         "49390",
+#         "9971",
+#         "2767",
+#         "2760",
+#         "2749",
+#         "4168",
+#         "5180",
+#         "45829",
+#         "4589",
+#         "73300",
+#         "5845",
+#         "78039",
+#         "5856",
+#         "4271",
+#         "4254",
+#         "4111",
+#         "V1251",
+#         "30000",
+#         "3572",
+#         "60000",
+#         "27800",
+#         "41400",
+#         "2768",
+#         "4439",
+#         "27651",
+#         "V4501",
+#         "27652",
+#         "99811",
+#         "431",
+#         "28521",
+#         "2930",
+#         "7907",
+#         "E8798",
+#         "5789",
+#         "79902",
+#         "V4986",
+#         "V103",
+#         "42832",
+#         "E8788",
+#         "00845",
+#         "5715",
+#         "99591",
+#         "07054",
+#         "42833",
+#         "4275",
+#         "49121",
+#         "V1046",
+#         "2948",
+#         "70703",
+#         "2809",
+#         "5712",
+#         "27801",
+#         "42732",
+#         "99812",
+#         "4139",
+#         "3004",
+#         "2639",
+#         "42822",
+#         "25060",
+#         "V1254",
+#         "42823",
+#         "28529",
+#         "E8782",
+#         "30500",
+#         "78791",
+#         "78551",
+#         "E8889",
+#         "78820",
+#         "34590",
+#         "2800",
+#         "99859",
+#         "V667",
+#         "E8497",
+#         "79092",
+#         "5723",
+#         "3485",
+#         "5601",
+#         "25040",
+#         "570",
+#         "71590",
+#         "2869",
+#         "2763",
+#         "5770",
+#         "V5865",
+#         "99662",
+#         "28860",
+#         "36201",
+#         "56210",
+#     ]
 
-    # convert icd9 labels into icd10
-    mapper = icdmappings.Mapper()
-    diagnosis_labels = [
-        mapper.map(x, source="icd9", target="icd10") for x in diagnosis_labels
-    ]
+#     diagnoses["value"] = 1
 
-    labels = (
-        diagnoses[["hadm_id", "icd_code", "value"]]
-        .drop_duplicates()
-        .pivot(index="hadm_id", columns="icd_code", values="value")
-        .fillna(0)
-        .astype(int)
-    )
+#     # convert icd9 labels into icd10
+#     mapper = icdmappings.Mapper()
+#     diagnosis_labels = [
+#         mapper.map(x, source="icd9", target="icd10") for x in diagnosis_labels
+#     ]
 
-    # if not seen at all then set value to 0 for all stays
+#     labels = (
+#         diagnoses[["hadm_id", "icd_code", "value"]]
+#         .drop_duplicates()
+#         .pivot(index="hadm_id", columns="icd_code", values="value")
+#         .fillna(0)
+#         .astype(int)
+#     )
 
-    # for label in diagnosis_labels:
-    #     if label not in labels:
-    #         labels[label] = 0
+#     # if not seen at all then set value to 0 for all stays
 
-    missing_labels = DataFrame(
-        columns=[
-            label for label in diagnosis_labels if label not in labels.icd_code.unique()
-        ]
-    )
-    labels = concat([labels, missing_labels], axis=1)
-    return labels.rename(
-        dict(
-            zip(
-                diagnosis_labels,
-                ["diagnosis " + d for d in diagnosis_labels],
-                strict=False,
-            )
-        ),
-        axis=1,
-    )
+#     # for label in diagnosis_labels:
+#     #     if label not in labels:
+#     #         labels[label] = 0
 
-
-# phenotyping not used
+#     missing_labels = DataFrame(
+#         columns=[
+#             label for label in diagnosis_labels if label not in labels.icd_code.unique()
+#         ]
+#     )
+#     labels = concat([labels, missing_labels], axis=1)
+#     return labels.rename(
+#         dict(
+#             zip(
+#                 diagnosis_labels,
+#                 ["diagnosis " + d for d in diagnosis_labels],
+#                 strict=False,
+#             )
+#         ),
+#         axis=1,
+#     )
 
 # def add_hcup_ccs_2015_groups(diagnoses, definitions):
 #     def_map = {}
@@ -309,21 +298,21 @@ def extract_diagnosis_labels(diagnoses):
 ###################################
 
 
-def read_itemid_to_variable_map(fn, variable_column="LEVEL2"):
-    var_map = dataframe_from_csv(fn).fillna("").astype(str)
-    # var_map[variable_column] = var_map[variable_column].apply(lambda s: s.lower())
-    var_map.COUNT = var_map.COUNT.astype(int)
-    var_map = var_map[(var_map[variable_column] != "") & (var_map.COUNT > 0)]
-    var_map = var_map[(var_map.STATUS == "ready")]
-    var_map.ITEMID = var_map.ITEMID.astype(int)
-    var_map = var_map[[variable_column, "ITEMID", "MIMIC LABEL"]].set_index("ITEMID")
-    return var_map.rename(
-        {variable_column: "VARIABLE", "MIMIC LABEL": "MIMIC_LABEL"}, axis=1
-    )
+# def read_itemid_to_variable_map(fn, variable_column="LEVEL2"):
+#     var_map = dataframe_from_csv(fn).fillna("").astype(str)
+#     # var_map[variable_column] = var_map[variable_column].apply(lambda s: s.lower())
+#     var_map.COUNT = var_map.COUNT.astype(int)
+#     var_map = var_map[(var_map[variable_column] != "") & (var_map.COUNT > 0)]
+#     var_map = var_map[(var_map.STATUS == "ready")]
+#     var_map.ITEMID = var_map.ITEMID.astype(int)
+#     var_map = var_map[[variable_column, "ITEMID", "MIMIC LABEL"]].set_index("ITEMID")
+#     return var_map.rename(
+#         {variable_column: "VARIABLE", "MIMIC LABEL": "MIMIC_LABEL"}, axis=1
+#     )
 
 
 def map_itemids_to_variables(events, var_map):
-    return events.merge(var_map, left_on="itemid", right_index=True)
+    return events.join(var_map, on="itemid")
 
 
 # currently unused
@@ -365,20 +354,6 @@ def clean_dbp(df):
     idx = v.apply(lambda s: "/" in s)
     v.loc[idx] = v[idx].apply(lambda s: re.match("^(\d+)/(\d+)$", s).group(2))
     return v.astype(float)  # convert back to
-
-
-# CRR: strings with brisk, <3 normal, delayed, or >3 abnormal
-def clean_crr(df):
-    v = Series(np.zeros(df.shape[0]), index=df.index)
-    v[:] = np.nan
-
-    # when df['value'] is empty, dtype can be float and comparision with string
-    # raises an exception, to fix this we change dtype to str
-    df_value_str = df["value"].astype(str)
-
-    v.loc[(df_value_str == "Normal <3 secs") | (df_value_str == "Brisk")] = 0
-    v.loc[(df_value_str == "Abnormal >3 secs") | (df_value_str == "Delayed")] = 1
-    return v
 
 
 # FIO2: many 0s, some 0<x<0.2 or 1<x<20
@@ -456,22 +431,15 @@ def clean_height(df):
     return v
 
 
-# ETCO2: haven't found yet
-# Urine output: ambiguous units (raw ccs, ccs/kg/hr, 24-hr, etc.)
-# Tidal volume: tried to substitute for ETCO2 but units are ambiguous
-# Glascow coma scale eye opening
-# Glascow coma scale motor response
-# Glascow coma scale total
-# Glascow coma scale verbal response
-# Heart Rate
-# Respiratory rate
-# Mean blood pressure
-
-
 def clean_events(events):
-    # label '__' as NaN
+    # label '__' as null value
     # also converts to 2 d.p. floats
-    events["value"] = events["value"].replace({"___": np.nan}).astype(float)
+    events = events.with_columns(
+        value=pl.when(pl.col("value").str.contains("_"))
+        .then(None)
+        .otherwise(pl.col("value"))
+    )
+    events = events.with_columns(value=pl.col("value").cast(pl.Float64))
 
     # clean_fns = {
     #     "Diastolic blood pressure": clean_dbp,

@@ -5,7 +5,6 @@ import sys
 
 import polars as pl
 from tqdm import tqdm
-from utils.functions import dataframe_from_csv, get_pop_means
 from utils.preprocessing import (
     assemble_episodic_data,
     clean_events,
@@ -55,14 +54,16 @@ args = parser.parse_args()
 
 if args.subject_list is not None:
     subject_list = (
-        dataframe_from_csv(args.subject_list, header=None)[0].astype(str).to_list()
+        pl.read_csv(args.subject_list, has_header=False).cast(pl.String).to_list()
     )
 else:
-    subject_list = os.listdir(args.subjects_root_path)
+    subject_list = [
+        name
+        for name in os.listdir(args.subjects_root_path)
+        if os.path.isdir(os.path.join(args.subjects_root_path, name))
+    ]
 
-print(
-    f"EXTRACTING EPISODES FROM {len(os.listdir(args.subjects_root_path))} subjects..."
-)
+print(f"EXTRACTING EPISODES FROM {len(subject_list)} subjects...")
 
 if args.output_dir is None:
     output_dir = args.subjects_root_path
@@ -103,7 +104,7 @@ def get_feature_list():
         .unique()
         .collect()
     )
-    return features.get_column("label").to_list()
+    return sorted(features.get_column("label").to_list())
 
 
 feature_names = get_feature_list()
@@ -137,20 +138,24 @@ for subject_dir in tqdm(subject_list, desc="Iterating over subjects"):
         continue
 
     # Filter by number of stays per subject
-    if stays.shape[0] < args.min_stays:
+    n_stays = stays.select("stay_id").collect().height
+    if n_stays < args.min_stays:
         filter_by_nb_stays += 1
+
+        if n_stays == 0:
+            sys.stderr.write(
+                f"Warning: Failed to get any stay data for: {subject_id}.\n"
+            )
+
         continue
 
     episodic_data = assemble_episodic_data(stays)
-
-    if episodic_data.shape[0] == 0:
-        sys.stderr.write(f"Warning: Failed to get stay data for: {subject_id}.\n")
 
     # clean events
     # TODO: Check these functions work as expected - currently only filling "__" values and converting to floats, but may want to do outlier detection here, or any unit conversion
     events = clean_events(events)
 
-    if events.shape[0] == 0:
+    if events.select("charttime").collect().height == 0:
         # no valid events for this subject
         if args.verbose:
             sys.stderr.write(f"Warning: No events found for subject {subject_id}")
@@ -158,89 +163,89 @@ for subject_dir in tqdm(subject_list, desc="Iterating over subjects"):
 
     timeseries = convert_events_to_timeseries(events)
 
-    # Ensure timeseries have same number of columns (hours + features)
-    timeseries = timeseries.reindex(
-        columns=list(set().union(feature_names, timeseries.columns))
-    )
-
+    # Ensure models have the same number of features
+    missing_cols = [
+        x for x in feature_names if x not in timeseries.first().collect().columns
+    ]
+    timeseries = timeseries.with_columns([pl.lit(None).alias(c) for c in missing_cols])
     min_events = 1 if args.min_events is None else args.min_events
     max_events = 1e6 if args.max_events is None else args.max_events
 
     # extracting separate episodes per stay
     n = 0
-    for stay_idx in range(stays.shape[0]):
-        stay_id = stays.stay_id.iloc[stay_idx]
-        intime = stays.intime.iloc[stay_idx]
-        outtime = stays.outtime.iloc[stay_idx]
-        hadm_id = stays.hadm_id.iloc[stay_idx]
-        admittime = stays.admittime.iloc[stay_idx]
-        dischtime = stays.dischtime.iloc[stay_idx]
+
+    for row in stays.collect(streaming=True).iter_rows(named=True):
+        stay_id = row["stay_id"]
+        intime = row["intime"]
+        outtime = row["outtime"]
+        hadm_id = row["hadm_id"]
+        admittime = row["admittime"]
+        dischtime = row["dischtime"]
+
+        # round everything to 1.dp
+        episodic_data = episodic_data.with_columns(
+            [pl.col("los").round(1), pl.col("los_ed").round(1)]
+        )
+
+        # note some stay_id = -1 but this file is just for linking to static variables and can be linked via hadm_id instead
+        episodic_data.filter(pl.col("stay_id") == stay_id).collect(
+            streaming=True
+        ).write_csv(
+            os.path.join(output_dir, subject_dir, f"episode{n+1}.csv"),
+        )
 
         # get ed events during this specific ed/hosp stay (within certain window of time (optional))
-        episode = get_events_in_period(timeseries, stay_id, hadm_id, intime, dischtime)
+        episode = get_events_in_period(
+            timeseries, stay_id, hadm_id, intime, dischtime
+        )  # TODO: check
 
-        # Aggregate into time-windows e.g., every 30mins from 00:00:00 to 23:59:59 (so all data is in same intervals)
-        episode = episode.resample("2h", on="charttime").mean().reset_index()
-
-        # Imputating of missing values using masking (adds features) or filling
-        if args.impute_strategy is not None:
-            if args.impute_strategy == "mask":
-                # Add new feature column with mask for whether row is nan or not
-                for i in episode.columns:
-                    episode[i + "_isna"] = episode.loc[:, i].isna()
-
-            elif args.impute_strategy == "ffill":
-                # Fill missing values using forward fill
-                episode = episode.ffill()
-                episode = episode.bfill()
-                # for remaining null values use -999
-                episode = episode.fillna(-999)
-
-            elif args.impute_strategy == "mean":
-                mean_map = get_pop_means(args.subjects_root_path)
-                episode = episode.fillna(mean_map)
-
-            else:
-                raise ValueError(
-                    "impute_strategy must be one of [None, mask, ffill, mean]"
-                )
-
-        if episode.shape[0] < min_events or episode.shape[0] > max_events:
+        if (
+            episode.select(pl.col("charttime")).collect().height < min_events
+            or episode.select(pl.col("charttime")).collect().height > max_events
+        ):
             # if no data for this episode (or less than min or more than max) then continue
             # only keep stays with nb of datapoints within specific range
             filter_by_nb_events += 1
             continue
 
+        # TODO: Move this to data loading process?
+
+        # Aggregate into time-windows e.g., every 2hr by upsampling then downsampling
+        # episode = episode.collect().upsample(time_column="charttime", every='2h').lazy()
+        # episode = (episode.group_by_dynamic(
+        #             "charttime",
+        #             every="2h"
+        #         ).agg(pl.exclude('charttime')).mean())
+
+        # # Imputating of missing values using masking (adds features) or filling
+        # if args.impute_strategy is not None:
+        #     if args.impute_strategy == "mask":
+        #         # Add new feature column with mask for whether row is nan or not
+        #         for i in episode.columns:
+        #             episode[i + "_isna"] = episode.loc[:, i].isna()
+
+        #     elif args.impute_strategy == "ffill":
+        #         # Fill missing values using forward fill
+        #         episode = episode.ffill()
+        #         episode = episode.bfill()
+        #         # for remaining null values use -999
+        #         episode = episode.fillna(-999)
+
+        #     elif args.impute_strategy == "mean":
+        #         mean_map = get_pop_means(args.subjects_root_path)
+        #         episode = episode.fillna(mean_map)
+
+        #     else:
+        #         raise ValueError(
+        #             "impute_strategy must be one of [None, mask, ffill, mean]"
+        #         )
+
         # set index of episode as the time elapsed since ED intime
-        episode = (
-            add_hours_elapsed_to_events(episode, intime)
-            .set_index("hours")
-            .sort_index(axis=0)
-        )
+        episode = add_hours_elapsed_to_events(episode, intime).sort(by="hours")
 
-        # Drop rows with negative "hours"
-        episode = episode[episode.index > 0]
-
-        # round everything to 1.dp
-        episode = episode.round(1)
-
-        # note some stay_id = -1 but this file is just for linking to static variables and can be linked via hadm_id instead
-        episodic_data.loc[episodic_data.index == stay_id].to_csv(
-            os.path.join(output_dir, subject_dir, f"episode{n+1}.csv"),
-            index_label="stay_id",
-        )
-
-        columns_str = [str(x) for x in list(episode.columns)]
-        columns_str = map(lambda x: "" if x == "hours" else x, columns_str)
-        sorted_indices = [
-            i[0] for i in sorted(enumerate(columns_str), key=lambda x: x[1])
-        ]
-
-        episode = episode[[episode.columns[i] for i in sorted_indices]]
-
-        episode.to_csv(
+        episode = episode.select(["hours"] + feature_names)
+        episode.collect().write_csv(
             os.path.join(output_dir, subject_dir, f"episode{n+1}_timeseries.csv"),
-            index_label="hours",
         )
 
         # add to counter once data has been written to disk
