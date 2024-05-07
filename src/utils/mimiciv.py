@@ -12,7 +12,7 @@ def read_patients_table(mimic4_path, use_lazy=False):
     pats = pl.read_csv(
         os.path.join(mimic4_path, "patients.csv.gz"),
         columns=["subject_id", "gender", "anchor_age", "anchor_year", "dod"],
-        dtypes=[pl.UInt64, pl.String, pl.UInt64, pl.UInt64, pl.Datetime],
+        dtypes=[pl.Int64, pl.String, pl.Int64, pl.Int64, pl.Datetime],
     )
     return pats.lazy() if use_lazy else pats
 
@@ -20,7 +20,7 @@ def read_patients_table(mimic4_path, use_lazy=False):
 def read_omr_table(mimic4_path, use_lazy=False):
     omr = pl.read_csv(
         os.path.join(mimic4_path, "omr.csv.gz"),
-        dtypes=[pl.UInt64, pl.Datetime, pl.UInt64, pl.String, pl.String],
+        dtypes=[pl.Int64, pl.Datetime, pl.Int64, pl.String, pl.String],
     )
     return omr.lazy() if use_lazy else omr
 
@@ -40,15 +40,15 @@ def read_admissions_table(mimic4_path, use_lazy=False):
             "hospital_expire_flag",
         ],
         dtypes=[
-            pl.UInt64,
-            pl.UInt64,
+            pl.Int64,
+            pl.Int64,
             pl.Datetime,
             pl.Datetime,
             pl.Datetime,
             pl.String,
             pl.String,
             pl.String,
-            pl.UInt64,
+            pl.Int64,
         ],
     )
     admits = admits.with_columns(
@@ -68,7 +68,7 @@ def read_stays_table(mimic4_ed_path, use_lazy=False):
             "outtime",
             "disposition",
         ],
-        dtypes=[pl.UInt64, pl.UInt64, pl.UInt64, pl.Datetime, pl.Datetime, pl.String],
+        dtypes=[pl.Int64, pl.Int64, pl.Int64, pl.Datetime, pl.Datetime, pl.String],
     )
     stays = stays.with_columns(
         ((pl.col("outtime") - pl.col("intime")).dt.days()).alias("los_ed")
@@ -80,7 +80,7 @@ def read_icd_diagnoses_table(mimic4_path, use_lazy=False):
     codes = pl.read_csv(os.path.join(mimic4_path, "d_icd_diagnoses.csv.gz"))
     diagnoses = pl.read_csv(
         os.path.join(mimic4_path, "diagnoses_icd.csv.gz"),
-        dtypes=[pl.UInt64, pl.UInt64, pl.UInt64, pl.String, pl.String],
+        dtypes=[pl.Int64, pl.Int64, pl.Int64, pl.String, pl.String],
     )
     diagnoses = diagnoses.merge(
         codes,
@@ -93,7 +93,7 @@ def read_icd_diagnoses_table(mimic4_path, use_lazy=False):
 def read_ed_icd_diagnoses_table(mimic4_ed_path, use_lazy=False):
     diagnoses = pl.read_csv(
         os.path.join(mimic4_ed_path, "diagnosis.csv.gz"),
-        dtypes=[pl.UInt64, pl.UInt64, pl.UInt64, pl.String, pl.UInt64, pl.String],
+        dtypes=[pl.Int64, pl.Int64, pl.Int64, pl.String, pl.Int64, pl.String],
     ).lazy()
     return diagnoses.lazy() if use_lazy else diagnoses
 
@@ -115,11 +115,11 @@ def read_events_table_and_break_up_by_subject(
 
     if "stay_id" not in table_df.columns:
         # add column for stay_id
-        table_df = table_df.with_columns(stay_id=pl.lit(None, dtype=pl.UInt64))
+        table_df = table_df.with_columns(stay_id=pl.lit(None, dtype=pl.Int64))
 
     if "hadm_id" not in table_df.columns:
         # add column for stay_id
-        table_df = table_df.with_columns(hadm_id=pl.lit(None, dtype=pl.UInt64))
+        table_df = table_df.with_columns(hadm_id=pl.lit(None, dtype=pl.Int64))
 
     # if not specified then use all subjects in df
     # if subjects_to_keep is not None:
