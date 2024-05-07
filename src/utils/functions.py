@@ -13,6 +13,21 @@ def get_n_unique_values(df: pl.DataFrame | pl.LazyFrame, use_col="subject_id"):
     )
 
 
+def get_feature_list(subjects_root_path):
+    features = (
+        pl.concat(
+            [
+                pl.scan_csv(f).select(pl.col("label"))
+                for f in glob.glob(os.path.join(subjects_root_path, "*", "events.csv"))
+            ],
+            how="diagonal",
+        )
+        .unique()
+        .collect()
+    )
+    return sorted(features.get_column("label").to_list())
+
+
 def get_pop_means(subjects_root_dir: str, output_dir: str = None) -> dict | None:
     """
 

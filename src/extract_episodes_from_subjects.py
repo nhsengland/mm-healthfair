@@ -43,10 +43,9 @@ parser.add_argument(
     help="File containing list of subjects to include.",
 )
 parser.add_argument(
-    "--impute_strategy",
-    "-i",
+    "--features",
     type=str,
-    help="Which strategy to use to impute missing values in timeseries data.",
+    help="File containing list of feature names to expect.",
 )
 parser.add_argument("--verbose", "-v", action="store_true", help="Verbosity.")
 
@@ -70,6 +69,13 @@ if args.output_dir is None:
 else:
     output_dir = args.output_dir
 
+if args.features is not None:
+    f = open(args.features)
+    feature_names = f.read().splitlines()
+    print(feature_names)
+else:
+    feature_names = None
+
 # If episodes exist then remove and start over
 if len(glob.glob(os.path.join(output_dir, "*", "episode*"))) > 0:
     response = input("Will need to overwrite existing episodes... continue? (y/n)")
@@ -88,26 +94,6 @@ failed_to_read = 0
 filter_by_nb_stays = 0
 filter_by_nb_events = 0
 completed_subjects = 0
-
-
-def get_feature_list():
-    features = (
-        pl.concat(
-            [
-                pl.scan_csv(f).select(pl.col("label"))
-                for f in glob.glob(
-                    os.path.join(args.subjects_root_path, "*", "events.csv")
-                )
-            ],
-            how="diagonal",
-        )
-        .unique()
-        .collect()
-    )
-    return sorted(features.get_column("label").to_list())
-
-
-feature_names = get_feature_list()
 
 for subject_dir in tqdm(subject_list, desc="Iterating over subjects"):
     dn = os.path.join(args.subjects_root_path, subject_dir)
@@ -164,10 +150,14 @@ for subject_dir in tqdm(subject_list, desc="Iterating over subjects"):
     timeseries = convert_events_to_timeseries(events)
 
     # Ensure models have the same number of features
-    missing_cols = [
-        x for x in feature_names if x not in timeseries.first().collect().columns
-    ]
-    timeseries = timeseries.with_columns([pl.lit(None).alias(c) for c in missing_cols])
+    if feature_names is not None:
+        missing_cols = [
+            x for x in feature_names if x not in timeseries.first().collect().columns
+        ]
+        timeseries = timeseries.with_columns(
+            [pl.lit(None).alias(c) for c in missing_cols]
+        )
+
     min_events = 1 if args.min_events is None else args.min_events
     max_events = 1e6 if args.max_events is None else args.max_events
 
@@ -195,9 +185,7 @@ for subject_dir in tqdm(subject_list, desc="Iterating over subjects"):
         )
 
         # get ed events during this specific ed/hosp stay (within certain window of time (optional))
-        episode = get_events_in_period(
-            timeseries, stay_id, hadm_id, intime, dischtime
-        )  # TODO: check
+        episode = get_events_in_period(timeseries, stay_id, hadm_id, intime, dischtime)
 
         if (
             episode.select(pl.col("charttime")).collect().height < min_events
