@@ -1,37 +1,16 @@
 import os
 from glob import glob
 
-import pandas as pd
 import polars as pl
 
 
-def dataframe_from_csv(
-    path: str, header: int = 0, usecols: list | tuple = None
-) -> pd.DataFrame:
-    """
-
-    Read dataframe from csv file with kwargs.
-
-    Args:
-        path (str): Path to csv.
-        header (int, optional): Header row. Defaults to 0.
-        usecols (list | tuple, optional): Columns to use. Defaults to None (reads all).
-
-    Returns:
-        pd.DataFrame: Returns pandas dataframe.
-    """
-    return pd.read_csv(path, header=header, usecols=usecols)
-
-
-def melt_table(table, id_vars: list = None, value_vars: list = None) -> pd.DataFrame:
-    return pd.melt(table, id_vars=id_vars, value_vars=value_vars)
-
-
-def count_rows(table_path) -> int:
-    total_rows = 0
-    for chunk in dataframe_from_csv(table_path, chunksize=1000, usecols=[0]):
-        total_rows += chunk.index.size
-    return total_rows
+def get_n_unique_values(df: pl.DataFrame | pl.LazyFrame, use_col="subject_id"):
+    unique_vals = df.select(use_col).unique()
+    return (
+        len(unique_vals.collect())
+        if type(unique_vals) == pl.LazyFrame
+        else len(unique_vals)
+    )
 
 
 def get_pop_means(subjects_root_dir: str, output_dir: str = None) -> dict | None:
