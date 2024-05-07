@@ -15,23 +15,15 @@ torch = "^2.2.1"
 seaborn = "^0.13.2"
 ipykernel = "^6.29.3"
 pre-commit = "^3.7.0"
-dask = {extras = ["dataframe"], version = "^2024.4.0"}
 tqdm = "^4.66.3"
 toml = "^0.10.2"
-types-toml = "^0.10.8.20240310"
 ruff = "^0.3.5"
-tsfresh = "^0.20.2"
-torchxrayvision = "^1.2.2"
-transformers = "^4.39.3"
-opencv-python = "^4.9.0.80"
-ipywidgets = "^8.1.2"
-imblearn = "^0.0"
-captum = "^0.7.0"
 icd-mappings = "^0.3.8"
-h5py = "^3.11.0"
-tables = "^3.9.2"
 polars = "^0.20.23"
 lightning = "^2.2.4"
+
+[tool.poetry.group.dev.dependencies]
+deptry = "^0.16.1"
 
 [tool.ruff]
 target-version = "py310"
