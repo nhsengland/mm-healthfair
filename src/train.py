@@ -9,30 +9,10 @@ import toml
 import torch
 import torchmetrics
 import utils
+from lightning.pytorch.loggers import WandbLogger
 from models import LSTM
 from sklearn.model_selection import train_test_split
 from torch.utils.data import DataLoader, Dataset
-
-parser = argparse.ArgumentParser()
-parser.add_argument(
-    "subjects_root_dir",
-    type=str,
-    help="Path to the subject-level data",
-)
-# parser.add_argument("train_subjects",
-#                     type=str,
-#                     help="Path to file containing list of train subjects.")
-parser.add_argument(
-    "--config", "-c", type=str, help="Path to config file containing parameters."
-)
-args = parser.parse_args()
-config = toml.load(args.config)
-batch_size = config["data"]["batch_size"]
-n_epochs = config["train"]["epochs"]
-lr = config["train"]["learning_rate"]
-LOS_THRESHOLD = config["threshold"]
-
-L.seed_everything(0)
 
 
 def generate_training_test_subjects(test_ratio=0.15, val_ratio=0.2):
@@ -75,17 +55,14 @@ def collate_rugged_timeseries(batch, method="pad"):
     return events, static, labels
 
 
-# Create subject-level training and validation
-training_subjects, val_subjects, _ = generate_training_test_subjects()
-
-
 class MIMICData(Dataset):
-    def __init__(self, root_dir=None, subjects=None) -> None:
+    def __init__(self, root_dir=None, subjects=None, los_thresh=2) -> None:
         super().__init__()
         self.subjects = subjects
         self.root_dir = root_dir
         self.dynamic_data = []
         self.static_data = []
+        self.los_thresh = los_thresh
 
     def __len__(self):
         return len(self.dynamic_data)
@@ -95,7 +72,7 @@ class MIMICData(Dataset):
         self.static = self.static_data[idx].collect()
 
         self.static = self.static.with_columns(
-            label=pl.when(pl.col("los") > LOS_THRESHOLD).then(1.0).otherwise(0.0)
+            label=pl.when(pl.col("los") > self.los_thresh).then(1.0).otherwise(0.0)
         )
         self.label = self.static.select("label").item()
         self.static = self.static.drop(["label", "los"])
@@ -177,19 +154,6 @@ class MIMICData(Dataset):
         return input_data
 
 
-training_set = MIMICData(args.subjects_root_dir, training_subjects)
-training_set.prepare_data()
-training_dataloader = DataLoader(
-    training_set, batch_size=batch_size, collate_fn=collate_rugged_timeseries
-)
-
-validation_set = MIMICData(args.subjects_root_dir, val_subjects)
-validation_set.prepare_data()
-val_dataloader = DataLoader(
-    validation_set, batch_size=batch_size, collate_fn=collate_rugged_timeseries
-)
-
-
 # define the LightningModule
 class LitLSTM(L.LightningModule):
     def __init__(self, input_dim, hidden_dim, target_size, lr=0.1):
@@ -215,8 +179,8 @@ class LitLSTM(L.LightningModule):
         x_hat = self.net(x)
         loss = self.criterion(x_hat, y)
         accuracy = self.acc(x_hat, y)
-        self.log("val_loss", loss, prog_bar=True)
-        self.log("val_acc", accuracy, prog_bar=True)
+        self.log("val_loss", loss, prog_bar=True, batch_size=len(x))
+        self.log("val_acc", accuracy, prog_bar=True, batch_size=len(x))
         return loss
 
     def configure_optimizers(self):
@@ -224,10 +188,67 @@ class LitLSTM(L.LightningModule):
         return optimizer
 
 
-lstm = LitLSTM(input_dim=15, hidden_dim=256, target_size=1, lr=lr)
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "subjects_root_dir",
+        type=str,
+        help="Path to the subject-level data",
+    )
+    # parser.add_argument("train_subjects",
+    #                     type=str,
+    #                     help="Path to file containing list of train subjects.")
+    parser.add_argument(
+        "--config", "-c", type=str, help="Path to config file containing parameters."
+    )
+    args = parser.parse_args()
+    config = toml.load(args.config)
+    batch_size = config["data"]["batch_size"]
+    n_epochs = config["train"]["epochs"]
+    lr = config["train"]["learning_rate"]
+    num_workers = config["data"]["num_workers"]
+    los_threshold = config["threshold"]
+    exp_name = config["train"]["experiment_name"]
 
-# trainer
-trainer = L.Trainer(limit_train_batches=100, max_epochs=n_epochs)
-trainer.fit(
-    model=lstm, train_dataloaders=training_dataloader, val_dataloaders=val_dataloader
-)
+    L.seed_everything(0)
+
+    # Create subject-level training and validation
+    training_subjects, val_subjects, _ = generate_training_test_subjects()
+
+    training_set = MIMICData(
+        args.subjects_root_dir, training_subjects, los_thresh=los_threshold
+    )
+    training_set.prepare_data()
+    training_dataloader = DataLoader(
+        training_set,
+        batch_size=batch_size,
+        num_workers=num_workers,
+        collate_fn=collate_rugged_timeseries,
+    )
+
+    validation_set = MIMICData(
+        args.subjects_root_dir, val_subjects, los_thresh=los_threshold
+    )
+    validation_set.prepare_data()
+    val_dataloader = DataLoader(
+        validation_set,
+        batch_size=batch_size,
+        num_workers=num_workers,
+        collate_fn=collate_rugged_timeseries,
+    )
+
+    lstm = LitLSTM(input_dim=15, hidden_dim=256, target_size=1, lr=lr)
+
+    # trainer
+    logger = WandbLogger(name=exp_name, log_model=True, save_dir="logs")
+    trainer = L.Trainer(
+        limit_train_batches=100,
+        max_epochs=n_epochs,
+        log_every_n_steps=10,
+        logger=logger,
+    )
+    trainer.fit(
+        model=lstm,
+        train_dataloaders=training_dataloader,
+        val_dataloaders=val_dataloader,
+    )
