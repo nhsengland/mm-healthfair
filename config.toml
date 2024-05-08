@@ -4,9 +4,10 @@ threshold = 2
 [data]
 features = ['labevents', 'vitalsign']
 batch_size = 16
-num_workers = 4
+num_workers = 1
 with_notes = false
 
 [train]
-epochs = 20
+epochs = 10
 learning_rate = 1e-1
+experiment_name = 'milestone'
