@@ -147,7 +147,9 @@ if __name__ == "__main__":
 
     # trainer
     if use_wandb:
-        logger = WandbLogger(log_model=True, save_dir="logs")
+        logger = WandbLogger(
+            log_model=True, project="nhs-mm-healthfair", save_dir="logs"
+        )
     else:
         logger = CSVLogger("logs")
 
