@@ -279,6 +279,8 @@ if __name__ == "__main__":
                 "Trying to impute missing hadm_ids using join: see https://mimic.mit.edu/docs/iv/modules/hosp/labevents/..."
             )
             # use admissions table to impute missing hadm_ids based on charttime
+            if args.lazy:
+                admits = admits.collect()
             events = m4c.get_hadm_id_from_admits(events, admits)
 
         if os.path.exists(os.path.join(args.output_path, "events.csv")):
