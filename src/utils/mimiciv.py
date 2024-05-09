@@ -98,17 +98,16 @@ def read_ed_icd_diagnoses_table(mimic4_ed_path, use_lazy=False):
     return diagnoses.lazy() if use_lazy else diagnoses
 
 
-def read_events_table_and_break_up_by_subject(
-    table_path,
+def read_events_table(
     table,
-    output_path,
-    items_to_keep=None,
-    subjects_to_keep=None,
-    mimic4_path=None,
+    mimic4_dir,
+    include_items=None,
+    include_subjects=None,
 ):
     #  Load in csv using polars lazy API (requires table to be in csv format)
-    print(f"Reading {table} table...")
-    table_df = pl.scan_csv(table_path)
+    table_df = pl.scan_csv(
+        os.path.join(mimic4_dir, f"{table}.csv"), try_parse_dates=True
+    )
 
     # add column for linksto
     table_df = table_df.with_columns(linksto=pl.lit(table))
@@ -121,19 +120,10 @@ def read_events_table_and_break_up_by_subject(
         # add column for stay_id
         table_df = table_df.with_columns(hadm_id=pl.lit(None, dtype=pl.Int64))
 
-    # if not specified then use all subjects in df
-    # if subjects_to_keep is not None:
-    #     subjects_to_keep = (
-    #         table_df.unique(subset="subject_id")
-    #         .collect()
-    #         .get_column("subject_id")
-    #         .to_list()
-    #     )
-
     # labevents only
     if table == "labevents":
         d_items = (
-            pl.read_csv(os.path.join(mimic4_path, "d_labitems.csv.gz"))
+            pl.read_csv(os.path.join(mimic4_dir, "d_labitems.csv.gz"))
             .lazy()
             .select(["itemid", "label"])
         )
@@ -141,8 +131,8 @@ def read_events_table_and_break_up_by_subject(
         # merge labitem id's with dict
         table_df = table_df.join(d_items, on="itemid")
 
-        if items_to_keep is not None:
-            table_df = table_df.filter(pl.col("itemid").is_in(set(items_to_keep)))
+        if include_items is not None:
+            table_df = table_df.filter(pl.col("itemid").is_in(set(include_items)))
 
     # for vitalsign need to read/adapt column values
     elif table == "vitalsign":
@@ -190,31 +180,18 @@ def read_events_table_and_break_up_by_subject(
             "hadm_id",
             "stay_id",
             "charttime",
-            "itemid",
             "value",
             "valueuom",
             "label",
             "linksto",
         ]
-    ).collect(streaming=True)
+    )
 
-    # write events to subject-level directories
-    # loop over subjects by filtering df, extracting all events/items and writing to events.csv
-    for subject in tqdm(subjects_to_keep, desc=f"Processing {table} table"):
-        events = table_df.filter(pl.col("subject_id") == subject)
+    # Filter by subjects
+    if include_subjects is not None:
+        table_df = table_df.filter(pl.col("subject_id").is_in(include_subjects))
 
-        subject_fp = os.path.join(output_path, str(subject), "events.csv")
-
-        # write all events to a subject-level dir
-        if not os.path.isdir(os.path.join(output_path, str(subject))):
-            os.makedirs(os.path.join(output_path, str(subject)))
-
-        if os.path.exists(subject_fp):
-            # append to csv if already exists e.g., from another events table
-            with open(subject_fp, "a") as output_file:
-                output_file.write(events.write_csv(include_header=False))
-        else:
-            events.write_csv(file=subject_fp, include_header=True)
+    return table_df.collect(streaming=True)
 
 
 def convert_icd9_to_icd10(diagnoses_df, keep_original=True):
@@ -272,20 +249,6 @@ def merge_on_subject_stay_admission(table1, table2, suffixes=("_x", "_y")):
         on=["subject_id", "hadm_id", "stay_id"],
         suffixes=suffixes,
     )
-
-
-# unlikely that age will change by more than 3 years between ED and admission to hospital so not using this function
-
-# def add_age_to_stays(stays):
-#     stays["age"] = stays.apply(
-#         lambda e: (
-#             (e["admittime"].to_pydatetime().year - e["anchor_year"]) // 3
-#             + e["anchor_age"]
-#         ),
-#         axis=1,
-#     )  # increases age every 3 years based on time elapsed between admission year and birth year
-#     stays.loc[stays.age < 0, "age"] = 91  # set negatives as max age
-#     return stays
 
 
 def add_omr_variable_to_stays(stays, omr, variable, tolerance=None):
@@ -373,28 +336,34 @@ def add_inhospital_mortality_to_stays(stays):
     return stays
 
 
-# not used, if died in ED not considered
-def add_ined_mortality_to_stays(stays):
-    stays = stays.with_columns(
-        (
-            pl.col("dod").is_not_null()
-            & (
-                (pl.col("inttime") <= pl.col("dod"))
-                & (pl.col("outtime") >= pl.col("dod"))
-            )
-        )
-        | (
-            pl.col("deathtime").is_not_null()
-            & (
-                (pl.col("inttime") <= pl.col("deathtime"))
-                & (pl.col("outtime") >= pl.col("deathtime"))
-            )
-        )
-        .cast(pl.UInt8)
-        .alias("mortality_ined")
+def get_hadm_id_from_admits(events, admits):
+    # get the hadm_id and admission/discharge time window
+    admits = admits.select(["subject_id", "hadm_id", "admittime", "dischtime"])
+
+    # for each charted event, join with subject-level admissions
+    data = events.select(["charttime", "label", "subject_id"]).join(
+        admits, how="inner", on="subject_id"
     )
 
-    return stays
+    # filter by whether charttime is between admittime and dischtime
+    data = data.filter(pl.col("charttime").is_between("admittime", "dischtime")).select(
+        ["subject_id", "hadm_id", "charttime", "label"]
+    )
+
+    # now add hadm_id to df by charttime and subject_id
+    events = events.join(
+        data.unique(["subject_id", "hadm_id", "charttime", "label"]),
+        on=["subject_id", "label", "charttime"],
+        how="left",
+    )
+
+    # fill missing values where possible
+    events = events.with_columns(
+        hadm_id=pl.when(pl.col("hadm_id").is_null())
+        .then(pl.col("hadm_id_right"))
+        .otherwise(pl.col("hadm_id"))
+    ).drop("hadm_id_right")
+    return events
 
 
 def filter_admissions_on_nb_stays(stays, min_nb_stays=1, max_nb_stays=1):

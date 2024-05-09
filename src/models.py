@@ -1,10 +1,13 @@
 # LSTM Model for time-series data embedding
 
+import lightning as L
 import torch
 import torch.nn.functional as F
+import torchmetrics
 from torch import bmm, nn, tanh
 
 
+# nn.Modules
 class LSTM(nn.Module):
     def __init__(self, input_dim, hidden_dim, target_size):
         super().__init__()
@@ -96,38 +99,35 @@ class AttentionLSTMWithMasking(nn.Module):
         return context_vector, hidden
 
 
-# Example usage
-# input_size = 10  # Dimensionality of input features
-# hidden_size = 32  # Dimensionality of hidden state
-# num_layers = 2  # Number of LSTM layers
-# attention_size = 16  # Size of attention mechanism
+# lightning.LightningModules
+class LitLSTM(L.LightningModule):
+    def __init__(self, input_dim, hidden_dim, target_size, lr=0.1):
+        super().__init__()
+        self.net = LSTM(input_dim, hidden_dim, target_size)
+        self.criterion = torch.nn.BCEWithLogitsLoss()
+        self.lr = lr
+        self.acc = torchmetrics.Accuracy(task="binary")
 
-# # Create an instance of the AttentionLSTMWithMasking model
-# model = AttentionLSTMWithMasking(input_size, hidden_size, num_layers, attention_size)
+    def training_step(self, batch, batch_idx):
+        # training_step defines the train loop.
+        # it is independent of forward
+        x, _, y = batch
+        x_hat = self.net(x)
+        loss = self.criterion(x_hat, y)
+        accuracy = self.acc(x_hat, y)
+        self.log("train_loss", loss, prog_bar=True)
+        self.log("train_acc", accuracy, prog_bar=True)
+        return loss
 
-# # Example input data and lengths (variable-length sequences)
-# input_data = torch.randn(5, 10, input_size)  # Batch size x Sequence length x Input size
-# # Introduce missing values
-# input_data[2, 5:8, :] = float('nan')
-# lengths = [10, 9, 5, 7, 6]  # Lengths of each sequence in the batch
+    def validation_step(self, batch, batch_idx):
+        x, _, y = batch
+        x_hat = self.net(x)
+        loss = self.criterion(x_hat, y)
+        accuracy = self.acc(x_hat, y)
+        self.log("val_loss", loss, prog_bar=True, batch_size=len(x))
+        self.log("val_acc", accuracy, prog_bar=True, batch_size=len(x))
+        return loss
 
-# # Forward pass
-# context_vector, hidden = model(input_data, lengths)
-# print("Output shape:", context_vector.shape)  # Shape: (batch_size, hidden_size)
-
-# Example usage
-# input_size = 10  # Dimensionality of input features
-# hidden_size = 32  # Dimensionality of hidden state
-# num_layers = 2  # Number of LSTM layers
-# attention_size = 16  # Size of attention mechanism
-
-# # Create an instance of the AttentionLSTM model
-# model = AttentionLSTM(input_size, hidden_size, num_layers, attention_size)
-
-# # Example input data and lengths (variable-length sequences)
-# input_data = torch.randn(5, 10, input_size)  # Batch size x Sequence length x Input size
-# lengths = [10, 9, 8, 7, 6]  # Lengths of each sequence in the batch
-
-# # Forward pass
-# context_vector, hidden = model(input_data, lengths)
-# print("Output shape:", context_vector.shape)  # Shape: (batch_size, hidden_size)
+    def configure_optimizers(self):
+        optimizer = torch.optim.SGD(self.parameters(), lr=self.lr)
+        return optimizer
