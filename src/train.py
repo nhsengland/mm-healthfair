@@ -6,7 +6,7 @@ import numpy as np
 import polars as pl
 import toml
 import torch
-from lightning.pytorch.loggers import WandbLogger
+from lightning.pytorch.loggers import CSVLogger, WandbLogger
 from models import LitLSTM
 from sklearn.model_selection import train_test_split
 from torch.utils.data import DataLoader, Dataset
@@ -102,8 +102,20 @@ if __name__ == "__main__":
         default="config.toml",
         help="Path to config toml file containing parameters.",
     )
+    parser.add_argument(
+        "--cpu", action="store_true", help="Whether to use cpu. Defaults to gpu"
+    )
+    parser.add_argument(
+        "--wandb",
+        action="store_true",
+        help="Whether to use wandb for logging. Defaults to False",
+    )
     args = parser.parse_args()
+
     config = toml.load(args.config)
+    device = "gpu" if not args.cpu else "cpu"
+    use_wandb = args.wandb
+
     batch_size = config["data"]["batch_size"]
     n_epochs = config["train"]["epochs"]
     lr = config["train"]["learning_rate"]
@@ -134,12 +146,17 @@ if __name__ == "__main__":
     lstm = LitLSTM(input_dim=16, hidden_dim=256, target_size=1, lr=lr)
 
     # trainer
-    logger = WandbLogger(name=exp_name, save_dir="logs", offline=True)
+    if use_wandb:
+        logger = WandbLogger(log_model=True, save_dir="logs")
+    else:
+        logger = CSVLogger("logs")
+
     trainer = L.Trainer(
         limit_train_batches=100,
         max_epochs=n_epochs,
         log_every_n_steps=10,
         logger=logger,
+        accelerator=device,
     )
     trainer.fit(
         model=lstm,
