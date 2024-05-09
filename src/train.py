@@ -9,7 +9,7 @@ import toml
 import torch
 import torchmetrics
 import utils
-from lightning.pytorch.loggers import WandbLogger, CSVLogger
+from lightning.pytorch.loggers import CSVLogger, WandbLogger
 from models import LSTM
 from sklearn.model_selection import train_test_split
 from torch.utils.data import DataLoader, Dataset
