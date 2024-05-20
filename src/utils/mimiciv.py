@@ -71,7 +71,7 @@ def read_stays_table(mimic4_ed_path, use_lazy=False):
         dtypes=[pl.Int64, pl.Int64, pl.Int64, pl.Datetime, pl.Datetime, pl.String],
     )
     stays = stays.with_columns(
-        ((pl.col("outtime") - pl.col("intime")).dt.days()).alias("los_ed")
+        ((pl.col("outtime") - pl.col("intime")) / pl.duration(days=1)).alias("los_ed")
     )
     return stays.lazy() if use_lazy else stays
 
