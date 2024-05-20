@@ -1,4 +1,5 @@
 import os
+import pickle
 from glob import glob
 
 import polars as pl
@@ -63,3 +64,29 @@ def get_pop_means(subjects_root_dir: str, output_dir: str = None) -> dict | None
 
     # Or return mapping as a dictionary
     return dict(mean_values.iter_rows())
+
+
+def scale_numeric_features(data, numeric_cols=None, over=None):
+    # Normalise/scale specified cols using MinMax scaling
+    if over is None:
+        scaled = data.select(
+            (pl.col(numeric_cols) - pl.col(numeric_cols).min())
+            / (pl.col(numeric_cols).max() - pl.col(numeric_cols).min())
+        )
+    else:
+        # compute min max of cols over another groupby col e.g., subject_id or label
+        scaled = data.select(
+            (pl.col(numeric_cols) - pl.col(numeric_cols).min())
+            / (pl.col(numeric_cols).max() - pl.col(numeric_cols).min()).over(over)
+        )
+
+    return data.select(pl.col("*").exclude(numeric_cols)).hstack(scaled)
+
+
+def preview_data(path_to_pkl):
+    with open(path_to_pkl, "rb") as f:
+        data_dict = pickle.load(f)
+    example_id = list(data_dict.keys())[-1]
+    print(
+        f"Example data:\n\tStatic: {data_dict[example_id]['static']}\n\tDynamic: {data_dict[example_id]['dynamic']}"
+    )

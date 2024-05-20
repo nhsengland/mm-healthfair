@@ -2,7 +2,7 @@ import numpy as np
 import polars as pl
 
 ###############################
-# Non-time series preprocessing
+# Static data preprocessing
 ###############################
 
 
@@ -63,38 +63,7 @@ def transform_race(race_series):
     return race_series
 
 
-def impute_from_df(
-    impute_to,
-    impute_from,
-    use_col: str = None,
-    key_col: str = None,
-):
-    dict_map = (
-        impute_from.select([key_col, use_col])
-        .collect()
-        .rows_by_key(key=use_col, unique=True)
-    )
-
-    impute_to = impute_to.with_columns(new=pl.col(use_col).replace(dict_map))
-    impute_to = impute_to.with_columns(
-        pl.when(pl.col("hadm_id").is_null())
-        .then(pl.col("new"))
-        .otherwise(pl.col("hadm_id"))
-        .alias(key_col)
-    ).drop("new")
-
-    return impute_to
-
-
-def process_demographic_data(stays, features=None):
-    # TODO: Normalise height, weight and age
-
-    stays = (
-        stays.select(["hadm_id"] + features)
-        .cast({"los": pl.Float64, "los_ed": pl.Float64})
-        .collect()
-    )
-
+def encode_categorical_features(stays):
     stays = transform_gender(stays)
     stays = transform_race(stays)
     stays = transform_marital(stays)
@@ -104,6 +73,11 @@ def process_demographic_data(stays, features=None):
     stays = stays.with_columns(pl.selectors.by_dtype(pl.FLOAT_DTYPES).round(1))
 
     return stays
+
+
+###############################
+# Time-series preprocessing
+###############################
 
 
 def map_itemids_to_variables(events, var_map):
@@ -177,3 +151,26 @@ def get_first_valid_from_timeseries(timeseries, variable):
             loc = np.where(idx)[0][0]
             return timeseries[variable].iloc[loc]
     return np.nan
+
+
+def impute_from_df(
+    impute_to,
+    impute_from,
+    use_col: str = None,
+    key_col: str = None,
+):
+    dict_map = (
+        impute_from.select([key_col, use_col])
+        .collect()
+        .rows_by_key(key=use_col, unique=True)
+    )
+
+    impute_to = impute_to.with_columns(new=pl.col(use_col).replace(dict_map))
+    impute_to = impute_to.with_columns(
+        pl.when(pl.col("hadm_id").is_null())
+        .then(pl.col("new"))
+        .otherwise(pl.col("hadm_id"))
+        .alias(key_col)
+    ).drop("new")
+
+    return impute_to

@@ -6,12 +6,13 @@ import sys
 
 import polars as pl
 from tqdm import tqdm
+from utils.functions import scale_numeric_features
 from utils.preprocessing import (
     add_time_elapsed_to_events,
     clean_events,
     convert_events_to_timeseries,
+    encode_categorical_features,
     impute_from_df,
-    process_demographic_data,
 )
 
 parser = argparse.ArgumentParser(
@@ -73,7 +74,18 @@ static_features = [
     "height",
     "weight",
 ]
-static_data = process_demographic_data(stays, features=static_features)
+
+# Select features of interest only
+static_data = (
+    stays.select(["hadm_id"] + static_features)
+    .cast({"los": pl.Float64, "los_ed": pl.Float64})
+    .collect()
+)
+# Applies min max scaling
+static_data = scale_numeric_features(
+    static_data, numeric_cols=["anchor_age", "height", "weight", "los_ed"]
+)
+static_data = encode_categorical_features(static_data)
 
 # Filter stays by number of stays per subject
 # stays = stays.filter(pl.col("stay_id").count().over('subject_id') >= args.min_stays)
@@ -99,6 +111,9 @@ events = clean_events(events)
 
 # collect events
 events = events.collect(streaming=True)
+
+# scale values
+events = scale_numeric_features(events, ["value"], over="label")
 
 # get all features that appear in events data
 features = sorted(events.unique(subset="label").get_column("label").to_list())
@@ -163,12 +178,12 @@ for stay_events in tqdm(
             timeseries = timeseries.fill_null(strategy=args.impute)
 
             # for remaining null values use -999
-            timeseries = timeseries.fill_null(value=-999)
-            stay_static = stay_static.fill_null(value=-999)
+            timeseries = timeseries.fill_null(value=-1)
+            stay_static = stay_static.fill_null(value=-1)
 
         elif args.impute == "value":
-            timeseries = timeseries.fill_null(value=-999)
-            stay_static = stay_static.fill_null(value=-999)
+            timeseries = timeseries.fill_null(value=-1)
+            stay_static = stay_static.fill_null(value=-1)
 
         else:
             raise ValueError(
