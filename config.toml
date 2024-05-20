@@ -1,5 +1,6 @@
 task = 'los'
 threshold = 2
+fusion_method = 'mag'
 
 [data]
 features = ['labevents', 'vitalsign']
