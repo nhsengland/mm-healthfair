@@ -69,8 +69,8 @@ def encode_categorical_features(stays):
     stays = transform_marital(stays)
     stays = transform_insurance(stays)
 
-    # Round all float values to 1.dp
-    stays = stays.with_columns(pl.selectors.by_dtype(pl.FLOAT_DTYPES).round(1))
+    # apply one-hot encoding to integer columns
+    stays = stays.to_dummies(["gender", "race", "marital_status", "insurance"])
 
     return stays
 
@@ -88,7 +88,7 @@ def clean_events(events):
     # label '__' as null value
     # also converts to 2 d.p. floats
     events = events.with_columns(
-        value=pl.when(pl.col("value").str.contains("_"))
+        value=pl.when(pl.col("value").str.contains("_|<|ERROR"))
         .then(None)
         .otherwise(pl.col("value"))
         .cast(pl.Float64)

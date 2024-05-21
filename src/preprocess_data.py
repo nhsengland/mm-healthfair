@@ -70,7 +70,6 @@ static_features = [
     "insurance",
     "los",
     "los_ed",
-    "mortality",
     "height",
     "weight",
 ]
@@ -146,7 +145,6 @@ for stay_events in tqdm(
 
     # Convert event data to timeseries
     timeseries = convert_events_to_timeseries(stay_events)
-    timeseries = add_time_elapsed_to_events(timeseries)
 
     if (timeseries.shape[0] < min_events) | (timeseries.shape[0] > max_events):
         filter_by_nb_events += 1
@@ -158,11 +156,22 @@ for stay_events in tqdm(
     timeseries = timeseries.with_columns(
         [pl.lit(None, dtype=pl.Float64).alias(c) for c in missing_cols]
     )
+
+    # TODO: Figure out resampling method to make compatible with standard LSTM
+    # Upsample and then downsample to create regular intervals e.g., 2-hours
+    # timeseries = timeseries.upsample(time_column="charttime", every="30m")
+    # print(timeseries)
+    # timeseries = (timeseries.group_by_dynamic(
+    # "charttime",
+    # every="2h",
+    #     ).agg(pl.col(pl.Float64).mean()))
+
+    timeseries = add_time_elapsed_to_events(timeseries)
     timeseries = timeseries.select(["charttime", "elapsed"] + features)
 
     # Impute missing values
     if args.impute is not None:
-        # TODO: Consider using mean value for missing static data
+        # TODO: Consider using mean value for missing static data such as height and weight rather than constant?
 
         if args.impute == "mask":
             # Add new mask columns for whether row is nan or not
@@ -177,7 +186,7 @@ for stay_events in tqdm(
             # Fill missing values using forward fill
             timeseries = timeseries.fill_null(strategy=args.impute)
 
-            # for remaining null values use -999
+            # for remaining null values use fixed value
             timeseries = timeseries.fill_null(value=-1)
             stay_static = stay_static.fill_null(value=-1)
 

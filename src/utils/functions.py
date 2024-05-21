@@ -80,6 +80,8 @@ def scale_numeric_features(data, numeric_cols=None, over=None):
             / (pl.col(numeric_cols).max() - pl.col(numeric_cols).min()).over(over)
         )
 
+    # ensure all scaled features are floats to 1 d.p
+    scaled = scaled.with_columns(pl.all().round(1))
     return data.select(pl.col("*").exclude(numeric_cols)).hstack(scaled)
 
 
