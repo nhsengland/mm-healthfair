@@ -9,10 +9,9 @@ from torch import bmm, nn, tanh
 
 # nn.Modules
 class LSTM(nn.Module):
-    def __init__(self, input_dim, hidden_dim, target_size, with_packed_sequences=False):
+    def __init__(self, input_dim, hidden_dim):
         super().__init__()
         self.lstm = nn.LSTM(input_dim, hidden_dim, batch_first=True)
-        self.with_packed_sequences = with_packed_sequences
 
     def forward(self, input_):
         output, (_, _) = self.lstm(input_)
