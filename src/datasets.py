@@ -9,8 +9,9 @@ from utils.functions import preview_data
 
 
 class CollateTimeSeries:
-    def __init__(self, method="pack_pad") -> None:
+    def __init__(self, method="pack_pad", min_events=None) -> None:
         self.method = method
+        self.min_events = min_events
 
     def __call__(self, batch):
         static = torch.stack([data[0] for data in batch])
@@ -30,29 +31,35 @@ class CollateTimeSeries:
             return static, events, timeseries_lengths, labels
 
         elif self.method == "truncate":
-            # Truncate to minimum num of events in batch
-            min_events = min([data[0].shape[0] for data in batch])
+            # Truncate to minimum num of events in batch/ specified args
+            min_events = (
+                min([data[0].shape[0] for data in batch])
+                if self.min_events is None
+                else self.min_events
+            )
             events = [event[:min_events] for event in events]
             return static, events, labels
 
 
 class MIMIC4Dataset(Dataset):
-    def __init__(self, split=None, data_path=None, los_thresh=2) -> None:
+    def __init__(self, split=None, ids=None, data_path=None, los_thresh=2) -> None:
         super().__init__()
 
         with open(data_path, "rb") as f:
             self.data_dict = pickle.load(f)
 
-        self.hadm_id_list = list(self.data_dict.keys())
+        self.hadm_id_list = list(self.data_dict.keys()) if ids is None else ids
         self.los_thresh = los_thresh
         self.split = split
-        if self.split is not None:
+        if ids is None:
             self.setup_data()
             self.splits = {
                 "train": self.train_ids,
                 "val": self.val_ids,
                 "test": self.test_ids,
             }
+        else:
+            self.splits = {split: ids}
 
     def __len__(self):
         return (
@@ -78,6 +85,9 @@ class MIMIC4Dataset(Dataset):
         self.dynamic = torch.tensor(self.dynamic.to_numpy(), dtype=torch.float32)
 
         return self.static, self.dynamic, self.label
+
+    def get_split_ids(self, split):
+        return self.splits[split]
 
     def setup_data(self, test_ratio=0.15, val_ratio=0.2):
         train_ids, test_ids = train_test_split(self.hadm_id_list, test_size=test_ratio)

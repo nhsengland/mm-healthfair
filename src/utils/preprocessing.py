@@ -104,11 +104,9 @@ def clean_events(events):
     return events
 
 
-def add_time_elapsed_to_events(events, remove_charttime=False):
+def add_time_elapsed_to_events(events, starttime, remove_charttime=False):
     events = events.with_columns(
-        elapsed=(
-            (pl.col("charttime") - pl.col("charttime").first()) / pl.duration(hours=1)
-        ).round(1)
+        elapsed=((pl.col("charttime") - starttime) / pl.duration(hours=1)).round(1)
     )
 
     # reorder columns
@@ -119,6 +117,13 @@ def add_time_elapsed_to_events(events, remove_charttime=False):
 
 
 def convert_events_to_timeseries(events):
+    metadata = (
+        events.select(["charttime", "label", "value", "linksto"])
+        .sort(by=["charttime", "label", "value"])
+        .unique(subset=["charttime"], keep="last")
+        .sort(by="charttime")
+    )
+
     timeseries = (
         events.select(["charttime", "label", "value"])
         .sort(by=["charttime", "label", "value"])
@@ -127,6 +132,10 @@ def convert_events_to_timeseries(events):
     timeseries = timeseries.pivot(
         index="charttime", columns="label", values="value"
     ).sort(by="charttime")
+
+    timeseries = timeseries.join(
+        metadata.select(["charttime", "linksto"]), on="charttime", how="inner"
+    )
     return timeseries
 
 
@@ -151,26 +160,3 @@ def get_first_valid_from_timeseries(timeseries, variable):
             loc = np.where(idx)[0][0]
             return timeseries[variable].iloc[loc]
     return np.nan
-
-
-def impute_from_df(
-    impute_to,
-    impute_from,
-    use_col: str = None,
-    key_col: str = None,
-):
-    dict_map = (
-        impute_from.select([key_col, use_col])
-        .collect()
-        .rows_by_key(key=use_col, unique=True)
-    )
-
-    impute_to = impute_to.with_columns(new=pl.col(use_col).replace(dict_map))
-    impute_to = impute_to.with_columns(
-        pl.when(pl.col("hadm_id").is_null())
-        .then(pl.col("new"))
-        .otherwise(pl.col("hadm_id"))
-        .alias(key_col)
-    ).drop("new")
-
-    return impute_to

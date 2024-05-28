@@ -12,16 +12,15 @@ from utils.preprocessing import (
     clean_events,
     convert_events_to_timeseries,
     encode_categorical_features,
-    impute_from_df,
 )
 
 parser = argparse.ArgumentParser(
-    description="Preprocess data - generates parquet files to use for training."
+    description="Preprocess data - generates pkl file to use for training."
 )
 parser.add_argument(
     "data_path",
     type=str,
-    help="Directory containing processed data, will be used to output processed parquet file.",
+    help="Directory containing processed data, will be used to output processed pkl file.",
 )
 parser.add_argument(
     "--min_events", type=int, default=5, help="Minimum number of events per stay."
@@ -35,6 +34,12 @@ parser.add_argument(
     default=None,
     help="Impute strategy. One of ['forward', 'backward', 'mask', 'value']",
 )
+parser.add_argument(
+    "--max_elapsed",
+    type=int,
+    default=36,
+    help="Max time elapsed from admission (hours). Filters any events that occur after this.",
+)
 
 parser.add_argument("--verbose", "-v", action="store_true", help="Verbosity.")
 
@@ -42,11 +47,11 @@ args = parser.parse_args()
 
 print("PROCESSING DATA...")
 
-# If episodes exist then remove and start over
-if len(glob.glob(os.path.join(args.data_path, "*", "*.parquet"))) > 0:
+# If pkl file exists then remove and start over
+if len(glob.glob(os.path.join(args.data_path, "*", "*.pkl"))) > 0:
     response = input("Will need to overwrite existing data... continue? (y/n)")
     if response == "y":
-        for f in glob.glob(os.path.join(args.data_path, "*", "*.parquet")):
+        for f in glob.glob(os.path.join(args.data_path, "*", "*.pkl")):
             try:
                 os.remove(f)
             except OSError as ex:
@@ -86,24 +91,7 @@ static_data = scale_numeric_features(
 )
 static_data = encode_categorical_features(static_data)
 
-# Filter stays by number of stays per subject
-# stays = stays.filter(pl.col("stay_id").count().over('subject_id') >= args.min_stays)
-
 #### TIMESERIES PREPROCESSING ####
-
-# fill in missing hadm_id from stay table
-events = impute_from_df(events, stays, "stay_id", "hadm_id").cast(
-    {"hadm_id": pl.Int64()}
-)
-
-n_no_identifier = (
-    events.collect()
-    .filter((pl.col.hadm_id.is_null()) & pl.col.stay_id.is_null())
-    .shape[0]
-)
-# if both hadm_id and stay_id still can't be found then drop since data cannot be assigned
-print(f"REMOVING {n_no_identifier} EVENTS WITH NO IDENTIFIER (STAY_ID OR HADM_ID)")
-events = events.drop_nulls(subset="hadm_id").drop("stay_id")
 
 # clean events
 events = clean_events(events)
@@ -113,9 +101,6 @@ events = events.collect(streaming=True)
 
 # scale values
 events = scale_numeric_features(events, ["value"], over="label")
-
-# get all features that appear in events data
-features = sorted(events.unique(subset="label").get_column("label").to_list())
 
 ### CREATE DICTIONARY DATA
 
@@ -129,6 +114,20 @@ max_events = 1e6 if args.max_events is None else int(args.max_events)
 print(f"Imputing missing values using strategy: {args.impute}")
 n = 0
 filter_by_nb_events = 0
+missing_event_src = 0
+
+# get all features expected for each event data source and set sampling freq
+feature_map = {}
+freq = {}
+for src in events.unique("linksto").get_column("linksto").to_list():
+    feature_map[src] = sorted(
+        events.filter(pl.col("linksto") == src)
+        .unique("label")
+        .get_column("label")
+        .to_list()
+    )
+    freq[src] = "30m" if src == "vitalsign" else "5h"
+
 
 for stay_events in tqdm(
     events.partition_by("hadm_id", include_key=True),
@@ -143,74 +142,107 @@ for stay_events in tqdm(
         # skip if not in stays
         continue
 
-    # Convert event data to timeseries
-    timeseries = convert_events_to_timeseries(stay_events)
-
-    if (timeseries.shape[0] < min_events) | (timeseries.shape[0] > max_events):
-        filter_by_nb_events += 1
-        continue
-
-    # Ensure models have the same number of features
-    missing_cols = [x for x in features if x not in timeseries.columns]
-    # create empty columns for missing features
-    timeseries = timeseries.with_columns(
-        [pl.lit(None, dtype=pl.Float64).alias(c) for c in missing_cols]
+    admittime = (
+        stays.filter(pl.col.hadm_id == id_val)
+        .select("admittime")
+        .cast(pl.Datetime)
+        .collect()
+        .item()
     )
 
-    # TODO: Figure out resampling method to make compatible with standard LSTM
-    # Upsample and then downsample to create regular intervals e.g., 2-hours
-    # timeseries = timeseries.upsample(time_column="charttime", every="30m")
-    # print(timeseries)
-    # timeseries = (timeseries.group_by_dynamic(
-    # "charttime",
-    # every="2h",
-    #     ).agg(pl.col(pl.Float64).mean()))
+    # filter if not at least one entry from each event data source
+    if stay_events.n_unique("linksto") < events.n_unique("linksto"):
+        missing_event_src += 1
+        continue
 
-    timeseries = add_time_elapsed_to_events(timeseries)
-    timeseries = timeseries.select(["charttime", "elapsed"] + features)
+    write_data = True
+    data_dict[id_val] = {}
 
-    # Impute missing values
-    if args.impute is not None:
-        # TODO: Consider using mean value for missing static data such as height and weight rather than constant?
+    for i, events_by_src in enumerate(stay_events.partition_by("linksto")):
+        src = events_by_src.select(pl.first("linksto")).item()
 
-        if args.impute == "mask":
-            # Add new mask columns for whether row is nan or not
-            timeseries = timeseries.with_columns(
-                [pl.col(i).is_null().alias(i + "_isna") for i in features]
-            )
-            stay_static = stay_static.with_columns(
-                [pl.col(i).is_null().alias(i + "_isna") for i in static_data.columns]
-            )
+        # Convert event data to timeseries
+        timeseries = convert_events_to_timeseries(events_by_src)
 
-        elif (args.impute == "forward") | (args.impute == "backward"):
-            # Fill missing values using forward fill
-            timeseries = timeseries.fill_null(strategy=args.impute)
+        if (timeseries.shape[0] < min_events) | (timeseries.shape[0] > max_events):
+            filter_by_nb_events += 1
+            write_data = False
+            break
 
-            # for remaining null values use fixed value
-            timeseries = timeseries.fill_null(value=-1)
-            stay_static = stay_static.fill_null(value=-1)
+        features = feature_map[src]
+        # Ensure models have the same number of features
+        missing_cols = [x for x in features if x not in timeseries.columns]
+        # create empty columns for missing features
+        timeseries = timeseries.with_columns(
+            [pl.lit(None, dtype=pl.Float64).alias(c) for c in missing_cols]
+        )
 
-        elif args.impute == "value":
-            timeseries = timeseries.fill_null(value=-1)
-            stay_static = stay_static.fill_null(value=-1)
+        # TODO: Figure out resampling method to make compatible with standard LSTM
+        # Upsample and then downsample to create regular intervals e.g., 2-hours
+        timeseries = timeseries.upsample(time_column="charttime", every="1m").fill_null(
+            strategy="forward"
+        )
 
-        else:
-            raise ValueError(
-                "impute_strategy must be one of [None, mask, value, forward, backward]"
-            )
+        timeseries = timeseries.group_by_dynamic(
+            "charttime",
+            every=freq[src],
+        ).agg(pl.col(pl.Float64).mean())
 
-    # convert data to dict and write to file
-    # TODO: Add notes
-    data_dict[id_val] = {"static": stay_static, "dynamic": timeseries}
-    n += 1
+        timeseries = add_time_elapsed_to_events(timeseries, admittime)
+        # only include first 36 hours
+        timeseries = timeseries.filter(pl.col("elapsed") <= args.max_elapsed)
+
+        timeseries = timeseries.select(["charttime"] + features)
+
+        # Impute missing values
+        if args.impute is not None:
+            # TODO: Consider using mean value for missing static data such as height and weight rather than constant?
+
+            if args.impute == "mask":
+                # Add new mask columns for whether row is nan or not
+                timeseries = timeseries.with_columns(
+                    [pl.col(i).is_null().alias(i + "_isna") for i in features]
+                )
+                stay_static = stay_static.with_columns(
+                    [
+                        pl.col(i).is_null().alias(i + "_isna")
+                        for i in static_data.columns
+                    ]
+                )
+
+            elif (args.impute == "forward") | (args.impute == "backward"):
+                # Fill missing values using forward fill
+                timeseries = timeseries.fill_null(strategy=args.impute)
+
+                # for remaining null values use fixed value
+                timeseries = timeseries.fill_null(value=-1)
+                stay_static = stay_static.fill_null(value=-1)
+
+            elif args.impute == "value":
+                timeseries = timeseries.fill_null(value=-1)
+                stay_static = stay_static.fill_null(value=-1)
+
+            else:
+                raise ValueError(
+                    "impute_strategy must be one of [None, mask, value, forward, backward]"
+                )
+        # convert data to dict and write to file
+        # TODO: Add notes
+        data_dict[id_val][f"dynamic_{i}"] = timeseries
+
+    if write_data:
+        data_dict[id_val]["static"] = stay_static
+        n += 1
+
+    write_data = True
 
 print(f"SUCCESSFULLY PROCESSED DATA FOR {n} STAYS.")
-print(f"SKIPPING {filter_by_nb_events} STAYS DUE TO NUM EVENTS.")
+print(f"SKIPPING {filter_by_nb_events} STAYS DUE TO TOTAL NUM EVENTS.")
+print(f"SKIPPING {missing_event_src} STAYS DUE TO MISSING EVENT SOURCE.")
 
 example_id = list(data_dict.keys())[-1]
-print(
-    f"Example data:\n\tStatic: {data_dict[example_id]['static']}\n\tDynamic: {data_dict[example_id]['dynamic']}"
-)
+print(f"Example data:\n\t{data_dict[example_id]}")
+
 # Save dictionary to disk
 with open(os.path.join(args.data_path, "processed_data.pkl"), "wb") as f:
     pickle.dump(data_dict, f)
