@@ -17,38 +17,57 @@ class CollateTimeSeries:
         static = torch.stack([data[0] for data in batch])
         labels = torch.stack([data[2] for data in batch])
 
+        # number of dynamic timeseries data (note: dynamic is a list of timeseries)
+        n_ts = len(batch[0][1])
+
         if self.method == "pack_pad":
-            # Function to pad batch-wise due to timeseries of different lengths
-            timeseries_lengths = [data[1].shape[0] for data in batch]
-            max_events = max(timeseries_lengths)
-            n_ftrs = batch[0][1].shape[1]
-            events = torch.zeros((len(batch), max_events, n_ftrs))
-            for i in range(len(batch)):
-                j, k = batch[i][1].shape[0], batch[i][1].shape[1]
-                events[i] = torch.concat(
-                    [batch[i][1], torch.zeros((max_events - j, k))]
-                )
-            return static, events, timeseries_lengths, labels
+            dynamic = []
+            lengths = []
+            for ts in range(n_ts):
+                # Function to pad batch-wise due to timeseries of different lengths
+                timeseries_lengths = [data[1][ts].shape[0] for data in batch]
+                max_events = max(timeseries_lengths)
+                n_ftrs = batch[0][1][ts].shape[1]
+                events = torch.zeros((len(batch), max_events, n_ftrs))
+                for i in range(len(batch)):
+                    j, k = batch[i][1][ts].shape[0], batch[i][1][ts].shape[1]
+                    events[i] = torch.concat(
+                        [batch[i][1][ts], torch.zeros((max_events - j, k))]
+                    )
+                dynamic.append(events)
+                lengths.append(timeseries_lengths)
+
+            return static, dynamic, lengths, labels
 
         elif self.method == "truncate":
             # Truncate to minimum num of events in batch/ specified args
-            min_events = (
-                min([data[0].shape[0] for data in batch])
-                if self.min_events is None
-                else self.min_events
-            )
-            events = [event[:min_events] for event in events]
-            return static, events, labels
+
+            dynamic = []
+            n_ts = len(batch[0][1])
+            for ts in range(n_ts):
+                min_events = (
+                    min([data[1][ts].shape[0] for data in batch])
+                    if self.min_events is None
+                    else self.min_events
+                )
+                events = [data[1][ts][:min_events] for data in batch]
+                dynamic.append(events)
+            return static, dynamic, labels
 
 
 class MIMIC4Dataset(Dataset):
-    def __init__(self, split=None, ids=None, data_path=None, los_thresh=2) -> None:
+    def __init__(self, data_path=None, split=None, ids=None, los_thresh=2) -> None:
         super().__init__()
 
         with open(data_path, "rb") as f:
             self.data_dict = pickle.load(f)
 
         self.hadm_id_list = list(self.data_dict.keys()) if ids is None else ids
+        self.dynamic_keys = [
+            key
+            for key in self.data_dict[self.hadm_id_list[0]].keys()
+            if "dynamic" in key
+        ]
         self.los_thresh = los_thresh
         self.split = split
         if ids is None:
@@ -70,7 +89,9 @@ class MIMIC4Dataset(Dataset):
 
     def __getitem__(self, idx):
         hadm_id = self.splits[self.split][idx]
-        self.dynamic = self.data_dict[hadm_id]["dynamic"]  # polars df
+        self.dynamic = [
+            self.data_dict[hadm_id][i] for i in self.dynamic_keys
+        ]  # list of polars df's
         self.static = self.data_dict[hadm_id]["static"]  # polars df
 
         self.static = self.static.with_columns(
@@ -82,9 +103,14 @@ class MIMIC4Dataset(Dataset):
 
         self.static = self.static.drop(["label", "los"])
         self.static = torch.tensor(self.static.to_numpy(), dtype=torch.float32)
-        self.dynamic = torch.tensor(self.dynamic.to_numpy(), dtype=torch.float32)
+        self.dynamic = [
+            torch.tensor(x.to_numpy(), dtype=torch.float32) for x in self.dynamic
+        ]
 
         return self.static, self.dynamic, self.label
+
+    def get_feature_dim(self, key="static"):
+        return self.data_dict[self.hadm_id_list[0]][key].shape[1]
 
     def get_split_ids(self, split):
         return self.splits[split]

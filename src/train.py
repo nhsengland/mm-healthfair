@@ -10,9 +10,9 @@ from torch.utils.data import DataLoader
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        "subjects_root_dir",
+        "data_path",
         type=str,
-        help="Path to the subject-level data",
+        help="Path to the pickled data.",
     )
     parser.add_argument(
         "--config",
@@ -24,6 +24,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--cpu", action="store_true", help="Whether to use cpu. Defaults to gpu"
     )
+    parser.add_argument("--ids", nargs="*", default=None, help="List of ids to use")
     parser.add_argument(
         "--wandb",
         action="store_true",
@@ -45,16 +46,18 @@ if __name__ == "__main__":
 
     L.seed_everything(0)
 
-    # Create subject-level training and validation
+    # TODO: Create subject-level training and validation splits
 
-    # now use torch.nn.utils.rnn.pack_padded_sequence() to pack according to the length
-    # events = torch.nn.utils.rnn.pack_padded_sequence(
-    #     events, timeseries_lengths, batch_first=True, enforce_sorted=False
-    # )
+    training_set = MIMIC4Dataset(args.data_path, "train", los_thresh=los_threshold)
 
-    training_set = MIMIC4Dataset(
-        "train", args.subjects_root_dir, los_thresh=los_threshold
+    n_static_features = (
+        training_set.get_feature_dim() - 1
+    )  # -1 since extracting label from static data and dropping los column
+    n_dynamic_features = (
+        training_set.get_feature_dim("dynamic_0"),
+        training_set.get_feature_dim("dynamic_1"),
     )
+
     training_dataloader = DataLoader(
         training_set,
         batch_size=batch_size,
@@ -62,9 +65,7 @@ if __name__ == "__main__":
         collate_fn=CollateTimeSeries(),
     )
 
-    validation_set = MIMIC4Dataset(
-        "val", args.subjects_root_dir, los_thresh=los_threshold
-    )
+    validation_set = MIMIC4Dataset(args.data_path, "val", los_thresh=los_threshold)
     val_dataloader = DataLoader(
         validation_set,
         batch_size=batch_size,
@@ -72,8 +73,12 @@ if __name__ == "__main__":
         collate_fn=CollateTimeSeries(),
     )
 
-    # model = LitLSTM(input_dim=16, hidden_dim=256, target_size=1, lr=lr, with_packed_sequences=True)
-    model = MMModel(with_packed_sequences=True, fusion_method=fusion_method)
+    model = MMModel(
+        st_input_dim=n_static_features,
+        ts_input_dim=n_dynamic_features,
+        with_packed_sequences=True,
+        fusion_method=fusion_method,
+    )
 
     # trainer
     if use_wandb:

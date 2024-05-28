@@ -252,3 +252,45 @@ print(f"Example data:\n\t{data_dict[example_id]}")
 # Save dictionary to disk
 with open(os.path.join(args.data_path, "processed_data.pkl"), "wb") as f:
     pickle.dump(data_dict, f)
+
+# Generate subject-level train test split for the stays
+print("Generating training and test split...")
+stay_ids = list(data_dict.keys())
+subject_ids = (
+    stays.select(["hadm_id", "subject_id"])
+    .filter(pl.col("hadm_id").is_in(stay_ids))
+    .unique(subset="subject_id", keep="last")
+    .collect()
+)
+train_subject_ids = (
+    subject_ids.sample(fraction=0.8, shuffle=True, seed=0)
+    .get_column("subject_id")
+    .to_list()
+)  # 80% of subjects for training
+train_ids = (
+    stays.select(["hadm_id", "subject_id"])
+    .filter(pl.col.subject_id.is_in(train_subject_ids))
+    .collect()
+    .get_column("hadm_id")
+)
+test_ids = subject_ids.filter(~pl.col.hadm_id.is_in(train_ids.to_list())).get_column(
+    "hadm_id"
+)  # remaining subjects' stays are test set
+
+train_ids = train_ids.cast(pl.String).to_list()
+test_ids = test_ids.cast(pl.String).to_list()
+
+# Using "with open" syntax to automatically close the file
+with open(os.path.join(args.data_path, "training_ids.txt"), "w") as file:
+    # Join the list elements into a single string with a newline character
+    data_to_write = "\n".join(train_ids)
+    # Write the data to the file
+    file.write(data_to_write)
+
+with open(os.path.join(args.data_path, "test_ids.txt"), "w") as file:
+    # Join the list elements into a single string with a newline character
+    data_to_write = "\n".join(test_ids)
+    # Write the data to the file
+    file.write(data_to_write)
+
+print("Finished.")

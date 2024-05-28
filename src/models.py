@@ -130,27 +130,33 @@ class Gate(nn.Module):
 class MMModel(L.LightningModule):
     def __init__(
         self,
-        st_input_dim=9,
+        st_input_dim=18,
         st_embed_dim=256,
-        ts_input_dim=16,
+        ts_input_dim=(9, 7),
         ts_embed_dim=256,
+        num_ts=2,
         target_size=1,
         lr=0.1,
         fusion_method="concat",
         with_packed_sequences=False,
     ):
         super().__init__()
-        self.embed_timeseries = LSTM(
-            ts_input_dim,
-            ts_embed_dim,
-            target_size,
-            with_packed_sequences=with_packed_sequences,
+        self.num_ts = num_ts
+        self.embed_timeseries = nn.ModuleList(
+            [
+                LSTM(
+                    ts_input_dim[i],
+                    ts_embed_dim,
+                )
+                for i in range(self.num_ts)
+            ]
         )
+
         self.embed_static = nn.Linear(st_input_dim, st_embed_dim)
 
         self.fusion_method = fusion_method
         if self.fusion_method == "mag":
-            self.fuse = Gate(st_embed_dim, ts_embed_dim, dropout=0.1)
+            self.fuse = Gate(st_embed_dim, *([ts_embed_dim] * self.num_ts), dropout=0.1)
             self.fc = nn.Linear(st_embed_dim, target_size)
 
         elif self.fusion_method == "concat":
@@ -166,28 +172,36 @@ class MMModel(L.LightningModule):
     def prepare_batch(self, batch):
         if self.with_packed_sequences:
             s, d, l, y = batch  # static, dynamic, lengths, labels  # noqa: E741
-            d = torch.nn.utils.rnn.pack_padded_sequence(
-                d, l, batch_first=True, enforce_sorted=False
-            )
         else:
             s, d, y = batch
 
-        ts_embed = self.embed_timeseries(d)
-        #  unpack if using packed sequences
-        if self.with_packed_sequences:
-            ts_embed, _ = torch.nn.utils.rnn.pad_packed_sequence(
-                ts_embed, batch_first=True
-            )
+        ts_embed = []
+        for i in range(self.num_ts):
+            if self.with_packed_sequences:
+                packed_d = torch.nn.utils.rnn.pack_padded_sequence(
+                    d[i], l[i], batch_first=True, enforce_sorted=False
+                )
+                embed = self.embed_timeseries[i](packed_d)
+            else:
+                embed = self.embed_timeseries[i](d[i])
 
-        ts_embed = ts_embed[:, -1].unsqueeze(1)
+            #  unpack if using packed sequences
+            if self.with_packed_sequences:
+                embed, _ = torch.nn.utils.rnn.pad_packed_sequence(
+                    embed, batch_first=True
+                )
+
+            ts_embed.append(embed[:, -1].unsqueeze(1))
+
         st_embed = self.embed_static(s)
 
         # Fuse time-series and static data
         if self.fusion_method == "concat":
+            # use * to allow variable number of ts_embeddings
             # concat along feature dim
-            out = torch.concat([ts_embed, st_embed], dim=-1).squeeze()  # b x dim*2
+            out = torch.concat([st_embed, *ts_embed], dim=-1).squeeze()  # b x dim*2
         elif self.fusion_method == "mag":
-            out = self.fuse(st_embed, ts_embed)  # b x st_embed_dim
+            out = self.fuse(st_embed, *ts_embed)  # b x st_embed_dim
 
         # Parse through FC + sigmoid layer
         logits = self.fc(out)  # b x 1
