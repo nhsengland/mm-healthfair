@@ -196,7 +196,7 @@ for stay_events in tqdm(
         # only include first 36 hours
         timeseries = timeseries.filter(pl.col("elapsed") <= args.max_elapsed)
 
-        timeseries = timeseries.select(["charttime"] + features)
+        timeseries = timeseries.select(features)
 
         # Impute missing values
         if args.impute is not None:
