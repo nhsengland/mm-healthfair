@@ -8,7 +8,7 @@ import polars as pl
 from tqdm import tqdm
 
 import utils.mimiciv as m4c
-from utils.functions import get_n_unique_values
+from utils.functions import get_n_unique_values, impute_from_df
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Extract data from MIMIC-IV v2.2.")
@@ -41,7 +41,7 @@ if __name__ == "__main__":
         "-v",
         dest="verbose",
         action="store_true",
-        default=True,
+        default=False,
         help="Control verbosity. If true, will make more .collect() calls to compute dataset size.",
     )
     parser.add_argument(
@@ -234,12 +234,11 @@ if __name__ == "__main__":
                 f"SELECTING {mode.upper()} SAMPLE OF {args.sample} {'SUBJECTS' if args.stratify_level == 'subject' else 'STAYS'}:\n\tSTAY_IDs: {get_n_unique_values(stays, 'stay_id')}\n\tHADM_IDs: {get_n_unique_values(stays, 'hadm_id')}\n\tSUBJECT_IDs: {get_n_unique_values(stays)}"
             )
 
+    # Filter stays by number of stays per subject e.g., 1 per subject
+    # stays = stays.filter(pl.col("stay_id").count().over('subject_id') < args.max_stays)
+
     # Write all stays
     stays.write_csv(os.path.join(args.output_path, "stays.csv"))
-
-    # Break up into subject-level stays
-    subjects = stays.unique(subset="subject_id").get_column("subject_id").to_list()
-    # m4c.break_up_stays_by_subject(stays, args.output_path, subjects=subjects)
 
     items = (
         set(
@@ -254,9 +253,7 @@ if __name__ == "__main__":
     )
 
     for table in tqdm(
-        args.event_tables,
-        desc="Processing events tables...",
-        total=len(args.event_tables),
+        args.event_tables, desc="Reading events tables...", total=len(args.event_tables)
     ):
         mimic_dir = mimic4_path if table == "labevents" else mimic4_ed_path
 
@@ -271,18 +268,59 @@ if __name__ == "__main__":
             table,
             mimic_dir,
             include_items=items,
-            include_subjects=subjects,
         )
 
         if table == "labevents":
             print(
-                "Trying to impute missing hadm_ids using join: see https://mimic.mit.edu/docs/iv/modules/hosp/labevents/..."
+                "Trying to impute missing hadm_ids using join: see https://mimic.mit.edu/docs/iv/modules/hosp/labevents/"
             )
             # use admissions table to impute missing hadm_ids based on charttime
-            if args.lazy:
-                admits = admits.collect()
+            if not args.lazy:
+                admits = admits.lazy()
             events = m4c.get_hadm_id_from_admits(events, admits)
 
+        elif table == "vitalsign":
+            # fill in missing hadm_id using stay_id based on stays
+            events = impute_from_df(events, stays, "stay_id", "hadm_id")
+
+        if args.verbose:
+            print(
+                f"{table.upper()}:\n\tHADM_IDs: {get_n_unique_values(events, 'hadm_id')}\n\tTOTAL EVENTS: {events.collect(streaming=True).height}\n\tSUBJECT_IDs: {get_n_unique_values(events)}"
+            )
+
+        # Filter by subject_id from stays of interest
+        events = events.filter(
+            pl.col("subject_id").is_in(
+                stays.unique(subset="subject_id").get_column("subject_id").to_list()
+            )
+        )
+
+        if args.verbose:
+            print(
+                f"FILTER BY SUBJECT ID:\n\tHADM_IDs: {get_n_unique_values(events, 'hadm_id')}\n\tTOTAL EVENTS: {events.collect(streaming=True).height}\n\tSUBJECT_IDs: {get_n_unique_values(events)}"
+            )
+
+        # if hadm_id can't be found then drop since data cannot be assigned
+        events = events.drop_nulls(subset="hadm_id")
+
+        if args.verbose:
+            print(
+                f"REMOVE EVENTS WITH MISSING HADM_ID:\n\tHADM_IDs: {get_n_unique_values(events, 'hadm_id')}\n\tTOTAL EVENTS: {events.collect(streaming=True).height}\n\tSUBJECT_IDs: {get_n_unique_values(events)}"
+            )
+
+        # Filter events by hadm_id in stays table (only include relevant events)
+        events = events.filter(
+            pl.col("hadm_id").is_in(stays.get_column("hadm_id").to_list())
+        )
+
+        if args.verbose:
+            print(
+                f"FILTER BY STAY HADM_IDs:\n\tHADM_IDs: {get_n_unique_values(events, 'hadm_id')}\n\tTOTAL EVENTS: {events.collect(streaming=True).height}\n\tSUBJECT_IDs: {get_n_unique_values(events)}"
+            )
+        # Collect events
+        events = events.collect(streaming=True)
+
+        # Save to disk
         if os.path.exists(os.path.join(args.output_path, "events.csv")):
             with open(os.path.join(args.output_path, "events.csv"), mode="ab") as f:
                 events.write_csv(f, include_header=False)

@@ -102,7 +102,6 @@ def read_events_table(
     table,
     mimic4_dir,
     include_items=None,
-    include_subjects=None,
 ):
     #  Load in csv using polars lazy API (requires table to be in csv format)
     table_df = pl.scan_csv(
@@ -113,11 +112,11 @@ def read_events_table(
     table_df = table_df.with_columns(linksto=pl.lit(table))
 
     if "stay_id" not in table_df.columns:
-        # add column for stay_id
+        # add column for stay_id if missing
         table_df = table_df.with_columns(stay_id=pl.lit(None, dtype=pl.Int64))
 
     if "hadm_id" not in table_df.columns:
-        # add column for stay_id
+        # add column for hadm_id if missing
         table_df = table_df.with_columns(hadm_id=pl.lit(None, dtype=pl.Int64))
 
     # labevents only
@@ -167,8 +166,7 @@ def read_events_table(
             variable_name="label",
         ).sort(by="charttime")
 
-        # create empty itemid and manually add valueuom
-        table_df = table_df.with_columns(itemid=pl.lit(None))
+        # manually add valueuom
         table_df = table_df.with_columns(
             valueuom=pl.col("label").replace(vitalsign_uom_map)
         )
@@ -185,13 +183,20 @@ def read_events_table(
             "label",
             "linksto",
         ]
+    ).cast(
+        {
+            "subject_id": pl.Int64,
+            "hadm_id": pl.Int64,
+            "stay_id": pl.Int64,
+            "charttime": pl.Datetime,
+            "value": pl.String,
+            "valueuom": pl.String,
+            "label": pl.String,
+            "linksto": pl.String,
+        }
     )
 
-    # Filter by subjects
-    if include_subjects is not None:
-        table_df = table_df.filter(pl.col("subject_id").is_in(include_subjects))
-
-    return table_df.collect(streaming=True)
+    return table_df
 
 
 def convert_icd9_to_icd10(diagnoses_df, keep_original=True):

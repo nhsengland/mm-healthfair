@@ -5,12 +5,33 @@ from glob import glob
 import polars as pl
 
 
+def impute_from_df(
+    impute_to: pl.DataFrame | pl.LazyFrame,
+    impute_from: pl.DataFrame,
+    use_col: str = None,
+    key_col: str = None,
+):
+    dict_map = impute_from.select([key_col, use_col]).rows_by_key(
+        key=use_col, unique=True
+    )
+
+    impute_to = impute_to.with_columns(tmp=pl.col(use_col).replace(dict_map))
+    impute_to = impute_to.with_columns(
+        pl.when(pl.col(key_col).is_null())
+        .then(pl.col("tmp"))
+        .otherwise(pl.col(key_col))
+        .alias(key_col)
+    ).drop("tmp")
+
+    return impute_to
+
+
 def get_n_unique_values(df: pl.DataFrame | pl.LazyFrame, use_col="subject_id"):
     unique_vals = df.select(use_col).unique()
     return (
-        len(unique_vals.collect())
+        unique_vals.count().collect(streaming=True).item()
         if type(unique_vals) == pl.LazyFrame
-        else len(unique_vals)
+        else unique_vals.count().item()
     )
 
 
