@@ -206,7 +206,7 @@ for stay_events in tqdm(
                 stay_static = stay_static.with_columns(
                     [
                         pl.col(i).is_null().alias(i + "_isna")
-                        for i in static_data.columns
+                        for i in stay_static.columns
                     ]
                 )
 
