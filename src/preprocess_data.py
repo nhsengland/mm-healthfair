@@ -85,6 +85,9 @@ static_data = (
     .cast({"los": pl.Float64, "los_ed": pl.Float64})
     .collect()
 )
+
+admittimes = stays.select(["hadm_id", "admittime"]).collect()
+
 # Applies min max scaling
 static_data = scale_numeric_features(
     static_data, numeric_cols=["anchor_age", "height", "weight", "los_ed"]
@@ -109,6 +112,9 @@ data_dict = {}
 # Filter events by number of events per stay
 min_events = 1 if args.min_events is None else int(args.min_events)
 max_events = 1e6 if args.max_events is None else int(args.max_events)
+
+# get number of different event sources
+n_src = events.n_unique("linksto")
 
 # Loop over events per stay to generate a key-data structure
 print(f"Imputing missing values using strategy: {args.impute}")
@@ -143,21 +149,19 @@ for stay_events in tqdm(
         continue
 
     admittime = (
-        stays.filter(pl.col.hadm_id == id_val)
+        admittimes.filter(pl.col.hadm_id == id_val)
         .select("admittime")
         .cast(pl.Datetime)
-        .collect()
         .item()
     )
 
     # filter if not at least one entry from each event data source
-    if stay_events.n_unique("linksto") < events.n_unique("linksto"):
+    if stay_events.n_unique("linksto") < n_src:
         missing_event_src += 1
         continue
 
     write_data = True
-    data_dict[id_val] = {}
-
+    ts_data = []
     for i, events_by_src in enumerate(stay_events.partition_by("linksto")):
         src = events_by_src.select(pl.first("linksto")).item()
 
@@ -226,12 +230,14 @@ for stay_events in tqdm(
                 raise ValueError(
                     "impute_strategy must be one of [None, mask, value, forward, backward]"
                 )
-        # convert data to dict and write to file
         # TODO: Add notes
-        data_dict[id_val][f"dynamic_{i}"] = timeseries
+        ts_data.append(timeseries)
 
     if write_data:
+        data_dict[id_val] = {}
         data_dict[id_val]["static"] = stay_static
+        for i, ts in enumerate(ts_data):
+            data_dict[id_val][f"dynamic_{i}"] = ts
         n += 1
 
     write_data = True
