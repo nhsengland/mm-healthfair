@@ -110,6 +110,4 @@ def preview_data(path_to_pkl):
     with open(path_to_pkl, "rb") as f:
         data_dict = pickle.load(f)
     example_id = list(data_dict.keys())[-1]
-    print(
-        f"Example data:\n\tStatic: {data_dict[example_id]['static']}\n\tDynamic: {data_dict[example_id]['dynamic']}"
-    )
+    print(f"Example data:{data_dict[example_id]}")
