@@ -100,28 +100,30 @@ if __name__ == "__main__":
     stays = m4c.read_stays_table(mimic4_ed_path, use_lazy=args.lazy)
     omr = m4c.read_omr_table(mimic4_path, use_lazy=args.lazy)
 
-    # diagnoses = m4c.read_icd_diagnoses_table(mimic4_path, use_lazy=args.lazy)
-    # ed_diagnoses = m4c.read_ed_icd_diagnoses_table(mimic4_ed_path, use_lazy=args.lazy)
-
     if args.verbose:
         print(
             f"START:\n\tED STAY_IDs: {get_n_unique_values(stays, 'stay_id')}\n\tHADM_IDs: {get_n_unique_values(stays, 'hadm_id')}\n\tSUBJECT_IDs: {get_n_unique_values(stays)}"
         )
 
-    stays = m4c.remove_stays_without_admission(stays)
+    # Remove emergency department stays that do not result in a hospital admission.
+    stays.filter(pl.col("disposition") == "ADMITTED").drop_nulls(subset="hadm_id").drop(
+        "disposition"
+    )
+
     if args.verbose:
         print(
             f"REMOVE ED STAYS WITHOUT ADMISSION:\n\tSTAY_IDs: {get_n_unique_values(stays, 'stay_id')}\n\tHADM_IDs: {get_n_unique_values(stays, 'hadm_id')}\n\tSUBJECT_IDs: {get_n_unique_values(stays)}"
         )
 
     # order matters here ad stays has hadm_id as floats so merge with hadm_id instead
-    stays = m4c.merge_on_subject_admission(admits, stays)
+    stays = admits.join(stays, how="inner", on=["subject_id", "hadm_id"])
 
     # add patient info to admissions data
-    stays = m4c.merge_on_subject(stays, patients)
+    stays = stays.join(patients, how="inner", on="subject_id")
 
     # ensure one ed stay per hospital admission
-    stays = m4c.filter_admissions_on_nb_stays(stays)
+    stays = m4c.filter_on_nb_stays(stays)
+
     if args.verbose:
         print(
             f"REMOVE MULTIPLE ED STAYS PER ADMIT:\n\tSTAY_IDs: {get_n_unique_values(stays, 'stay_id')}\n\tHADM_IDs: {get_n_unique_values(stays, 'hadm_id')}\n\tSUBJECT_IDs: {get_n_unique_values(stays)}"
