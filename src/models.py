@@ -206,6 +206,8 @@ class MMModel(L.LightningModule):
         # Parse through FC + sigmoid layer
         logits = self.fc(out)  # b x 1
         x_hat = F.sigmoid(logits)  # b x 1
+        if len(x_hat.shape) < 2:  # noqa: PLR2004
+            x_hat = x_hat.unsqueeze(0)
         return x_hat, y
 
     def training_step(self, batch, batch_idx):
