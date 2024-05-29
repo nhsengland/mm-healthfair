@@ -46,12 +46,15 @@ if __name__ == "__main__":
     fusion_method = config["fusion_method"]
     exp_name = config["train"]["experiment_name"]
 
-    hadm_ids = read_from_txt(args.ids)
-
     L.seed_everything(0)
 
-    # Create training and validation splits based on hadm_ids
-    train_ids, val_ids = train_test_split(hadm_ids, test_size=0.1)
+    if args.ids is not None:
+        # Create training and validation splits based on hadm_ids
+        hadm_ids = read_from_txt(args.ids)
+        train_ids, val_ids = train_test_split(hadm_ids, test_size=0.1)
+    else:
+        train_ids = None
+        val_ids = None
 
     training_set = MIMIC4Dataset(
         args.data_path, "train", ids=train_ids, los_thresh=los_threshold
