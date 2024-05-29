@@ -216,14 +216,14 @@ for stay_events in tqdm(
 
         # TODO: Figure out resampling method to make compatible with standard LSTM
         # Upsample and then downsample to create regular intervals e.g., 2-hours
-        timeseries = timeseries.upsample(time_column="charttime", every="1m").fill_null(
-            strategy="forward"
-        )
+        timeseries = timeseries.upsample(time_column="charttime", every="1m")
 
         timeseries = timeseries.group_by_dynamic(
             "charttime",
             every=freq[src],
         ).agg(pl.col(pl.Float64).mean())
+
+        timeseries = timeseries.fill_null(strategy="forward")
 
         timeseries = add_time_elapsed_to_events(timeseries, admittime)
         # only include first 36 hours
