@@ -5,7 +5,9 @@ import toml
 from datasets import CollateTimeSeries, MIMIC4Dataset
 from lightning.pytorch.loggers import CSVLogger, WandbLogger
 from models import MMModel
+from sklearn.model_selection import train_test_split
 from torch.utils.data import DataLoader
+from utils.functions import read_from_txt
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -24,7 +26,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--cpu", action="store_true", help="Whether to use cpu. Defaults to gpu"
     )
-    parser.add_argument("--ids", nargs="*", default=None, help="List of ids to use")
+    parser.add_argument("--ids", nargs="?", default=None, help="List of ids to use")
     parser.add_argument(
         "--wandb",
         action="store_true",
@@ -44,11 +46,16 @@ if __name__ == "__main__":
     fusion_method = config["fusion_method"]
     exp_name = config["train"]["experiment_name"]
 
+    hadm_ids = read_from_txt(args.ids)
+
     L.seed_everything(0)
 
-    # TODO: Create subject-level training and validation splits
+    # Create training and validation splits based on hadm_ids
+    train_ids, val_ids = train_test_split(hadm_ids, test_size=0.1)
 
-    training_set = MIMIC4Dataset(args.data_path, "train", los_thresh=los_threshold)
+    training_set = MIMIC4Dataset(
+        args.data_path, "train", ids=train_ids, los_thresh=los_threshold
+    )
 
     n_static_features = (
         training_set.get_feature_dim() - 1
@@ -65,7 +72,9 @@ if __name__ == "__main__":
         collate_fn=CollateTimeSeries(),
     )
 
-    validation_set = MIMIC4Dataset(args.data_path, "val", los_thresh=los_threshold)
+    validation_set = MIMIC4Dataset(
+        args.data_path, "val", ids=val_ids, los_thresh=los_threshold
+    )
     val_dataloader = DataLoader(
         validation_set,
         batch_size=batch_size,

@@ -111,3 +111,9 @@ def preview_data(path_to_pkl):
         data_dict = pickle.load(f)
     example_id = list(data_dict.keys())[-1]
     print(f"Example data:{data_dict[example_id]}")
+
+
+def read_from_txt(filepath):
+    with open(filepath) as f:
+        data = [str(line.strip()) for line in f.readlines()]
+    return data

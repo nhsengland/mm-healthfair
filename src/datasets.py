@@ -65,7 +65,7 @@ class MIMIC4Dataset(Dataset):
         self.hadm_id_list = list(self.data_dict.keys()) if ids is None else ids
         self.dynamic_keys = [
             key
-            for key in self.data_dict[self.hadm_id_list[0]].keys()
+            for key in self.data_dict[int(self.hadm_id_list[0])].keys()
             if "dynamic" in key
         ]
         self.los_thresh = los_thresh
@@ -88,7 +88,7 @@ class MIMIC4Dataset(Dataset):
         )
 
     def __getitem__(self, idx):
-        hadm_id = self.splits[self.split][idx]
+        hadm_id = int(self.splits[self.split][idx])
         self.dynamic = [
             self.data_dict[hadm_id][i] for i in self.dynamic_keys
         ]  # list of polars df's
@@ -110,7 +110,7 @@ class MIMIC4Dataset(Dataset):
         return self.static, self.dynamic, self.label
 
     def get_feature_dim(self, key="static"):
-        return self.data_dict[self.hadm_id_list[0]][key].shape[1]
+        return self.data_dict[int(self.hadm_id_list[0])][key].shape[1]
 
     def get_split_ids(self, split):
         return self.splits[split]
