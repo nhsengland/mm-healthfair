@@ -121,6 +121,7 @@ print(f"Imputing missing values using strategy: {args.impute}")
 n = 0
 filter_by_nb_events = 0
 missing_event_src = 0
+filter_by_elapsed_time = 0
 
 # get all features expected for each event data source and set sampling freq
 feature_map = {}
@@ -226,8 +227,13 @@ for stay_events in tqdm(
         timeseries = timeseries.fill_null(strategy="forward")
 
         timeseries = add_time_elapsed_to_events(timeseries, admittime)
-        # only include first 36 hours
+        # only include first 36 hours - note this could lead to all data being lost so skip if that is the case
         timeseries = timeseries.filter(pl.col("elapsed") <= args.max_elapsed)
+
+        if timeseries.shape[0] == 0:
+            filter_by_elapsed_time += 1
+            write_data = False
+            break
 
         timeseries = timeseries.select(features)
 
@@ -246,6 +252,7 @@ for stay_events in tqdm(
 print(f"SUCCESSFULLY PROCESSED DATA FOR {n} STAYS.")
 print(f"SKIPPING {filter_by_nb_events} STAYS DUE TO TOTAL NUM EVENTS.")
 print(f"SKIPPING {missing_event_src} STAYS DUE TO MISSING EVENT SOURCE.")
+print(f"SKIPPING {filter_by_elapsed_time} STAYS DUE TO FILTER ON ELAPSED TIME.")
 
 example_id = list(data_dict.keys())[-1]
 print(f"Example data:\n\t{data_dict[example_id]}")
