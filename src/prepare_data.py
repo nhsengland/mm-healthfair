@@ -162,7 +162,7 @@ for stay_events in tqdm(
 
     write_data = True
     ts_data = []
-    for i, events_by_src in enumerate(stay_events.partition_by("linksto")):
+    for events_by_src in stay_events.partition_by("linksto"):
         src = events_by_src.select(pl.first("linksto")).item()
 
         # Convert event data to timeseries
@@ -181,23 +181,6 @@ for stay_events in tqdm(
             [pl.lit(None, dtype=pl.Float64).alias(c) for c in missing_cols]
         )
 
-        # TODO: Figure out resampling method to make compatible with standard LSTM
-        # Upsample and then downsample to create regular intervals e.g., 2-hours
-        timeseries = timeseries.upsample(time_column="charttime", every="1m").fill_null(
-            strategy="forward"
-        )
-
-        timeseries = timeseries.group_by_dynamic(
-            "charttime",
-            every=freq[src],
-        ).agg(pl.col(pl.Float64).mean())
-
-        timeseries = add_time_elapsed_to_events(timeseries, admittime)
-        # only include first 36 hours
-        timeseries = timeseries.filter(pl.col("elapsed") <= args.max_elapsed)
-
-        timeseries = timeseries.select(features)
-
         # Impute missing values
         if args.impute is not None:
             # TODO: Consider using mean value for missing static data such as height and weight rather than constant?
@@ -205,12 +188,12 @@ for stay_events in tqdm(
             if args.impute == "mask":
                 # Add new mask columns for whether row is nan or not
                 timeseries = timeseries.with_columns(
-                    [pl.col(i).is_null().alias(i + "_isna") for i in features]
+                    [pl.col(f).is_null().alias(f + "_isna") for f in features]
                 )
                 stay_static = stay_static.with_columns(
                     [
-                        pl.col(i).is_null().alias(i + "_isna")
-                        for i in stay_static.columns
+                        pl.col(f).is_null().alias(f + "_isna")
+                        for f in stay_static.columns
                     ]
                 )
 
@@ -230,14 +213,32 @@ for stay_events in tqdm(
                 raise ValueError(
                     "impute_strategy must be one of [None, mask, value, forward, backward]"
                 )
+
+        # TODO: Figure out resampling method to make compatible with standard LSTM
+        # Upsample and then downsample to create regular intervals e.g., 2-hours
+        timeseries = timeseries.upsample(time_column="charttime", every="1m").fill_null(
+            strategy="forward"
+        )
+
+        timeseries = timeseries.group_by_dynamic(
+            "charttime",
+            every=freq[src],
+        ).agg(pl.col(pl.Float64).mean())
+
+        timeseries = add_time_elapsed_to_events(timeseries, admittime)
+        # only include first 36 hours
+        timeseries = timeseries.filter(pl.col("elapsed") <= args.max_elapsed)
+
+        timeseries = timeseries.select(features)
+
         # TODO: Add notes
         ts_data.append(timeseries)
 
     if write_data:
         data_dict[id_val] = {}
         data_dict[id_val]["static"] = stay_static
-        for i, ts in enumerate(ts_data):
-            data_dict[id_val][f"dynamic_{i}"] = ts
+        for idx, ts in enumerate(ts_data):
+            data_dict[id_val][f"dynamic_{idx}"] = ts
         n += 1
 
     write_data = True
