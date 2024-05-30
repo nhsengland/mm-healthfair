@@ -1,10 +1,8 @@
-# LSTM Model for time-series data embedding
-
 import lightning as L
 import torch
 import torch.nn.functional as F
 import torchmetrics
-from torch import bmm, nn, tanh
+from torch import nn
 
 
 # nn.Modules
@@ -16,84 +14,6 @@ class LSTM(nn.Module):
     def forward(self, input_):
         output, (_, _) = self.lstm(input_)
         return output
-
-
-class AttentionLSTM(nn.Module):
-    def __init__(self, input_size, hidden_size, num_layers, attention_size):
-        super().__init__()
-        self.hidden_size = hidden_size
-        self.num_layers = num_layers
-
-        # LSTM layers
-        self.lstm = nn.LSTM(input_size, hidden_size, num_layers, batch_first=True)
-
-        # Attention mechanism
-        self.attention = nn.Linear(hidden_size, attention_size)
-        self.context_vector = nn.Linear(attention_size, 1, bias=False)
-
-    def forward(self, x, lengths):
-        # Pack the padded sequence
-        packed_input = nn.utils.rnn.pack_padded_sequence(
-            x, lengths, batch_first=True, enforce_sorted=False
-        )
-
-        # LSTM forward pass
-        packed_output, (hidden, _) = self.lstm(packed_input)
-
-        # Unpack the packed sequence
-        padded_output, _ = nn.utils.rnn.pad_packed_sequence(
-            packed_output, batch_first=True
-        )
-
-        # Attention mechanism
-        attention_weights = tanh(self.attention(padded_output))
-        attention_scores = F.softmax(self.context_vector(attention_weights), dim=1)
-        context_vector = bmm(attention_scores.transpose(1, 2), padded_output).squeeze(1)
-
-        return context_vector, hidden
-
-
-class AttentionLSTMWithMasking(nn.Module):
-    def __init__(self, input_size, hidden_size, num_layers, attention_size):
-        super().__init__()
-        self.hidden_size = hidden_size
-        self.num_layers = num_layers
-
-        # LSTM layers
-        self.lstm = nn.LSTM(input_size, hidden_size, num_layers, batch_first=True)
-
-        # Attention mechanism
-        self.attention = nn.Linear(hidden_size, attention_size)
-        self.context_vector = nn.Linear(attention_size, 1, bias=False)
-
-    def forward(self, x, lengths):
-        # Create a mask tensor based on missing values
-        mask = ~(torch.isnan(x).any(dim=-1))
-
-        # Pack the padded sequence with the mask
-        packed_input = nn.utils.rnn.pack_padded_sequence(
-            x, lengths, batch_first=True, enforce_sorted=False
-        )
-
-        # LSTM forward pass
-        packed_output, (hidden, _) = self.lstm(packed_input)
-
-        # Unpack the packed sequence
-        padded_output, _ = nn.utils.rnn.pad_packed_sequence(
-            packed_output, batch_first=True
-        )
-
-        # Apply the mask to the output
-        padded_output = padded_output * mask.unsqueeze(-1)
-
-        # Attention mechanism
-        attention_weights = torch.tanh(self.attention(padded_output))
-        attention_scores = F.softmax(self.context_vector(attention_weights), dim=1)
-        context_vector = torch.bmm(
-            attention_scores.transpose(1, 2), padded_output
-        ).squeeze(1)
-
-        return context_vector, hidden
 
 
 class Gate(nn.Module):
@@ -125,15 +45,13 @@ class Gate(nn.Module):
 
 
 # lightning.LightningModules
-
-
 class MMModel(L.LightningModule):
     def __init__(
         self,
         st_input_dim=18,
-        st_embed_dim=256,
+        st_embed_dim=64,
         ts_input_dim=(9, 7),
-        ts_embed_dim=256,
+        ts_embed_dim=64,
         num_ts=2,
         target_size=1,
         lr=0.1,
@@ -163,6 +81,9 @@ class MMModel(L.LightningModule):
             # embeddings must be same dim
             assert st_embed_dim == ts_embed_dim
             self.fc = nn.Linear(st_embed_dim * 2, target_size)
+
+        elif self.fusion_method is None:
+            self.fc = nn.Linear(st_embed_dim, target_size)
 
         self.criterion = torch.nn.BCEWithLogitsLoss()
         self.lr = lr
@@ -202,6 +123,9 @@ class MMModel(L.LightningModule):
             out = torch.concat([st_embed, *ts_embed], dim=-1).squeeze()  # b x dim*2
         elif self.fusion_method == "mag":
             out = self.fuse(st_embed, *ts_embed)  # b x st_embed_dim
+
+        elif self.fusion_method is None:
+            out = st_embed.squeeze()
 
         # Parse through FC + sigmoid layer
         logits = self.fc(out)  # b x 1
