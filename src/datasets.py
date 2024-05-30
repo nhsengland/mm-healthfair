@@ -9,6 +9,8 @@ from utils.functions import preview_data
 
 
 class CollateTimeSeries:
+    """Custom collate function that can handle variable-length timeseries in a batch."""
+
     def __init__(self, method="pack_pad", min_events=None) -> None:
         self.method = method
         self.min_events = min_events
@@ -56,6 +58,10 @@ class CollateTimeSeries:
 
 
 class MIMIC4Dataset(Dataset):
+    """MIMIC-IV Dataset class. Subclass of Pytorch Dataset.
+    Reads from .pkl data dictionary where key is hospital admission ID and values are the dataframes.
+    """
+
     def __init__(self, data_path=None, split=None, ids=None, los_thresh=2) -> None:
         super().__init__()
 
