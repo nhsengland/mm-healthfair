@@ -81,8 +81,10 @@ def scale_numeric_features(
     else:
         # compute min max of cols over another groupby col e.g., subject_id or label
         scaled = table.select(
-            (pl.col(numeric_cols) - pl.col(numeric_cols).min())
-            / (pl.col(numeric_cols).max() - pl.col(numeric_cols).min()).over(over)
+            (
+                (pl.col(numeric_cols) - pl.col(numeric_cols).min())
+                / (pl.col(numeric_cols).max() - pl.col(numeric_cols).min())
+            ).over(over)
         )
 
     # ensure all scaled features are floats to 1 d.p
