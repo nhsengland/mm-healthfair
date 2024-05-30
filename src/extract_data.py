@@ -236,9 +236,6 @@ if __name__ == "__main__":
                 f"SELECTING {mode.upper()} SAMPLE OF {args.sample} {'SUBJECTS' if args.stratify_level == 'subject' else 'STAYS'}:\n\tSTAY_IDs: {get_n_unique_values(stays, 'stay_id')}\n\tHADM_IDs: {get_n_unique_values(stays, 'hadm_id')}\n\tSUBJECT_IDs: {get_n_unique_values(stays)}"
             )
 
-    # Filter stays by number of stays per subject e.g., 1 per subject
-    # stays = stays.filter(pl.col("stay_id").count().over('subject_id') < args.max_stays)
-
     # Write all stays
     stays.write_csv(os.path.join(args.output_path, "stays.csv"))
 
@@ -251,6 +248,7 @@ if __name__ == "__main__":
             .to_numpy()
         )
         if args.labitems
+        # see README.md for info on these preselected labevent items
         else [51221, 50912, 51301, 51265, 50971, 50983, 50931, 50893, 50960]
     )
 
