@@ -1,14 +1,11 @@
 task = 'los'
 threshold = 2
-fusion_method = 'mag'
+fusion_method = 'concat'
 
 [data]
-features = ['labevents', 'vitalsign']
 batch_size = 16
 num_workers = 1
-with_notes = false
 
 [train]
 epochs = 10
 learning_rate = 1e-1
-experiment_name = 'milestone'
