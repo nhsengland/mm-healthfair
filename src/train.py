@@ -43,7 +43,7 @@ if __name__ == "__main__":
     lr = config["train"]["learning_rate"]
     num_workers = config["data"]["num_workers"]
     los_threshold = config["threshold"]
-    fusion_method = config["fusion_method"]
+    fusion_method = config["fusion_method"] if config["fusion_method"] else None
     exp_name = config["train"]["experiment_name"]
 
     L.seed_everything(0)
