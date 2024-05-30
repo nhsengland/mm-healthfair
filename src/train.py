@@ -42,9 +42,10 @@ if __name__ == "__main__":
     n_epochs = config["train"]["epochs"]
     lr = config["train"]["learning_rate"]
     num_workers = config["data"]["num_workers"]
-    los_threshold = config["threshold"]
-    fusion_method = config["fusion_method"] if config["fusion_method"] else None
-    exp_name = config["train"]["experiment_name"]
+    los_threshold = config["model"]["threshold"]
+    fusion_method = (
+        config["model"]["fusion_method"] if config["model"]["fusion_method"] else None
+    )
 
     L.seed_everything(0)
 
@@ -95,8 +96,12 @@ if __name__ == "__main__":
     # trainer
     if use_wandb:
         logger = WandbLogger(
-            log_model=True, project="nhs-mm-healthfair", save_dir="logs"
+            log_model=True,
+            project="nhs-mm-healthfair",
+            save_dir="logs",
         )
+        # store config args
+        logger.experiment.config.update(config)
     else:
         logger = CSVLogger("logs")
 

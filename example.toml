@@ -1,3 +1,4 @@
+[model]
 task = 'los'
 threshold = 2
 fusion_method = 'concat'

@@ -59,6 +59,7 @@ class MMModel(L.LightningModule):
         with_packed_sequences=False,
     ):
         super().__init__()
+        self.save_hyperparameters()
         self.num_ts = num_ts
         self.embed_timeseries = nn.ModuleList(
             [
