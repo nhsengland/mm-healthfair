@@ -87,8 +87,8 @@ def scale_numeric_features(
             ).over(over)
         )
 
-    # ensure all scaled features are floats to 1 d.p
-    scaled = scaled.with_columns(pl.all().round(1))
+    # ensure all scaled features are floats to 2 d.p
+    scaled = scaled.with_columns(pl.all().round(2))
     return table.select(pl.col("*").exclude(numeric_cols)).hstack(scaled)
 
 
@@ -104,7 +104,7 @@ def preview_data(path_to_pkl: str) -> None:
     print(f"Example data:{data_dict[example_id]}")
 
 
-def read_from_txt(filepath: str) -> list:
+def read_from_txt(filepath: str, as_type="str") -> list:
     """Read from line-seperated txt file.
 
     Args:
@@ -114,5 +114,8 @@ def read_from_txt(filepath: str) -> list:
         list: List containing data.
     """
     with open(filepath) as f:
-        data = [str(line.strip()) for line in f.readlines()]
+        if as_type == "str":
+            data = [str(line.strip()) for line in f.readlines()]
+        elif as_type == "int":
+            data = [int(line.strip()) for line in f.readlines()]
     return data
