@@ -98,20 +98,22 @@ class MIMIC4Dataset(Dataset):
 
     def __getitem__(self, idx):
         hadm_id = int(self.splits[self.split][idx])
-        self.dynamic = [
-            self.data_dict[hadm_id][i] for i in self.dynamic_keys
-        ]  # list of polars df's
-        self.static = self.data_dict[hadm_id]["static"]  # polars df
 
+        self.static = self.data_dict[hadm_id]["static"]  # polars df
         self.static = self.static.with_columns(
             label=pl.when(pl.col("los") > self.los_thresh).then(1.0).otherwise(0.0)
         )
+
         self.label = torch.tensor(
             self.static.select("label").item(), dtype=torch.float32
         ).unsqueeze(-1)
 
         self.static = self.static.drop(["label", "los"])
         self.static = torch.tensor(self.static.to_numpy(), dtype=torch.float32)
+
+        self.dynamic = [
+            self.data_dict[hadm_id][i] for i in self.dynamic_keys
+        ]  # list of polars df's
         self.dynamic = [
             torch.tensor(x.to_numpy(), dtype=torch.float32) for x in self.dynamic
         ]

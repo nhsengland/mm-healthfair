@@ -4,6 +4,7 @@ import numpy as np
 import toml
 from datasets import MIMIC4Dataset
 from sklearn.ensemble import RandomForestClassifier
+from sklearn.linear_model import LogisticRegressionCV
 from sklearn.metrics import accuracy_score, balanced_accuracy_score, roc_auc_score
 from sklearn.model_selection import train_test_split
 from utils.functions import read_from_txt
@@ -66,8 +67,9 @@ if __name__ == "__main__":
     x_train = np.array(x_train)
     y_train = np.array(y_train)
 
-    # model = LogisticRegressionCV(cv=5, class_weight='balanced', verbose=0)
-    model = RandomForestClassifier(random_state=0, class_weight="balanced")
+    lr = LogisticRegressionCV(cv=5, class_weight="balanced", verbose=0)
+    rf = RandomForestClassifier(random_state=0, class_weight="balanced")
+    model = rf
     print("Training..")
     model.fit(x_train, y_train)
 
