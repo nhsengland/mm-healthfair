@@ -15,8 +15,8 @@ def transform_gender(data: pl.DataFrame) -> pl.DataFrame:
         pl.DataFrame: Updated data.
     """
 
-    g_map = {"F": 1, "M": 2, "OTHER": 3}
-    return data.with_columns(gender=pl.col("gender").replace(g_map, default=0))
+    g_map = {"F": 1, "M": 0, "OTHER": 2}
+    return data.with_columns(gender=pl.col("gender").replace(g_map, default=2))
 
 
 def transform_marital(data: pl.DataFrame) -> pl.DataFrame:
@@ -43,7 +43,7 @@ def transform_insurance(data: pl.DataFrame) -> pl.DataFrame:
     Returns:
         pl.DataFrame: Updated data.
     """
-    i_map = {"Medicare": 1, "Medicaid": 2, "Other": 3}  # TODO: 0 or nan?
+    i_map = {"Medicare": 1, "Medicaid": 2, "Other": 0}  # TODO: 0 or nan?
     return data.with_columns(insurance=pl.col("insurance").replace(i_map, default=0))
 
 
@@ -132,8 +132,11 @@ def clean_events(events: pl.DataFrame) -> pl.DataFrame:
     Returns:
         pl.DataFrame: Cleaned events table.
     """
-    # label '__' as null value
+    # label '__' or "." or "<" or "ERROR" as null value
     # also converts to 2 d.p. floats
+    events = events.with_columns(
+        value=pl.when(pl.col("value") == ".").then(None).otherwise(pl.col("value"))
+    )
     events = events.with_columns(
         value=pl.when(pl.col("value").str.contains("_|<|ERROR"))
         .then(None)
