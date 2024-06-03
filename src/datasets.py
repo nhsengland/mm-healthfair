@@ -62,7 +62,9 @@ class MIMIC4Dataset(Dataset):
     Reads from .pkl data dictionary where key is hospital admission ID and values are the dataframes.
     """
 
-    def __init__(self, data_path=None, split=None, ids=None, los_thresh=2) -> None:
+    def __init__(
+        self, data_path=None, split=None, ids=None, los_thresh=2, static_only=False
+    ) -> None:
         super().__init__()
 
         with open(data_path, "rb") as f:
@@ -76,6 +78,7 @@ class MIMIC4Dataset(Dataset):
         ]
         self.los_thresh = los_thresh
         self.split = split
+        self.static_only = static_only
         if ids is None:
             self.setup_data()
             self.splits = {
@@ -113,7 +116,10 @@ class MIMIC4Dataset(Dataset):
             torch.tensor(x.to_numpy(), dtype=torch.float32) for x in self.dynamic
         ]
 
-        return self.static, self.dynamic, self.label
+        if self.static_only:
+            return self.static, self.label
+        else:
+            return self.static, self.dynamic, self.label
 
     def get_feature_dim(self, key="static"):
         return self.data_dict[int(self.hadm_id_list[0])][key].shape[1]
