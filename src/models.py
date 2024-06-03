@@ -74,14 +74,12 @@ class MMModel(L.LightningModule):
             )
 
         self.embed_static = nn.Sequential(
-            [
-                nn.Linear(st_input_dim, st_embed_dim),
-                nn.BatchNorm1d(st_embed_dim),
-                nn.Dropout(0.1),
-                nn.Linear(st_embed_dim, st_embed_dim // 2),
-                nn.BatchNorm1d(st_embed_dim),
-                nn.Dropout(0.1),
-            ]
+            nn.Linear(st_input_dim, st_embed_dim),
+            nn.BatchNorm1d(st_embed_dim),
+            nn.Dropout(0.1),
+            nn.Linear(st_embed_dim, st_embed_dim // 2),
+            nn.BatchNorm1d(st_embed_dim),
+            nn.Dropout(0.1),
         )
 
         self.fusion_method = fusion_method
