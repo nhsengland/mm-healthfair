@@ -64,7 +64,7 @@ The MIMIC-IV dataset (v2.2) can be downloaded from [PhysioNet.org](https://physi
 - ED: data from the emergency department
 - Notes: deidentified free-text clinical notes
 
-Further information can be found in the dataset (documentation)[https://mimic.mit.edu/] pages.
+Further information can be found in the dataset [documentation](https://mimic.mit.edu/) pages.
 
 ### Roadmap
 
