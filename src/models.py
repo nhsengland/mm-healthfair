@@ -61,15 +61,17 @@ class MMModel(L.LightningModule):
         super().__init__()
         self.save_hyperparameters()
         self.num_ts = num_ts
-        self.embed_timeseries = nn.ModuleList(
-            [
-                LSTM(
-                    ts_input_dim[i],
-                    ts_embed_dim,
-                )
-                for i in range(self.num_ts)
-            ]
-        )
+
+        if fusion_method is not None:
+            self.embed_timeseries = nn.ModuleList(
+                [
+                    LSTM(
+                        ts_input_dim[i],
+                        ts_embed_dim,
+                    )
+                    for i in range(self.num_ts)
+                ]
+            )
 
         self.embed_static = nn.Linear(st_input_dim, st_embed_dim)
 
@@ -97,23 +99,24 @@ class MMModel(L.LightningModule):
         else:
             s, d, y = batch
 
-        ts_embed = []
-        for i in range(self.num_ts):
-            if self.with_packed_sequences:
-                packed_d = torch.nn.utils.rnn.pack_padded_sequence(
-                    d[i], l[i], batch_first=True, enforce_sorted=False
-                )
-                embed = self.embed_timeseries[i](packed_d)
-            else:
-                embed = self.embed_timeseries[i](d[i])
+        if self.fusion_method is not None:
+            ts_embed = []
+            for i in range(self.num_ts):
+                if self.with_packed_sequences:
+                    packed_d = torch.nn.utils.rnn.pack_padded_sequence(
+                        d[i], l[i], batch_first=True, enforce_sorted=False
+                    )
+                    embed = self.embed_timeseries[i](packed_d)
+                else:
+                    embed = self.embed_timeseries[i](d[i])
 
-            #  unpack if using packed sequences
-            if self.with_packed_sequences:
-                embed, _ = torch.nn.utils.rnn.pad_packed_sequence(
-                    embed, batch_first=True
-                )
+                #  unpack if using packed sequences
+                if self.with_packed_sequences:
+                    embed, _ = torch.nn.utils.rnn.pad_packed_sequence(
+                        embed, batch_first=True
+                    )
 
-            ts_embed.append(embed[:, -1].unsqueeze(1))
+                ts_embed.append(embed[:, -1].unsqueeze(1))
 
         st_embed = self.embed_static(s)
 
