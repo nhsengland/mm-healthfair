@@ -73,7 +73,16 @@ class MMModel(L.LightningModule):
                 ]
             )
 
-        self.embed_static = nn.Linear(st_input_dim, st_embed_dim)
+        self.embed_static = nn.Sequential(
+            [
+                nn.Linear(st_input_dim, st_embed_dim),
+                nn.BatchNorm1d(st_embed_dim),
+                nn.Dropout(0.1),
+                nn.Linear(st_embed_dim, st_embed_dim // 2),
+                nn.BatchNorm1d(st_embed_dim),
+                nn.Dropout(0.1),
+            ]
+        )
 
         self.fusion_method = fusion_method
         if self.fusion_method == "mag":
@@ -86,7 +95,7 @@ class MMModel(L.LightningModule):
             self.fc = nn.Linear(st_embed_dim * 2, target_size)
 
         elif self.fusion_method is None:
-            self.fc = nn.Linear(st_embed_dim, target_size)
+            self.fc = nn.Linear(st_embed_dim // 2, target_size)
 
         self.criterion = torch.nn.BCEWithLogitsLoss()
         self.lr = lr
