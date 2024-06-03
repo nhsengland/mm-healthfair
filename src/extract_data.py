@@ -8,7 +8,7 @@ import polars as pl
 from tqdm import tqdm
 
 import utils.mimiciv as m4c
-from utils.functions import get_n_unique_values, impute_from_df
+from utils.functions import get_n_unique_values, impute_from_df, read_from_txt
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Extract data from MIMIC-IV v2.2.")
@@ -30,11 +30,14 @@ if __name__ == "__main__":
         help="Tables from which to read events. Can be any combination of: labevents, vitalsign",
         default=["vitalsign"],
     )
+
+    parser.add_argument("--include_notes", "-n", action="store_true")
+
     parser.add_argument(
         "--labitems",
         "-i",
         type=str,
-        help="CSV containing list of ITEMIDs to keep from labevents.",
+        help="Text file containing list of ITEMIDs to use from labevents.",
     )
     parser.add_argument(
         "--verbose",
@@ -77,6 +80,7 @@ if __name__ == "__main__":
     args, _ = parser.parse_known_args()
     mimic4_path = os.path.join(args.mimic4_path, "mimiciv", "2.2", "hosp")
     mimic4_ed_path = os.path.join(args.mimic4_path, "mimic-iv-ed", "2.2", "ed")
+    mimic4_note_path = os.path.join(args.mimic4_path, "mimic-iv-note", "2.2", "note")
 
     if os.path.exists(args.output_path):
         response = input("Will need to overwrite existing directory... continue? (y/n)")
@@ -240,13 +244,7 @@ if __name__ == "__main__":
     stays.write_csv(os.path.join(args.output_path, "stays.csv"))
 
     items = (
-        set(
-            pl.read_csv(args.labitems)
-            .unique(subset="itemid")
-            .get_column("itemid")
-            .cast(pl.UInt64)
-            .to_numpy()
-        )
+        set(read_from_txt(args.labitems, as_type="int"))
         if args.labitems
         # see README.md for info on these preselected labevent items
         else [51221, 50912, 51301, 51265, 50971, 50983, 50931, 50893, 50960]
@@ -327,4 +325,21 @@ if __name__ == "__main__":
         else:
             events.write_csv(os.path.join(args.output_path, "events.csv"))
 
+    if args.include_notes:
+        notes = m4c.read_notes(mimic4_note_path, use_lazy=args.lazy)
+
+        if args.verbose:
+            print(
+                f"NOTES:\n\tHADM_IDs: {get_n_unique_values(notes, 'hadm_id')}\n\tTOTAL NOTES: {notes.collect(streaming=True).height}\n\tSUBJECT_IDs: {get_n_unique_values(notes)}"
+            )
+
+        # Filter notes by hadm_id in stays table
+        notes = notes.filter(
+            pl.col("hadm_id").is_in(stays.get_column("hadm_id").to_list())
+        )
+
+        if args.verbose:
+            print(
+                f"FILTER BY STAY HADM_IDs:\n\tHADM_IDs: {get_n_unique_values(notes, 'hadm_id')}\n\tTOTAL NOTES: {notes.collect(streaming=True).height}\n\tSUBJECT_IDs: {get_n_unique_values(notes)}"
+            )
     print("Data extracted.")

@@ -231,6 +231,35 @@ def read_events_table(
     return table_df
 
 
+def read_notes(mimic4_path: str, use_lazy: bool = False) -> pl.LazyFrame | pl.DataFrame:
+    """Read in discharge summary notes.
+
+    Args:
+        mimic4_path (str): _description_
+        use_lazy (bool): Whether to return a Polars LazyFrame or DataFrame. Defaults to False.
+
+    Returns:
+        pl.LazyFrame | pl.DataFrame: _description_
+    """
+    notes = pl.read_csv(
+        os.path.join(mimic4_path, "discharge.csv.gz"),
+        dtypes=[
+            pl.String,
+            pl.Int64,
+            pl.Int64,
+            pl.String,
+            pl.Int64,
+            pl.Datetime,
+            pl.Datetime,
+            pl.String,
+        ],
+    )
+
+    # Extract section relating to description of hospital course
+
+    return notes.lazy() if use_lazy else notes
+
+
 def add_omr_variable_to_stays(
     stays: pl.LazyFrame | pl.DataFrame,
     omr: pl.LazyFrame | pl.DataFrame,
