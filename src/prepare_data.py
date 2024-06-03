@@ -45,7 +45,7 @@ parser.add_argument("--verbose", "-v", action="store_true", help="Verbosity.")
 
 args = parser.parse_args()
 
-print("PROCESSING DATA...")
+print(f"Processing data from {args.data_path}...")
 
 # If pkl file exists then remove and start over
 if len(glob.glob(os.path.join(args.data_path, "*", "*.pkl"))) > 0:
@@ -88,7 +88,7 @@ static_data = (
 
 admittimes = stays.select(["hadm_id", "admittime"]).collect()
 
-# Applies min max scaling
+# Applies min max scaling to  numerical features
 static_data = scale_numeric_features(
     static_data, numeric_cols=["anchor_age", "height", "weight", "los_ed"]
 )
@@ -102,7 +102,7 @@ events = clean_events(events)
 # collect events
 events = events.collect(streaming=True)
 
-# scale values
+# scale values from events data
 events = scale_numeric_features(events, ["value"], over="label")
 
 ### CREATE DICTIONARY DATA
@@ -215,7 +215,6 @@ for stay_events in tqdm(
                     "impute_strategy must be one of [None, mask, value, forward, backward]"
                 )
 
-        # TODO: Figure out resampling method to make compatible with standard LSTM
         # Upsample and then downsample to create regular intervals e.g., 2-hours
         timeseries = timeseries.upsample(time_column="charttime", every="1m")
 
@@ -237,7 +236,6 @@ for stay_events in tqdm(
 
         timeseries = timeseries.select(features)
 
-        # TODO: Add notes
         ts_data.append(timeseries)
 
     if write_data:
