@@ -3,6 +3,7 @@ import torch
 import torch.nn.functional as F
 import torchmetrics
 from torch import nn
+from torchvision.ops.focal_loss import sigmoid_focal_loss
 
 
 # nn.Modules
@@ -95,7 +96,7 @@ class MMModel(L.LightningModule):
         elif self.fusion_method is None:
             self.fc = nn.Linear(st_embed_dim, target_size)
 
-        self.criterion = torch.nn.BCEWithLogitsLoss()
+        # self.criterion = torch.nn.BCEWithLogitsLoss(pos_weight=torch.tensor(0.76))
         self.lr = lr
         self.acc = torchmetrics.Accuracy(task="binary")
         self.with_packed_sequences = with_packed_sequences
@@ -149,7 +150,7 @@ class MMModel(L.LightningModule):
         # training_step defines the train loop.
         # it is independent of forward
         x_hat, y = self.prepare_batch(batch)
-        loss = self.criterion(x_hat, y)
+        loss = sigmoid_focal_loss(x_hat, y, reduction="mean")
         accuracy = self.acc(x_hat, y)
         self.log("train_loss", loss, prog_bar=True)
         self.log("train_acc", accuracy, prog_bar=True)
@@ -157,7 +158,7 @@ class MMModel(L.LightningModule):
 
     def validation_step(self, batch, batch_idx):
         x_hat, y = self.prepare_batch(batch)
-        loss = self.criterion(x_hat, y)
+        loss = sigmoid_focal_loss(x_hat, y, reduction="mean")
         accuracy = self.acc(x_hat, y)
         self.log("val_loss", loss, prog_bar=True, batch_size=len(y))
         self.log("val_acc", accuracy, prog_bar=True, batch_size=len(y))

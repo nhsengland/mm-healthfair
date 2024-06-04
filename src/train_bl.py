@@ -4,9 +4,8 @@ import numpy as np
 import toml
 from datasets import MIMIC4Dataset
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.linear_model import LogisticRegressionCV
 from sklearn.metrics import accuracy_score, balanced_accuracy_score, roc_auc_score
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import GridSearchCV, train_test_split
 from utils.functions import read_from_txt
 
 if __name__ == "__main__":
@@ -67,12 +66,6 @@ if __name__ == "__main__":
     x_train = np.array(x_train)
     y_train = np.array(y_train)
 
-    lr = LogisticRegressionCV(cv=5, class_weight="balanced", verbose=0)
-    rf = RandomForestClassifier(random_state=0, class_weight="balanced")
-    model = rf
-    print("Training..")
-    model.fit(x_train, y_train)
-
     validation_set = MIMIC4Dataset(
         args.data_path,
         "val",
@@ -91,12 +84,32 @@ if __name__ == "__main__":
     x_val = np.array(x_val)
     y_val = np.array(y_val)
 
-    print("Predicting on validation...")
-    probs = np.array(model.predict_proba(x_val)[:, 1])
-    y_hat = np.array(model.predict(x_val))
-    bacc = balanced_accuracy_score(y_val, y_hat)
-    acc = accuracy_score(y_val, y_hat)
-    auc_val = roc_auc_score(y_val, probs)
+    params = [
+        {
+            "n_estimators": [10, 100, 500, 1000],
+            "criterion": ["gini", "entropy", "log_loss"],
+            "class_weight": [None, "balanced"],
+        }
+    ]
 
-    print(sum(y_val == 0), sum(y_val == 1))
-    print(f"Performance summary: {bacc, acc, auc_val}")
+    model = GridSearchCV(
+        estimator=RandomForestClassifier(random_state=0),
+        param_grid=params,
+        scoring=["balanced_accuracy", "roc_auc", "accuracy"],
+        refit="balanced_accuracy",
+        cv=5,
+    )
+    print("Training via Grid Search..")
+    model.fit(x_train, y_train)
+
+    print("Best params:", model.best_params_)
+    print("Best score:", model.best_score_)
+
+    y_hat = model.predict(x_val)
+    prob = model.predict_proba(x_val)[:, 1]
+
+    acc = accuracy_score(y_val, y_hat)
+    bacc = balanced_accuracy_score(y_val, y_hat)
+    auc = roc_auc_score(y_val, prob)
+    print("Predicting on validation...")
+    print("Performance summary:", [acc, bacc, auc])

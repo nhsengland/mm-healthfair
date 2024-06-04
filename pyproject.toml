@@ -21,7 +21,8 @@ icd-mappings = "^0.3.8"
 polars = "^0.20.23"
 lightning = "^2.2.4"
 wandb = "^0.17.0"
-torch = "2.2.2"
+torch = "2.3.0"
+torchvision = "^0.18.0"
 
 [tool.poetry.group.dev.dependencies]
 deptry = "^0.16.1"
