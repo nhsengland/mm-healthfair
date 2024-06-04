@@ -61,6 +61,9 @@ if __name__ == "__main__":
         args.data_path, "train", ids=train_ids, los_thresh=los_threshold
     )
 
+    print('Label distribution:')
+    training_set.get_label_dist()
+
     n_static_features = (
         training_set.get_feature_dim() - 1
     )  # -1 since extracting label from static data and dropping los column
