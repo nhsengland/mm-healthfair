@@ -79,6 +79,8 @@ class MIMIC4Dataset(Dataset):
         self.los_thresh = los_thresh
         self.split = split
         self.static_only = static_only
+        self.splits = {'train': None, 'val': None, 'test': None}
+
         if ids is None:
             self.setup_data()
             self.splits = {
@@ -87,7 +89,7 @@ class MIMIC4Dataset(Dataset):
                 "test": self.test_ids,
             }
         else:
-            self.splits = {split: ids}
+            self.splits[split] = ids
 
     def __len__(self):
         return (
@@ -122,6 +124,20 @@ class MIMIC4Dataset(Dataset):
             return self.static, self.label
         else:
             return self.static, self.dynamic, self.label
+
+    def get_label_dist(self):
+
+        # if no particular split then use entire data dict
+        if self.split is None:
+            id_list = self.hadm_id_list
+        else:
+            id_list = self.splits[self.split]
+
+        labels = pl.concat([self.data_dict[int(i)]["static"].select(pl.col('los')) for i in id_list])
+        labels = labels.with_columns(label=pl.when(pl.col('los') > self.los_thresh).then(1.0).otherwise(0.0)).drop('los')
+        labels = labels.select(pl.col('label').value_counts()).unnest('label')
+        print(labels)
+
 
     def get_feature_dim(self, key="static"):
         return self.data_dict[int(self.hadm_id_list[0])][key].shape[1]
