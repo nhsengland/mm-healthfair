@@ -49,7 +49,7 @@ class MMModel(L.LightningModule):
     def __init__(
         self,
         st_input_dim=18,
-        st_embed_dim=64,
+        st_embed_dim=32,
         ts_input_dim=(9, 7),
         ts_embed_dim=64,
         num_ts=2,
@@ -74,11 +74,11 @@ class MMModel(L.LightningModule):
             )
 
         self.embed_static = nn.Sequential(
-            nn.Linear(st_input_dim, st_embed_dim),
-            nn.BatchNorm1d(st_embed_dim),
+            nn.Linear(st_input_dim, st_embed_dim*2),
+            nn.LayerNorm(st_embed_dim*2),
             nn.Dropout(0.1),
-            nn.Linear(st_embed_dim, st_embed_dim // 2),
-            nn.BatchNorm1d(st_embed_dim),
+            nn.Linear(st_embed_dim*2, st_embed_dim),
+            nn.LayerNorm(st_embed_dim),
             nn.Dropout(0.1),
         )
 
@@ -93,7 +93,7 @@ class MMModel(L.LightningModule):
             self.fc = nn.Linear(st_embed_dim * 2, target_size)
 
         elif self.fusion_method is None:
-            self.fc = nn.Linear(st_embed_dim // 2, target_size)
+            self.fc = nn.Linear(st_embed_dim, target_size)
 
         self.criterion = torch.nn.BCEWithLogitsLoss()
         self.lr = lr
