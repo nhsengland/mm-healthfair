@@ -107,13 +107,17 @@ def encode_categorical_features(stays: pl.DataFrame) -> pl.DataFrame:
     Returns:
         pl.DataFrame: Transformed stays data.
     """
-    stays = transform_gender(stays)
-    stays = transform_race(stays)
-    stays = transform_marital(stays)
-    stays = transform_insurance(stays)
+    if 'gender' in stays.columns:
+        stays = transform_gender(stays)
+    if 'race' in stays.columns:
+        stays = transform_race(stays)
+    if 'marital_status' in stays.columns:
+        stays = transform_marital(stays)
+    if 'insurance' in stays.columns:
+        stays = transform_insurance(stays)
 
     # apply one-hot encoding to integer columns
-    stays = stays.to_dummies(["gender", "race", "marital_status", "insurance"])
+    stays = stays.to_dummies([i for i in stays.columns if i in ["gender", "race", "marital_status", "insurance"]])
 
     return stays
 
