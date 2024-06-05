@@ -86,7 +86,7 @@ if __name__ == "__main__":
 
     params = [
         {
-            "n_estimators": [10, 100, 500, 1000],
+            "n_estimators": [10, 100, 5000],
             "criterion": ["gini", "entropy", "log_loss"],
             "class_weight": [None, "balanced"],
         }
@@ -97,7 +97,7 @@ if __name__ == "__main__":
         param_grid=params,
         scoring=["balanced_accuracy", "roc_auc", "accuracy"],
         refit="balanced_accuracy",
-        cv=5,
+        cv=3,
     )
     print("Training via Grid Search..")
     model.fit(x_train, y_train)
