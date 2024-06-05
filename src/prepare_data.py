@@ -55,14 +55,15 @@ parser.add_argument(
 parser.add_argument("--verbose", "-v", action="store_true", help="Verbosity.")
 
 args = parser.parse_args()
+output_dir = args.data_dir if args.output_dir is None else args.output_dir
 
-print(f"Processing data from {args.data_dir}...")
+print(f"Processing data from {args.data_dir} and saving output files to {output_dir}...")
 
 # If pkl file exists then remove and start over
-if len(glob.glob(os.path.join(args.data_dir, "*", "*.pkl"))) > 0:
+if len(glob.glob(os.path.join(output_dir, "*", "*.pkl"))) > 0:
     response = input("Will need to overwrite existing data... continue? (y/n)")
     if response == "y":
-        for f in glob.glob(os.path.join(args.data_dir, "*", "*.pkl")):
+        for f in glob.glob(os.path.join(output_dir, "*", "*.pkl")):
             try:
                 os.remove(f)
             except OSError as ex:
@@ -271,8 +272,6 @@ example_id = list(data_dict.keys())[-1]
 print(f"Example data:\n\t{data_dict[example_id]}")
 
 # Save dictionary to disk
-output_dir = args.data_dir if args.output_dir is None else args.output_dir
-
 with open(os.path.join(output_dir, "processed_data.pkl"), "wb") as f:
     pickle.dump(data_dict, f)
 
