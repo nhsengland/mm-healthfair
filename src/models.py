@@ -52,7 +52,7 @@ class MMModel(L.LightningModule):
         st_input_dim=18,
         st_embed_dim=32,
         ts_input_dim=(9, 7),
-        ts_embed_dim=64,
+        ts_embed_dim=32,
         num_ts=2,
         target_size=1,
         lr=0.1,
@@ -91,12 +91,12 @@ class MMModel(L.LightningModule):
         elif self.fusion_method == "concat":
             # embeddings must be same dim
             assert st_embed_dim == ts_embed_dim
-            self.fc = nn.Linear(st_embed_dim * 2, target_size)
+            self.fc = nn.Linear(st_embed_dim + (self.num_ts * ts_embed_dim), target_size)
 
         elif self.fusion_method is None:
             self.fc = nn.Linear(st_embed_dim, target_size)
 
-        # self.criterion = torch.nn.BCEWithLogitsLoss(pos_weight=torch.tensor(0.76))
+        self.criterion = torch.nn.BCEWithLogitsLoss()
         self.lr = lr
         self.acc = torchmetrics.Accuracy(task="binary")
         self.with_packed_sequences = with_packed_sequences
@@ -150,19 +150,18 @@ class MMModel(L.LightningModule):
         # training_step defines the train loop.
         # it is independent of forward
         x_hat, y = self.prepare_batch(batch)
-        loss = sigmoid_focal_loss(x_hat, y, reduction="mean")
+        loss = self.criterion(x_hat, y)
         accuracy = self.acc(x_hat, y)
-        self.log("train_loss", loss, prog_bar=True)
-        self.log("train_acc", accuracy, prog_bar=True)
+        self.log("train_loss", loss, prog_bar=True, on_epoch=True, on_step=False, batch_size=len(y))
+        self.log("train_acc", accuracy, prog_bar=True, on_epoch=True, on_step=False, batch_size=len(y))
         return loss
 
     def validation_step(self, batch, batch_idx):
         x_hat, y = self.prepare_batch(batch)
-        loss = sigmoid_focal_loss(x_hat, y, reduction="mean")
+        loss = self.criterion(x_hat, y)
         accuracy = self.acc(x_hat, y)
         self.log("val_loss", loss, prog_bar=True, batch_size=len(y))
         self.log("val_acc", accuracy, prog_bar=True, batch_size=len(y))
-        return loss
 
     def configure_optimizers(self):
         optimizer = torch.optim.SGD(self.parameters(), lr=self.lr)
