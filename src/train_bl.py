@@ -87,13 +87,12 @@ if __name__ == "__main__":
     params = [
         {
             "n_estimators": [10, 100, 5000],
-            "criterion": ["gini", "entropy", "log_loss"],
-            "class_weight": [None, "balanced"],
+            "criterion": ["gini", "entropy"],
         }
     ]
 
     model = GridSearchCV(
-        estimator=RandomForestClassifier(random_state=0),
+        estimator=RandomForestClassifier(random_state=0, class_weight="balanced"),
         param_grid=params,
         scoring=["balanced_accuracy", "roc_auc", "accuracy"],
         refit="balanced_accuracy",
