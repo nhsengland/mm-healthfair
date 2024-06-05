@@ -3,7 +3,6 @@ import torch
 import torch.nn.functional as F
 import torchmetrics
 from torch import nn
-from torchvision.ops.focal_loss import sigmoid_focal_loss
 
 
 # nn.Modules
@@ -75,15 +74,15 @@ class MMModel(L.LightningModule):
             )
 
         self.embed_static = nn.Sequential(
-            nn.Linear(st_input_dim, st_embed_dim*4),
+            nn.Linear(st_input_dim, st_embed_dim * 4),
             nn.ReLU(),
-            nn.LayerNorm(st_embed_dim*4),
+            nn.LayerNorm(st_embed_dim * 4),
             nn.Dropout(0.1),
-            nn.Linear(st_input_dim, st_embed_dim*2),
+            nn.Linear(st_embed_dim * 4, st_embed_dim * 2),
             nn.ReLU(),
-            nn.LayerNorm(st_embed_dim*2),
+            nn.LayerNorm(st_embed_dim * 2),
             nn.Dropout(0.1),
-            nn.Linear(st_embed_dim*2, st_embed_dim),
+            nn.Linear(st_embed_dim * 2, st_embed_dim),
             nn.ReLU(),
             nn.LayerNorm(st_embed_dim),
             nn.Dropout(0.1),
@@ -97,7 +96,9 @@ class MMModel(L.LightningModule):
         elif self.fusion_method == "concat":
             # embeddings must be same dim
             assert st_embed_dim == ts_embed_dim
-            self.fc = nn.Linear(st_embed_dim + (self.num_ts * ts_embed_dim), target_size)
+            self.fc = nn.Linear(
+                st_embed_dim + (self.num_ts * ts_embed_dim), target_size
+            )
 
         elif self.fusion_method is None:
             self.fc = nn.Linear(st_embed_dim, target_size)
@@ -105,13 +106,19 @@ class MMModel(L.LightningModule):
         self.criterion = torch.nn.BCEWithLogitsLoss()
         self.lr = lr
         self.acc = torchmetrics.Accuracy(task="binary")
+        self.auc = torchmetrics.AUROC(task="binary")
+        self.f1 = torchmetrics.F1Score(task="binary")
+
         self.with_packed_sequences = with_packed_sequences
 
-    def prepare_batch(self, batch):
-        if self.with_packed_sequences:
-            s, d, l, y = batch  # static, dynamic, lengths, labels  # noqa: E741
+    def prepare_batch(self, batch):  # noqa: PLR0912
+        if self.fusion_method is not None:
+            if self.with_packed_sequences:
+                s, y, d, l = batch  # static, labels, dynamic, lengths  # noqa: E741
+            else:
+                s, y, d = batch
         else:
-            s, d, y = batch
+            s, y = batch
 
         if self.fusion_method is not None:
             ts_embed = []
@@ -156,18 +163,57 @@ class MMModel(L.LightningModule):
         # training_step defines the train loop.
         # it is independent of forward
         x_hat, y = self.prepare_batch(batch)
+        y_hat = torch.sigmoid(x_hat)
         loss = self.criterion(x_hat, y)
-        accuracy = self.acc(x_hat, y)
-        self.log("train_loss", loss, prog_bar=True, on_epoch=True, on_step=False, batch_size=len(y))
-        self.log("train_acc", accuracy, prog_bar=True, on_epoch=True, on_step=False, batch_size=len(y))
+        accuracy = self.acc(y_hat, y)
+        auc = self.auc(y_hat, y)
+        f1 = self.f1(y_hat, y)
+        self.log(
+            "train_loss",
+            loss,
+            prog_bar=True,
+            on_epoch=True,
+            on_step=False,
+            batch_size=len(y),
+        )
+        self.log(
+            "train_acc",
+            accuracy,
+            prog_bar=True,
+            on_epoch=True,
+            on_step=False,
+            batch_size=len(y),
+        )
+        self.log(
+            "train_auc",
+            auc,
+            prog_bar=True,
+            on_epoch=True,
+            on_step=False,
+            batch_size=len(y),
+        )
+        self.log(
+            "train_f1",
+            f1,
+            prog_bar=True,
+            on_epoch=True,
+            on_step=False,
+            batch_size=len(y),
+        )
+
         return loss
 
     def validation_step(self, batch, batch_idx):
         x_hat, y = self.prepare_batch(batch)
+        y_hat = torch.sigmoid(x_hat)
         loss = self.criterion(x_hat, y)
-        accuracy = self.acc(x_hat, y)
+        accuracy = self.acc(y_hat, y)
+        auc = self.auc(y_hat, y)
+        f1 = self.f1(y_hat, y)
         self.log("val_loss", loss, prog_bar=True, batch_size=len(y))
         self.log("val_acc", accuracy, prog_bar=True, batch_size=len(y))
+        self.log("val_auc", auc, prog_bar=True, batch_size=len(y))
+        self.log("val_f1", f1, prog_bar=True, batch_size=len(y))
 
     def configure_optimizers(self):
         optimizer = torch.optim.SGD(self.parameters(), lr=self.lr)
@@ -217,13 +263,13 @@ class LitLSTM(L.LightningModule):
 
     def prepare_batch(self, batch):
         if self.with_packed_sequences:
-            _, d, l, y = batch  # static, dynamic, lengths, labels  # noqa: E741
+            _, y, d, l = batch  # static, dynamic, lengths, labels  # noqa: E741
             d = torch.nn.utils.rnn.pack_padded_sequence(
                 d, l, batch_first=True, enforce_sorted=False
             )
 
         else:
-            _, d, y = batch
+            _, y, d = batch
 
         ts_embed = self.embed_timeseries(d)
 
