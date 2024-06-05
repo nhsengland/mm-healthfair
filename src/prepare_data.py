@@ -81,14 +81,14 @@ events = pl.scan_csv(os.path.join(args.data_dir, "events.csv"), try_parse_dates=
 
 static_features = [
     "anchor_age",
-    # "gender",
-    # "race",
-    # "marital_status",
-    # "insurance",
+    "gender",
+    "race",
+    "marital_status",
+    "insurance",
     "los",
     "los_ed",
-    # "height",
-    # "weight",
+    "height",
+    "weight",
 ]
 
 # Select features of interest only
