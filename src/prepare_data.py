@@ -18,15 +18,15 @@ parser = argparse.ArgumentParser(
     description="Preprocess data - generates pkl file to use for training."
 )
 parser.add_argument(
-    "data_path",
+    "data_dir",
     type=str,
     help="Directory containing processed data, will be used to output processed pkl file.",
 )
 parser.add_argument(
-    "--output_path",
+    "--output_dir",
     "-o",
     type=str,
-    help="Path to save processed dictionary file."
+    help="Directory to save processed dictionary file and outputs."
 )
 parser.add_argument(
     "--min_events", type=int, default=5, help="Minimum number of events per stay."
@@ -51,13 +51,13 @@ parser.add_argument("--verbose", "-v", action="store_true", help="Verbosity.")
 
 args = parser.parse_args()
 
-print(f"Processing data from {args.data_path}...")
+print(f"Processing data from {args.data_dir}...")
 
 # If pkl file exists then remove and start over
-if len(glob.glob(os.path.join(args.data_path, "*", "*.pkl"))) > 0:
+if len(glob.glob(os.path.join(args.data_dir, "*", "*.pkl"))) > 0:
     response = input("Will need to overwrite existing data... continue? (y/n)")
     if response == "y":
-        for f in glob.glob(os.path.join(args.data_path, "*", "*.pkl")):
+        for f in glob.glob(os.path.join(args.data_dir, "*", "*.pkl")):
             try:
                 os.remove(f)
             except OSError as ex:
@@ -68,8 +68,8 @@ if len(glob.glob(os.path.join(args.data_path, "*", "*.pkl"))) > 0:
         sys.exit()
 
 # read extracted data
-stays = pl.scan_csv(os.path.join(args.data_path, "stays.csv"))
-events = pl.scan_csv(os.path.join(args.data_path, "events.csv"), try_parse_dates=True)
+stays = pl.scan_csv(os.path.join(args.data_dir, "stays.csv"))
+events = pl.scan_csv(os.path.join(args.data_dir, "events.csv"), try_parse_dates=True)
 
 #### STATIC DATA PREPROCESSING ####
 
@@ -95,8 +95,9 @@ static_data = (
 admittimes = stays.select(["hadm_id", "admittime"]).collect()
 
 # Applies min max scaling to  numerical features
+numeric_cols = ["anchor_age", "height", "weight", "los_ed"]
 static_data = scale_numeric_features(
-    static_data, numeric_cols=["anchor_age", "height", "weight", "los_ed"]
+    static_data, numeric_cols=[i for i in static_data.columns if i in numeric_cols]
 )
 static_data = encode_categorical_features(static_data)
 
@@ -262,15 +263,9 @@ example_id = list(data_dict.keys())[-1]
 print(f"Example data:\n\t{data_dict[example_id]}")
 
 # Save dictionary to disk
-if args.output_path is None:
-    output_dir = args.data_path
-    output_path = os.path.join(args.data_path, "processed_data.pkl")
+output_dir = args.data_dir if args.output_dir is None else args.output_dir
 
-else:
-    output_dir = os.path.dirname(args.output_path)
-    output_path = args.output_path
-
-with open(output_path, "wb") as f:
+with open(os.path.join(output_dir, "processed_data.pkl"), "wb") as f:
     pickle.dump(data_dict, f)
 
 # Generate subject-level train test split for the stays
