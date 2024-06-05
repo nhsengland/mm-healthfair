@@ -75,7 +75,7 @@ if __name__ == "__main__":
         training_set,
         batch_size=batch_size,
         num_workers=num_workers,
-        collate_fn=CollateTimeSeries(),
+        collate_fn=CollateTimeSeries() if fusion_method is not None else None,
     )
 
     validation_set = MIMIC4Dataset(
@@ -85,7 +85,8 @@ if __name__ == "__main__":
         validation_set,
         batch_size=batch_size,
         num_workers=num_workers,
-        collate_fn=CollateTimeSeries(),
+        collate_fn=CollateTimeSeries() if fusion_method is not None else None,
+        persistent_workers=True,
     )
 
     model = MMModel(
