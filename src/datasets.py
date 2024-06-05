@@ -8,6 +8,16 @@ from torch.utils.data import Dataset
 from utils.functions import preview_data
 
 
+class CollateFn:
+    """Custom collate function for static data and labels."""
+
+    def __call__(self, batch):
+        static = torch.stack([data[0] for data in batch])
+        labels = torch.stack([data[1] for data in batch])
+
+        return static, labels
+
+
 class CollateTimeSeries:
     """Custom collate function that can handle variable-length timeseries in a batch."""
 
@@ -17,44 +27,44 @@ class CollateTimeSeries:
 
     def __call__(self, batch):
         static = torch.stack([data[0] for data in batch])
-        labels = torch.stack([data[2] for data in batch])
+        labels = torch.stack([data[1] for data in batch])
 
         # number of dynamic timeseries data (note: dynamic is a list of timeseries)
-        n_ts = len(batch[0][1])
+        n_ts = len(batch[0][2])
 
         if self.method == "pack_pad":
             dynamic = []
             lengths = []
             for ts in range(n_ts):
                 # Function to pad batch-wise due to timeseries of different lengths
-                timeseries_lengths = [data[1][ts].shape[0] for data in batch]
+                timeseries_lengths = [data[2][ts].shape[0] for data in batch]
                 max_events = max(timeseries_lengths)
-                n_ftrs = batch[0][1][ts].shape[1]
+                n_ftrs = batch[0][2][ts].shape[1]
                 events = torch.zeros((len(batch), max_events, n_ftrs))
                 for i in range(len(batch)):
-                    j, k = batch[i][1][ts].shape[0], batch[i][1][ts].shape[1]
+                    j, k = batch[i][2][ts].shape[0], batch[i][2][ts].shape[1]
                     events[i] = torch.concat(
-                        [batch[i][1][ts], torch.zeros((max_events - j, k))]
+                        [batch[i][2][ts], torch.zeros((max_events - j, k))]
                     )
                 dynamic.append(events)
                 lengths.append(timeseries_lengths)
 
-            return static, dynamic, lengths, labels
+            return static, labels, dynamic, lengths
 
         elif self.method == "truncate":
             # Truncate to minimum num of events in batch/ specified args
 
             dynamic = []
-            n_ts = len(batch[0][1])
+            n_ts = len(batch[0][2])
             for ts in range(n_ts):
                 min_events = (
-                    min([data[1][ts].shape[0] for data in batch])
+                    min([data[2][ts].shape[0] for data in batch])
                     if self.min_events is None
                     else self.min_events
                 )
-                events = [data[1][ts][:min_events] for data in batch]
+                events = [data[2][ts][:min_events] for data in batch]
                 dynamic.append(events)
-            return static, dynamic, labels
+            return static, labels, dynamic
 
 
 class MIMIC4Dataset(Dataset):
@@ -116,14 +126,15 @@ class MIMIC4Dataset(Dataset):
         if self.static_only:
             return self.static, self.label
 
-        self.dynamic = [
-            self.data_dict[hadm_id][i] for i in self.dynamic_keys
-        ]  # list of polars df's
-        self.dynamic = [
-            torch.tensor(x.to_numpy(), dtype=torch.float32) for x in self.dynamic
-        ]
+        else:
+            self.dynamic = [
+                self.data_dict[hadm_id][i] for i in self.dynamic_keys
+            ]  # list of polars df's
+            self.dynamic = [
+                torch.tensor(x.to_numpy(), dtype=torch.float32) for x in self.dynamic
+            ]
 
-        return self.static, self.dynamic, self.label
+            return self.static, self.label, self.dynamic
 
     def get_label_dist(self):
         # if no particular split then use entire data dict
@@ -136,9 +147,9 @@ class MIMIC4Dataset(Dataset):
             [self.data_dict[int(i)]["static"].select(pl.col("los")) for i in id_list]
         )
         n_positive = all_static.select(pl.col("los") > self.los_thresh).sum().item()
-        print(f"Number of positive cases - LOS > {self.los_thresh}: {n_positive}")
+        print(f"Positive cases (los > {self.los_thresh}): {n_positive}")
         print(
-            f"Number of negative cases - LOS <= {self.los_thresh}: {all_static.height - n_positive}"
+            f"Negative cases (los <= {self.los_thresh}): {all_static.height - n_positive}"
         )
 
     def get_feature_dim(self, key="static"):
