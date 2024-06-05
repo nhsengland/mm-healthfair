@@ -41,6 +41,11 @@ parser.add_argument(
     help="Impute strategy. One of ['forward', 'backward', 'mask', 'value']",
 )
 parser.add_argument(
+    "--no_scale",
+    action="store_true",
+    help="Flag to turn off feature scaling."
+)
+parser.add_argument(
     "--max_elapsed",
     type=int,
     default=36,
@@ -75,14 +80,14 @@ events = pl.scan_csv(os.path.join(args.data_dir, "events.csv"), try_parse_dates=
 
 static_features = [
     "anchor_age",
-    "gender",
-    "race",
-    "marital_status",
-    "insurance",
+    # "gender",
+    # "race",
+    # "marital_status",
+    # "insurance",
     "los",
     "los_ed",
-    "height",
-    "weight",
+    # "height",
+    # "weight",
 ]
 
 # Select features of interest only
@@ -96,9 +101,11 @@ admittimes = stays.select(["hadm_id", "admittime"]).collect()
 
 # Applies min max scaling to  numerical features
 numeric_cols = ["anchor_age", "height", "weight", "los_ed"]
-static_data = scale_numeric_features(
-    static_data, numeric_cols=[i for i in static_data.columns if i in numeric_cols]
-)
+
+if not args.no_scale:
+    static_data = scale_numeric_features(
+        static_data, numeric_cols=[i for i in static_data.columns if i in numeric_cols]
+    )
 static_data = encode_categorical_features(static_data)
 
 #### TIMESERIES PREPROCESSING ####
@@ -110,7 +117,8 @@ events = clean_events(events)
 events = events.collect(streaming=True)
 
 # scale values from events data
-events = scale_numeric_features(events, ["value"], over="label")
+if not args.no_scale:
+    events = scale_numeric_features(events, ["value"], over="label")
 
 ### CREATE DICTIONARY DATA
 
