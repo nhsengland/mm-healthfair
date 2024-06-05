@@ -110,7 +110,7 @@ class MIMIC4Dataset(Dataset):
             self.static.select("label").item(), dtype=torch.float32
         ).unsqueeze(-1)
 
-        self.static = self.static.drop(["label", "los"])
+        self.static = self.static.drop(["label", "los", "height", "weight"])
         self.static = torch.tensor(self.static.to_numpy(), dtype=torch.float32)
 
         if self.static_only:
