@@ -62,7 +62,7 @@ if __name__ == "__main__":
         "--stratify_level",
         type=str,
         default="stay",
-        help="Whether to stratify by subjects or stay.",
+        help="Whether to stratify by subject or stay.",
     )
     parser.add_argument(
         "--thresh",
@@ -342,4 +342,8 @@ if __name__ == "__main__":
             print(
                 f"FILTER BY STAY HADM_IDs:\n\tHADM_IDs: {get_n_unique_values(notes, 'hadm_id')}\n\tTOTAL NOTES: {notes.collect(streaming=True).height}\n\tSUBJECT_IDs: {get_n_unique_values(notes)}"
             )
+
+        # Write all notes
+        notes.write_csv(os.path.join(args.output_path, "notes.csv"))
+
     print("Data extracted.")
