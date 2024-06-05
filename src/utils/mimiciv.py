@@ -253,9 +253,7 @@ def read_notes(mimic4_path: str, use_lazy: bool = False) -> pl.LazyFrame | pl.Da
             pl.Datetime,
             pl.String,
         ],
-    )
-
-    # Extract section relating to description of hospital course
+    ).select(["subject_id", "hadm_id", "charttime", "storetime", "text"])
 
     return notes.lazy() if use_lazy else notes
 
