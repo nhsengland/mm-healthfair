@@ -113,17 +113,17 @@ class MIMIC4Dataset(Dataset):
         self.static = self.static.drop(["label", "los"])
         self.static = torch.tensor(self.static.to_numpy(), dtype=torch.float32)
 
+        if self.static_only:
+            return self.static, self.label
+        
         self.dynamic = [
             self.data_dict[hadm_id][i] for i in self.dynamic_keys
         ]  # list of polars df's
         self.dynamic = [
             torch.tensor(x.to_numpy(), dtype=torch.float32) for x in self.dynamic
         ]
-
-        if self.static_only:
-            return self.static, self.label
-        else:
-            return self.static, self.dynamic, self.label
+        
+        return self.static, self.dynamic, self.label
 
     def get_label_dist(self):
 
@@ -133,10 +133,10 @@ class MIMIC4Dataset(Dataset):
         else:
             id_list = self.splits[self.split]
 
-        labels = pl.concat([self.data_dict[int(i)]["static"].select(pl.col('los')) for i in id_list])
-        labels = labels.with_columns(label=pl.when(pl.col('los') > self.los_thresh).then(1.0).otherwise(0.0)).drop('los')
-        labels = labels.select(pl.col('label').value_counts()).unnest('label')
-        print(labels)
+        all_static = pl.concat([self.data_dict[int(i)]["static"].select(pl.col('los')) for i in id_list])
+        n_positive = all_static.select(pl.col('los')>2).sum().item()
+        print(f'Number of positive cases - LOS > {self.los_thresh}: {n_positive}')
+        print(f'Number of negative cases - LOS <= {self.los_thresh}: {all_static.height - n_positive}')
 
 
     def get_feature_dim(self, key="static"):
