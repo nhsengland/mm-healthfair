@@ -23,6 +23,12 @@ parser.add_argument(
     help="Directory containing processed data, will be used to output processed pkl file.",
 )
 parser.add_argument(
+    "--output_path",
+    "-o",
+    type=str,
+    help="Path to save processed dictionary file."
+)
+parser.add_argument(
     "--min_events", type=int, default=5, help="Minimum number of events per stay."
 )
 parser.add_argument(
@@ -256,7 +262,15 @@ example_id = list(data_dict.keys())[-1]
 print(f"Example data:\n\t{data_dict[example_id]}")
 
 # Save dictionary to disk
-with open(os.path.join(args.data_path, "processed_data.pkl"), "wb") as f:
+if args.output_path is None:
+    output_dir = args.data_path
+    output_path = os.path.join(args.data_path, "processed_data.pkl")
+
+else:
+    output_dir = os.path.dirname(args.output_path)
+    output_path = args.output_path
+
+with open(output_path, "wb") as f:
     pickle.dump(data_dict, f)
 
 # Generate subject-level train test split for the stays
@@ -289,13 +303,13 @@ train_ids = train_ids.cast(pl.String).to_list()
 test_ids = test_ids.cast(pl.String).to_list()
 
 # Using "with open" syntax to automatically close the file
-with open(os.path.join(args.data_path, "training_ids.txt"), "w") as file:
+with open(os.path.join(output_dir, "training_ids.txt"), "w") as file:
     # Join the list elements into a single string with a newline character
     data_to_write = "\n".join(train_ids)
     # Write the data to the file
     file.write(data_to_write)
 
-with open(os.path.join(args.data_path, "test_ids.txt"), "w") as file:
+with open(os.path.join(output_dir, "test_ids.txt"), "w") as file:
     # Join the list elements into a single string with a newline character
     data_to_write = "\n".join(test_ids)
     # Write the data to the file
