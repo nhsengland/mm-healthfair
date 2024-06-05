@@ -75,10 +75,16 @@ class MMModel(L.LightningModule):
             )
 
         self.embed_static = nn.Sequential(
+            nn.Linear(st_input_dim, st_embed_dim*4),
+            nn.ReLU(),
+            nn.LayerNorm(st_embed_dim*4),
+            nn.Dropout(0.1),
             nn.Linear(st_input_dim, st_embed_dim*2),
+            nn.ReLU(),
             nn.LayerNorm(st_embed_dim*2),
             nn.Dropout(0.1),
             nn.Linear(st_embed_dim*2, st_embed_dim),
+            nn.ReLU(),
             nn.LayerNorm(st_embed_dim),
             nn.Dropout(0.1),
         )
