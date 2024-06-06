@@ -1,5 +1,8 @@
 import argparse
+import os
+import pickle
 
+import matplotlib.pyplot as plt
 import numpy as np
 import toml
 from datasets import MIMIC4Dataset
@@ -14,6 +17,11 @@ if __name__ == "__main__":
         "data_path",
         type=str,
         help="Path to the pickled data.",
+    )
+    parser.add_argument(
+        "--log_dir",
+        type=str,
+        help="Path to the folder to store saved model and log outputs.",
     )
     parser.add_argument(
         "--config",
@@ -124,3 +132,22 @@ if __name__ == "__main__":
     auc = roc_auc_score(y_val, prob)
     print("Predicting on validation...")
     print("Performance summary:", [acc, bacc, auc])
+
+    # Save model to disk
+    log_dir = os.getcwd() if args.log_dir is None else args.log_dir
+
+    with open(os.path.join(log_dir, "rf.pkl"), "wb") as f:
+        pickle.dump(model, f)
+
+    # Visualise important features
+    plt.figure(figsize=(20, 10))
+    features = validation_set.get_feature_list()
+    importances = model.feature_importances_
+    indices = np.argsort(importances)
+
+    plt.title("Feature Importances")
+    plt.barh(range(len(indices)), importances[indices], color="b", align="center")
+    plt.yticks(range(len(indices)), [features[i] for i in indices])
+    plt.xlabel("Relative Importance")
+    plt.savefig(os.path.join(log_dir, "feature_importance.png"))
+    plt.show()
