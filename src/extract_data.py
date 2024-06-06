@@ -163,9 +163,9 @@ if __name__ == "__main__":
 
         else:
             mode = "stratified"
-            # use los column to stratify such that the distribution of los >= 48 hours (2 days) is roughly balanced
+            # use los column to stratify such that the distribution of los > 48 hours (2 days) is roughly balanced
             stays = stays.with_columns(
-                los_flag=(pl.col("los") >= args.thresh).cast(pl.Boolean)
+                los_flag=(pl.col("los") > args.thresh).cast(pl.Boolean)
             )
 
             if args.stratify_level == "subject":
@@ -188,6 +188,7 @@ if __name__ == "__main__":
                 subject_ids = (
                     stays.filter(~pl.col("los_flag"))
                     .get_column("subject_id")
+                    .unique()
                     .sample(n=args.sample // 2, seed=0)
                     .to_list()
                 )
@@ -200,6 +201,7 @@ if __name__ == "__main__":
                 subject_ids += (
                     remaining_stays.filter(pl.col("los_flag"))
                     .get_column("subject_id")
+                    .unique()
                     .sample(n=args.sample // 2, seed=0)
                     .to_list()
                 )
@@ -226,11 +228,13 @@ if __name__ == "__main__":
                 negative_stays = stays.filter(~pl.col("los_flag")).sample(
                     n=args.sample // 2, seed=0
                 )
+                print(f"Total negative stays: {negative_stays.height}")
 
                 # positive stays
                 positive_stays = stays.filter(pl.col("los_flag")).sample(
                     n=args.sample // 2, seed=0
                 )
+                print(f"Total positive stays: {positive_stays.height}")
 
                 stays = pl.concat([negative_stays, positive_stays])
 
