@@ -136,6 +136,10 @@ if __name__ == "__main__":
     # Save model to disk
     log_dir = os.getcwd() if args.log_dir is None else args.log_dir
 
+    if not os.path.isdir(log_dir):
+        print(f"Creating log folder at {log_dir}...")
+        os.makedirs(log_dir)
+
     with open(os.path.join(log_dir, "rf.pkl"), "wb") as f:
         pickle.dump(model, f)
 
