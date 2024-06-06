@@ -159,6 +159,12 @@ class MIMIC4Dataset(Dataset):
     def get_feature_dim(self, key="static"):
         return self.data_dict[int(self.hadm_id_list[0])][key].shape[1]
 
+    def get_feature_list(self, key="static"):
+        data = self.data_dict[int(self.hadm_id_list[0])][key]
+        if key == "static":
+            data = data.drop("los")
+        return data.columns
+
     def get_split_ids(self, split):
         return self.splits[split]
 
