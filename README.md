@@ -49,7 +49,7 @@ To create a suitable environment:
 - Run scripts using `poetry run python3 xxx.py`
 
 ### Usage
-This repository contains code used to extract and preprocess demographic, time-series and clinical notes from MIMIC-IV v2.2. Additionally, it includes the model architectures and training scripts used to train multimodal models on different modalities and generate the results described in the report.  
+This repository contains code used to extract and preprocess demographic, time-series and clinical notes from MIMIC-IV v2.2. Additionally, it includes the model architectures and training scripts used to train multimodal models on different modalities and generate the results described in the report.
 
 #### Outputs
 - Preprocessed features from MIMIC-IV 2.2
