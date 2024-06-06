@@ -23,6 +23,7 @@ lightning = "^2.2.4"
 wandb = "^0.17.0"
 torch = "2.3.0"
 torchvision = "^0.18.0"
+shap = "^0.45.1"
 
 [tool.poetry.group.dev.dependencies]
 deptry = "^0.16.1"
