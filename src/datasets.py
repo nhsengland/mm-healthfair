@@ -120,7 +120,7 @@ class MIMIC4Dataset(Dataset):
             self.static.select("label").item(), dtype=torch.float32
         ).unsqueeze(-1)
 
-        self.static = self.static.drop(["label", "los", "height", "weight"])
+        self.static = self.static.drop(["label", "los"])
         self.static = torch.tensor(self.static.to_numpy(), dtype=torch.float32)
 
         if self.static_only:
@@ -136,7 +136,7 @@ class MIMIC4Dataset(Dataset):
 
             return self.static, self.label, self.dynamic
 
-    def get_label_dist(self):
+    def print_label_dist(self):
         # if no particular split then use entire data dict
         if self.split is None:
             id_list = self.hadm_id_list
@@ -147,6 +147,10 @@ class MIMIC4Dataset(Dataset):
             [self.data_dict[int(i)]["static"].select(pl.col("los")) for i in id_list]
         )
         n_positive = all_static.select(pl.col("los") > self.los_thresh).sum().item()
+
+        if self.split is not None:
+            print(f"{self.split.upper()}:")
+
         print(f"Positive cases (los > {self.los_thresh}): {n_positive}")
         print(
             f"Negative cases (los <= {self.los_thresh}): {all_static.height - n_positive}"
