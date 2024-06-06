@@ -3,6 +3,7 @@ import torch
 import torch.nn.functional as F
 import torchmetrics
 from torch import nn
+from torch.optim.lr_scheduler import ReduceLROnPlateau
 
 
 # nn.Modules
@@ -49,9 +50,9 @@ class MMModel(L.LightningModule):
     def __init__(
         self,
         st_input_dim=18,
-        st_embed_dim=32,
+        st_embed_dim=256,
         ts_input_dim=(9, 7),
-        ts_embed_dim=32,
+        ts_embed_dim=256,
         num_ts=2,
         target_size=1,
         lr=0.1,
@@ -74,18 +75,22 @@ class MMModel(L.LightningModule):
             )
 
         self.embed_static = nn.Sequential(
-            nn.Linear(st_input_dim, st_embed_dim * 4),
+            nn.Linear(st_input_dim, st_embed_dim * 2),
+            nn.ReLU(),
+            nn.LayerNorm(st_embed_dim * 2),
+            nn.Dropout(0.2),
+            nn.Linear(st_embed_dim * 2, st_embed_dim * 4),
             nn.ReLU(),
             nn.LayerNorm(st_embed_dim * 4),
-            nn.Dropout(0.1),
+            nn.Dropout(0.2),
             nn.Linear(st_embed_dim * 4, st_embed_dim * 2),
             nn.ReLU(),
             nn.LayerNorm(st_embed_dim * 2),
-            nn.Dropout(0.1),
+            nn.Dropout(0.2),
             nn.Linear(st_embed_dim * 2, st_embed_dim),
             nn.ReLU(),
             nn.LayerNorm(st_embed_dim),
-            nn.Dropout(0.1),
+            nn.Dropout(0.2),
         )
 
         self.fusion_method = fusion_method
@@ -103,7 +108,7 @@ class MMModel(L.LightningModule):
         elif self.fusion_method is None:
             self.fc = nn.Linear(st_embed_dim, target_size)
 
-        self.criterion = torch.nn.BCEWithLogitsLoss()
+        self.criterion = torch.nn.BCEWithLogitsLoss(weight=torch.tensor(0.6))
         self.lr = lr
         self.acc = torchmetrics.Accuracy(task="binary")
         self.auc = torchmetrics.AUROC(task="binary")
@@ -217,7 +222,14 @@ class MMModel(L.LightningModule):
 
     def configure_optimizers(self):
         optimizer = torch.optim.SGD(self.parameters(), lr=self.lr)
-        return optimizer
+        return {
+            "optimizer": optimizer,
+            "lr_scheduler": {
+                "scheduler": ReduceLROnPlateau(optimizer),
+                "monitor": "val_loss",
+                "name": "learning_rate",
+            },
+        }
 
 
 class EmbedStatic(nn.Module):

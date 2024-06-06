@@ -2,10 +2,14 @@ import argparse
 
 import lightning as L
 import toml
-from datasets import CollateTimeSeries, MIMIC4Dataset
+from datasets import CollateFn, CollateTimeSeries, MIMIC4Dataset
+from lightning.pytorch.callbacks import (
+    EarlyStopping,
+    LearningRateMonitor,
+    ModelCheckpoint,
+)
 from lightning.pytorch.loggers import CSVLogger, WandbLogger
 from models import MMModel
-from sklearn.model_selection import train_test_split
 from torch.utils.data import DataLoader
 from utils.functions import read_from_txt
 
@@ -26,7 +30,13 @@ if __name__ == "__main__":
     parser.add_argument(
         "--cpu", action="store_true", help="Whether to use cpu. Defaults to gpu"
     )
-    parser.add_argument("--ids", nargs="?", default=None, help="List of ids to use")
+    parser.add_argument(
+        "--train", nargs="?", default=None, help="List of ids to use for training."
+    )
+    parser.add_argument(
+        "--val", nargs="?", default=None, help="List of ids to use for validation."
+    )
+
     parser.add_argument(
         "--wandb",
         action="store_true",
@@ -46,53 +56,65 @@ if __name__ == "__main__":
     fusion_method = (
         config["model"]["fusion_method"] if config["model"]["fusion_method"] else None
     )
+    modalities = config["data"]["modalities"]
+    static_only = True if (len(modalities) == 1) and ("static" in modalities) else False
+    with_notes = True if "notes" in modalities else False
 
     L.seed_everything(0)
 
-    if args.ids is not None:
-        # Create training and validation splits based on hadm_ids
-        hadm_ids = read_from_txt(args.ids)
-        train_ids, val_ids = train_test_split(hadm_ids, test_size=0.1)
-    else:
-        train_ids = None
-        val_ids = None
+    # Get training and validation ids
+    train_ids = read_from_txt(args.train) if args.train is not None else None
+    val_ids = read_from_txt(args.val) if args.val is not None else None
 
     training_set = MIMIC4Dataset(
-        args.data_path, "train", ids=train_ids, los_thresh=los_threshold
+        args.data_path,
+        "train",
+        ids=train_ids,
+        los_thresh=los_threshold,
+        static_only=static_only,
     )
 
-    training_set.get_label_dist()
+    training_set.print_label_dist()
 
     n_static_features = (
         training_set.get_feature_dim() - 1
     )  # -1 since extracting label from static data and dropping los column
-    n_dynamic_features = (
-        training_set.get_feature_dim("dynamic_0"),
-        training_set.get_feature_dim("dynamic_1"),
-    )
+
+    if not static_only:
+        n_dynamic_features = (
+            training_set.get_feature_dim("dynamic_0"),
+            training_set.get_feature_dim("dynamic_1"),
+        )
+    else:
+        n_dynamic_features = (None, None)
 
     training_dataloader = DataLoader(
         training_set,
         batch_size=batch_size,
         num_workers=num_workers,
-        collate_fn=CollateTimeSeries() if fusion_method is not None else None,
+        collate_fn=CollateFn() if static_only else CollateTimeSeries(),
+        persistent_workers=True,
     )
 
     validation_set = MIMIC4Dataset(
-        args.data_path, "val", ids=val_ids, los_thresh=los_threshold
+        args.data_path,
+        "val",
+        ids=val_ids,
+        los_thresh=los_threshold,
+        static_only=static_only,
     )
     val_dataloader = DataLoader(
         validation_set,
         batch_size=batch_size,
         num_workers=num_workers,
-        collate_fn=CollateTimeSeries() if fusion_method is not None else None,
+        collate_fn=CollateFn() if static_only else CollateTimeSeries(),
         persistent_workers=True,
     )
 
     model = MMModel(
         st_input_dim=n_static_features,
         ts_input_dim=n_dynamic_features,
-        with_packed_sequences=True,
+        with_packed_sequences=True if not static_only else False,
         fusion_method=fusion_method,
     )
 
@@ -108,13 +130,21 @@ if __name__ == "__main__":
     else:
         logger = CSVLogger("logs")
 
+    early_stop = EarlyStopping(monitor="val_loss", mode="min", patience=10)
+    checkpoint = ModelCheckpoint(
+        monitor="val_loss",
+        mode="min",
+    )
+    lr_monitor = LearningRateMonitor(logging_interval="epoch")
+
     trainer = L.Trainer(
-        limit_train_batches=100,
         max_epochs=n_epochs,
-        log_every_n_steps=10,
+        log_every_n_steps=50,
         logger=logger,
         accelerator=device,
+        callbacks=[early_stop, checkpoint, lr_monitor],
     )
+
     trainer.fit(
         model=model,
         train_dataloaders=training_dataloader,
