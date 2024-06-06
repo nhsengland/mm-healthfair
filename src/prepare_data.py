@@ -26,10 +26,10 @@ parser.add_argument(
     "--output_dir",
     "-o",
     type=str,
-    help="Directory to save processed dictionary file and outputs."
+    help="Directory to save processed dictionary file and outputs.",
 )
 parser.add_argument(
-    "--min_events", type=int, default=5, help="Minimum number of events per stay."
+    "--min_events", type=int, default=2, help="Minimum number of events per stay."
 )
 parser.add_argument(
     "--max_events", type=int, default=None, help="Maximum number of events per stay."
@@ -38,32 +38,36 @@ parser.add_argument(
     "--impute",
     type=str,
     default=None,
-    help="Impute strategy. One of ['forward', 'backward', 'mask', 'value']",
+    help="Impute strategy. One of ['forward', 'backward', 'mask', 'value' or None]",
 )
 parser.add_argument(
-    "--no_scale",
-    action="store_true",
-    help="Flag to turn off feature scaling."
+    "--no_scale", action="store_true", help="Flag to turn off feature scaling."
 )
 parser.add_argument(
     "--max_elapsed",
     type=int,
-    default=36,
+    default=48,
     help="Max time elapsed from admission (hours). Filters any events that occur after this.",
 )
-
+parser.add_argument(
+    "--include_notes",
+    action="store_true",
+    help="Whether to preprocess notes if available.",
+)
 parser.add_argument("--verbose", "-v", action="store_true", help="Verbosity.")
 
 args = parser.parse_args()
 output_dir = args.data_dir if args.output_dir is None else args.output_dir
 
-print(f"Processing data from {args.data_dir} and saving output files to {output_dir}...")
+print(
+    f"Processing data from {args.data_dir} and saving output files to {output_dir}..."
+)
 
 # If pkl file exists then remove and start over
-if len(glob.glob(os.path.join(output_dir, "*", "*.pkl"))) > 0:
+if len(glob.glob(os.path.join(output_dir, "*.pkl"))) > 0:
     response = input("Will need to overwrite existing data... continue? (y/n)")
     if response == "y":
-        for f in glob.glob(os.path.join(output_dir, "*", "*.pkl")):
+        for f in glob.glob(os.path.join(output_dir, "*.pkl")):
             try:
                 os.remove(f)
             except OSError as ex:
@@ -73,9 +77,20 @@ if len(glob.glob(os.path.join(output_dir, "*", "*.pkl"))) > 0:
         print("Exiting..")
         sys.exit()
 
-# read extracted data
+elif not os.path.exists(output_dir):
+    print(f"Creating directory at {output_dir}...")
+    os.makedirs(output_dir)
+
+# Read extracted data
 stays = pl.scan_csv(os.path.join(args.data_dir, "stays.csv"))
 events = pl.scan_csv(os.path.join(args.data_dir, "events.csv"), try_parse_dates=True)
+
+# Check if notes exists if so read csv
+if os.path.exists(os.path.join(args.data_dir, "notes.csv")) and args.include_notes:
+    with_notes = True
+    notes = pl.scan_csv(os.path.join(args.data_dir, "notes.csv"))
+else:
+    with_notes = False
 
 #### STATIC DATA PREPROCESSING ####
 
@@ -87,8 +102,8 @@ static_features = [
     "insurance",
     "los",
     "los_ed",
-    "height",
-    "weight",
+    # "height",
+    # "weight",
 ]
 
 # Select features of interest only
@@ -98,7 +113,7 @@ static_data = (
     .collect()
 )
 
-admittimes = stays.select(["hadm_id", "admittime"]).collect()
+durations = stays.select(["hadm_id", "admittime", "dischtime"]).collect()
 
 # Applies min max scaling to  numerical features
 numeric_cols = ["anchor_age", "height", "weight", "los_ed"]
@@ -108,6 +123,17 @@ if not args.no_scale:
         static_data, numeric_cols=[i for i in static_data.columns if i in numeric_cols]
     )
 static_data = encode_categorical_features(static_data)
+
+#### NOTES PREPROCESSING ###
+
+if with_notes:
+    notes = (
+        notes.select(["hadm_id", "charttime", "text"])
+        .cast({"hadm_id": pl.Int64, "charttime": pl.Datetime, "text": pl.String})
+        .collect()
+    )
+
+    # TODO: Extract specific section of notes
 
 #### TIMESERIES PREPROCESSING ####
 
@@ -138,6 +164,7 @@ n = 0
 filter_by_nb_events = 0
 missing_event_src = 0
 filter_by_elapsed_time = 0
+missing_notes = 0
 
 # get all features expected for each event data source and set sampling freq
 feature_map = {}
@@ -166,11 +193,31 @@ for stay_events in tqdm(
         continue
 
     admittime = (
-        admittimes.filter(pl.col.hadm_id == id_val)
+        durations.filter(pl.col.hadm_id == id_val)
         .select("admittime")
         .cast(pl.Datetime)
         .item()
     )
+
+    if with_notes:
+        dischtime = (
+            durations.filter(pl.col.hadm_id == id_val)
+            .select("dischtime")
+            .cast(pl.Datetime)
+            .item()
+        )
+        # Get discharge notes relating to hospital stay
+        stay_notes = notes.filter(pl.col("hadm_id") == id_val).drop("hadm_id")
+
+        if stay_notes.shape[0] == 0:
+            missing_notes += 1
+            # skip if no notes for stay
+            continue
+
+        # Ensure that notes are charted during hospital stay
+        stay_notes = stay_notes.filter(
+            (pl.col("charttime") >= admittime) & (pl.col("charttime") <= dischtime)
+        )
 
     # filter if not at least one entry from each event data source
     if stay_events.n_unique("linksto") < n_src:
@@ -257,6 +304,9 @@ for stay_events in tqdm(
     if write_data:
         data_dict[id_val] = {}
         data_dict[id_val]["static"] = stay_static
+
+        if with_notes:
+            data_dict[id_val]["notes"] = stay_notes
         for idx, ts in enumerate(ts_data):
             data_dict[id_val][f"dynamic_{idx}"] = ts
         n += 1
@@ -267,54 +317,15 @@ print(f"SUCCESSFULLY PROCESSED DATA FOR {n} STAYS.")
 print(f"SKIPPING {filter_by_nb_events} STAYS DUE TO TOTAL NUM EVENTS.")
 print(f"SKIPPING {missing_event_src} STAYS DUE TO MISSING EVENT SOURCE.")
 print(f"SKIPPING {filter_by_elapsed_time} STAYS DUE TO FILTER ON ELAPSED TIME.")
+if with_notes:
+    print(f"SKIPPING {missing_notes} STAYS DUE TO MISSING NOTES.")
 
+# Preview example data
 example_id = list(data_dict.keys())[-1]
 print(f"Example data:\n\t{data_dict[example_id]}")
 
 # Save dictionary to disk
 with open(os.path.join(output_dir, "processed_data.pkl"), "wb") as f:
     pickle.dump(data_dict, f)
-
-# Generate subject-level train test split for the stays
-print("Generating training and test split...")
-stay_ids = list(data_dict.keys())
-processed_stays = (
-    stays.select(["hadm_id", "subject_id"])
-    .filter(pl.col("hadm_id").is_in(stay_ids))
-    .collect()
-)
-subjects = processed_stays.unique(subset="subject_id", keep="first")
-
-train_subjects = (
-    subjects.sample(fraction=0.8, shuffle=True, seed=0)
-    .get_column("subject_id")
-    .to_list()
-)  # 80% of subjects for training
-train_ids = processed_stays.filter(pl.col.subject_id.is_in(train_subjects)).get_column(
-    "hadm_id"
-)
-test_ids = processed_stays.filter(
-    ~pl.col.hadm_id.is_in(train_ids.to_list())
-).get_column("hadm_id")  # remaining stays are test set
-
-print(
-    f"STAYS: {n}\n\tTraining stays: {len(train_ids)}\n\tTest stays {len(test_ids)}.\nSUBJECTS: {len(subjects)}\n\tTraining subjects:  {len(train_subjects)}.\n\tTest subjects: {len(subjects)-len(train_subjects)}."
-)
-
-train_ids = train_ids.cast(pl.String).to_list()
-test_ids = test_ids.cast(pl.String).to_list()
-
-# Using "with open" syntax to automatically close the file
-with open(os.path.join(output_dir, "training_ids.txt"), "w") as file:
-    # Join the list elements into a single string with a newline character
-    data_to_write = "\n".join(train_ids)
-    # Write the data to the file
-    file.write(data_to_write)
-
-with open(os.path.join(output_dir, "test_ids.txt"), "w") as file:
-    # Join the list elements into a single string with a newline character
-    data_to_write = "\n".join(test_ids)
-    # Write the data to the file
-    file.write(data_to_write)
 
 print("Finished.")
