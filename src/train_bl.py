@@ -5,7 +5,7 @@ import toml
 from datasets import MIMIC4Dataset
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import accuracy_score, balanced_accuracy_score, roc_auc_score
-from sklearn.model_selection import GridSearchCV, train_test_split
+from sklearn.model_selection import GridSearchCV
 from utils.functions import read_from_txt
 
 if __name__ == "__main__":
@@ -23,28 +23,26 @@ if __name__ == "__main__":
         help="Path to config toml file containing parameters.",
     )
     parser.add_argument(
-        "--cpu", action="store_true", help="Whether to use cpu. Defaults to gpu"
-    )
-    parser.add_argument("--ids", nargs="?", default=None, help="List of ids to use")
-    parser.add_argument(
-        "--wandb",
+        "--hp",
         action="store_true",
-        help="Whether to use wandb for logging. Defaults to False",
+        help="Whether to use Grid Search CV for hyperparameter tuning.",
     )
+    parser.add_argument(
+        "--train", default=None, help="List of ids to use for training."
+    )
+    parser.add_argument(
+        "--val", default=None, help="List of ids to use for validation."
+    )
+
     args = parser.parse_args()
 
     config = toml.load(args.config)
-    device = "gpu" if not args.cpu else "cpu"
-    use_wandb = args.wandb
     los_threshold = config["model"]["threshold"]
+    with_hp = args.hp
 
-    if args.ids is not None:
-        # Create training and validation splits based on hadm_ids
-        hadm_ids = read_from_txt(args.ids)
-        train_ids, val_ids = train_test_split(hadm_ids, test_size=0.2)
-    else:
-        train_ids = None
-        val_ids = None
+    # Get training and validation ids
+    train_ids = read_from_txt(args.train) if args.train is not None else None
+    val_ids = read_from_txt(args.val) if args.val is not None else None
 
     print("Creating dataset...")
 
@@ -55,6 +53,8 @@ if __name__ == "__main__":
         los_thresh=los_threshold,
         static_only=True,
     )
+
+    training_set.print_label_dist()
 
     x_train = []
     y_train = []
@@ -74,6 +74,8 @@ if __name__ == "__main__":
         static_only=True,
     )
 
+    validation_set.print_label_dist()
+
     x_val = []
     y_val = []
     for data in validation_set:
@@ -84,27 +86,36 @@ if __name__ == "__main__":
     x_val = np.array(x_val)
     y_val = np.array(y_val)
 
-    params = [
-        {
-            "n_estimators": [10, 100, 5000],
-            "criterion": ["gini", "entropy", "log_loss"],
-            "class_weight": [None, "balanced"],
-        }
-    ]
+    if with_hp:
+        params = [
+            {
+                "n_estimators": [100, 1000],
+                "criterion": ["gini", "entropy"],
+            }
+        ]
 
-    model = GridSearchCV(
-        estimator=RandomForestClassifier(random_state=0),
-        param_grid=params,
-        scoring=["balanced_accuracy", "roc_auc", "accuracy"],
-        refit="balanced_accuracy",
-        cv=3,
-    )
-    print("Training via Grid Search..")
+        model = GridSearchCV(
+            estimator=RandomForestClassifier(random_state=0, class_weight="balanced"),
+            param_grid=params,
+            scoring=["balanced_accuracy", "roc_auc", "accuracy"],
+            refit="balanced_accuracy",
+            cv=3,
+        )
+        print("Training via Grid Search..")
+
+    else:
+        print("Training a single RF model...")
+        model = RandomForestClassifier(
+            random_state=0, class_weight="balanced", criterion="entropy"
+        )
+
     model.fit(x_train, y_train)
 
-    print("Best params:", model.best_params_)
-    print("Best score:", model.best_score_)
+    if with_hp:
+        print("Best params:", model.best_params_)
+        print("Best score:", model.best_score_)
 
+    print("Evaluating on validation data...")
     y_hat = model.predict(x_val)
     prob = model.predict_proba(x_val)[:, 1]
 
