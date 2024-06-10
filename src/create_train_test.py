@@ -31,7 +31,7 @@ with open(os.path.join(output_dir, "processed_data.pkl"), "rb") as f:
 stays = pl.scan_csv(os.path.join(args.data_dir, "stays.csv"))
 
 # Generate subject-level train test split for the stays
-print("Generating training and test split...")
+print(f"Generating training and test split (seed {args.seed})...")
 
 # Get IDs from processed data
 processed_stay_ids = list(data_dict.keys())
