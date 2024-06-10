@@ -50,9 +50,9 @@ class MMModel(L.LightningModule):
     def __init__(
         self,
         st_input_dim=18,
-        st_embed_dim=256,
+        st_embed_dim=64,
         ts_input_dim=(9, 7),
-        ts_embed_dim=256,
+        ts_embed_dim=64,
         num_ts=2,
         target_size=1,
         lr=0.1,
@@ -75,22 +75,11 @@ class MMModel(L.LightningModule):
             )
 
         self.embed_static = nn.Sequential(
-            nn.Linear(st_input_dim, st_embed_dim * 2),
+            nn.Linear(st_input_dim, st_embed_dim // 2),
             nn.ReLU(),
-            nn.LayerNorm(st_embed_dim * 2),
+            nn.LayerNorm(st_embed_dim // 2),
             nn.Dropout(0.2),
-            nn.Linear(st_embed_dim * 2, st_embed_dim * 4),
-            nn.ReLU(),
-            nn.LayerNorm(st_embed_dim * 4),
-            nn.Dropout(0.2),
-            nn.Linear(st_embed_dim * 4, st_embed_dim * 2),
-            nn.ReLU(),
-            nn.LayerNorm(st_embed_dim * 2),
-            nn.Dropout(0.2),
-            nn.Linear(st_embed_dim * 2, st_embed_dim),
-            nn.ReLU(),
-            nn.LayerNorm(st_embed_dim),
-            nn.Dropout(0.2),
+            nn.Linear(st_embed_dim // 2, st_embed_dim),
         )
 
         self.fusion_method = fusion_method
@@ -108,7 +97,7 @@ class MMModel(L.LightningModule):
         elif self.fusion_method is None:
             self.fc = nn.Linear(st_embed_dim, target_size)
 
-        self.criterion = torch.nn.BCEWithLogitsLoss(weight=torch.tensor(0.6))
+        self.criterion = torch.nn.BCEWithLogitsLoss(pos_weight=torch.tensor(0.25))
         self.lr = lr
         self.acc = torchmetrics.Accuracy(task="binary")
         self.auc = torchmetrics.AUROC(task="binary")
@@ -167,8 +156,8 @@ class MMModel(L.LightningModule):
     def training_step(self, batch, batch_idx):
         # training_step defines the train loop.
         # it is independent of forward
-        x_hat, y = self.prepare_batch(batch)
-        y_hat = torch.sigmoid(x_hat)
+        x_hat, y = self.prepare_batch(batch)  # logit
+        y_hat = torch.sigmoid(x_hat)  # prob
         loss = self.criterion(x_hat, y)
         accuracy = self.acc(y_hat, y)
         auc = self.auc(y_hat, y)
@@ -222,14 +211,10 @@ class MMModel(L.LightningModule):
 
     def configure_optimizers(self):
         optimizer = torch.optim.SGD(self.parameters(), lr=self.lr)
-        return {
-            "optimizer": optimizer,
-            "lr_scheduler": {
-                "scheduler": ReduceLROnPlateau(optimizer),
-                "monitor": "val_loss",
-                "name": "learning_rate",
-            },
-        }
+        scheduler = ReduceLROnPlateau(optimizer, mode="min", patience=5)
+        return [optimizer], [
+            {"scheduler": scheduler, "monitor": "val_loss", "interval": "epoch"}
+        ]
 
 
 class EmbedStatic(nn.Module):
