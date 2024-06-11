@@ -97,34 +97,34 @@ if __name__ == "__main__":
     # Plot single waterfall plot
 
     # Correct classification (TP)
-    tps = np.argwhere(y_test == y_hat)
+    tps = np.argwhere(np.logical_and(y_hat == 1, y_test == 1))
 
     if len(tps) > 0:
         tp = tps[0][0]
 
-    plt.figure(figsize=(12, 4))
-    plt.title(
-        f"Truth: {int(y_test[tp])}, Predict: {int(model.predict(x_test[tp].reshape(1,-1)))}, Prob: {round(model.predict_proba(x_test[tp].reshape(1,-1))[:,1][0], 2)}"
-    )
-    shap.bar_plot(
-        explainer(x_test[tp])[:, 1].values, feature_names=features, max_display=20
-    )
-    plt.show()
+        plt.figure(figsize=(12, 4))
+        plt.title(
+            f"Truth: {int(y_test[tp])}, Predict: {int(model.predict(x_test[tp].reshape(1,-1)))}, Prob: {round(model.predict_proba(x_test[tp].reshape(1,-1))[:,1][0], 2)}"
+        )
+        shap.bar_plot(
+            explainer(x_test[tp])[:, 1].values, feature_names=features, max_display=20
+        )
+        plt.show()
 
     # Incorrect (FN)
-    fns = np.argwhere(y_test > y_hat)
+    fns = np.argwhere(np.logical_and(y_hat == 0, y_test == 1))
 
     if len(fns) > 0:
         fn = fns[0][0]
 
-    plt.figure(figsize=(12, 4))
-    plt.title(
-        f"Truth: {int(y_test[fn])}, Predict: {int(model.predict(x_test[fn].reshape(1,-1)))}, Prob: {round(model.predict_proba(x_test[fn].reshape(1,-1))[:,1][0], 2)}"
-    )
-    shap.bar_plot(
-        explainer(x_test[fn])[:, 1].values, feature_names=features, max_display=20
-    )
-    plt.show()
+        plt.figure(figsize=(12, 4))
+        plt.title(
+            f"Truth: {int(y_test[fn])}, Predict: {int(model.predict(x_test[fn].reshape(1,-1)))}, Prob: {round(model.predict_proba(x_test[fn].reshape(1,-1))[:,1][0], 2)}"
+        )
+        shap.bar_plot(
+            explainer(x_test[fn])[:, 1].values, feature_names=features, max_display=20
+        )
+        plt.show()
 
     # Plot summary over all test
     start = time.time()
