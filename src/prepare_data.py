@@ -44,6 +44,11 @@ parser.add_argument(
     "--no_scale", action="store_true", help="Flag to turn off feature scaling."
 )
 parser.add_argument(
+    "--include_dyn_mean",
+    action="store_true",
+    help="Flag for whether to add mean of dynamic features to static data.",
+)
+parser.add_argument(
     "--max_elapsed",
     type=int,
     default=48,
@@ -277,6 +282,13 @@ for stay_events in tqdm(
                 raise ValueError(
                     "impute_strategy must be one of [None, mask, value, forward, backward]"
                 )
+
+        if args.include_dyn_mean:
+            # Option to get mean value during stay (drop time col)
+            timeseries_mean = timeseries.drop(["charttime", "linksto"]).mean()
+            timeseries_mean = timeseries_mean.with_columns(pl.all().round(3))
+            # Add to static data
+            stay_static = stay_static.hstack(timeseries_mean)
 
         # Upsample and then downsample to create regular intervals e.g., 2-hours
         timeseries = timeseries.upsample(time_column="charttime", every="1m")
