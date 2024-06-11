@@ -97,11 +97,12 @@ class MMModel(L.LightningModule):
         elif self.fusion_method is None:
             self.fc = nn.Linear(st_embed_dim, target_size)
 
-        self.criterion = torch.nn.BCEWithLogitsLoss(pos_weight=torch.tensor(0.25))
+        self.criterion = torch.nn.BCEWithLogitsLoss()
         self.lr = lr
         self.acc = torchmetrics.Accuracy(task="binary")
         self.auc = torchmetrics.AUROC(task="binary")
         self.f1 = torchmetrics.F1Score(task="binary")
+        self.ap = torchmetrics.AveragePrecision(task="binary")
 
         self.with_packed_sequences = with_packed_sequences
 
@@ -162,6 +163,8 @@ class MMModel(L.LightningModule):
         accuracy = self.acc(y_hat, y)
         auc = self.auc(y_hat, y)
         f1 = self.f1(y_hat, y)
+        ap = self.ap(y_hat, y)
+
         self.log(
             "train_loss",
             loss,
@@ -194,7 +197,14 @@ class MMModel(L.LightningModule):
             on_step=False,
             batch_size=len(y),
         )
-
+        self.log(
+            "train_ap",
+            ap,
+            prog_bar=True,
+            on_epoch=True,
+            on_step=False,
+            batch_size=len(y),
+        )
         return loss
 
     def validation_step(self, batch, batch_idx):
@@ -204,10 +214,12 @@ class MMModel(L.LightningModule):
         accuracy = self.acc(y_hat, y)
         auc = self.auc(y_hat, y)
         f1 = self.f1(y_hat, y)
+        ap = self.ap(y_hat, y)
         self.log("val_loss", loss, prog_bar=True, batch_size=len(y))
         self.log("val_acc", accuracy, prog_bar=True, batch_size=len(y))
         self.log("val_auc", auc, prog_bar=True, batch_size=len(y))
         self.log("val_f1", f1, prog_bar=True, batch_size=len(y))
+        self.log("val_ap", ap, prog_bar=True, batch_size=len(y))
 
     def configure_optimizers(self):
         optimizer = torch.optim.SGD(self.parameters(), lr=self.lr)
