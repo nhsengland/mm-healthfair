@@ -7,7 +7,12 @@ import numpy as np
 import toml
 from datasets import MIMIC4Dataset
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.metrics import accuracy_score, balanced_accuracy_score, roc_auc_score
+from sklearn.metrics import (
+    accuracy_score,
+    average_precision_score,
+    balanced_accuracy_score,
+    roc_auc_score,
+)
 from sklearn.model_selection import GridSearchCV
 from utils.functions import read_from_txt
 
@@ -130,8 +135,9 @@ if __name__ == "__main__":
     acc = accuracy_score(y_val, y_hat)
     bacc = balanced_accuracy_score(y_val, y_hat)
     auc = roc_auc_score(y_val, prob)
+    auprc = average_precision_score(y_val, prob)
     print("Predicting on validation...")
-    print("Performance summary:", [acc, bacc, auc])
+    print("Performance summary:", [acc, bacc, auc, auprc])
 
     # Save model to disk
     log_dir = os.getcwd() if args.log_dir is None else args.log_dir
