@@ -1,12 +1,18 @@
 import argparse
 import pickle
+import time
 
 import matplotlib.pyplot as plt
 import numpy as np
 import shap
 import toml
 from datasets import MIMIC4Dataset
-from sklearn.metrics import accuracy_score, balanced_accuracy_score, roc_auc_score
+from sklearn.metrics import (
+    accuracy_score,
+    average_precision_score,
+    balanced_accuracy_score,
+    roc_auc_score,
+)
 from utils.functions import read_from_txt
 
 if __name__ == "__main__":
@@ -69,15 +75,16 @@ if __name__ == "__main__":
     acc = accuracy_score(y_test, y_hat)
     bacc = balanced_accuracy_score(y_test, y_hat)
     auc = roc_auc_score(y_test, prob)
+    auprc = average_precision_score(y_test, prob)
     print("Predicting on validation...")
-    print("Performance summary:", [acc, bacc, auc])
+    print("Performance summary:", [acc, bacc, auc, auprc])
 
     # Visualise important features
-    plt.figure(figsize=(20, 10))
     features = test_set.get_feature_list()
     importances = model.feature_importances_
     indices = np.argsort(importances)
 
+    plt.figure(figsize=(20, 10))
     plt.title("Feature Importances")
     plt.barh(range(len(indices)), importances[indices], color="b", align="center")
     plt.yticks(range(len(indices)), [features[i] for i in indices])
@@ -85,10 +92,45 @@ if __name__ == "__main__":
     plt.show()
 
     # Create shap plot
-    explainer = shap.Explainer(model, x_test)
-    shap_values = explainer(x_test)
+    explainer = shap.TreeExplainer(model)
 
-    # Plot first value
+    # Plot single waterfall plot
+
+    # Correct classification (TP)
+    tps = np.argwhere(y_test == y_hat)
+
+    if len(tps) > 0:
+        tp = tps[0][0]
+
+    plt.figure(figsize=(12, 4))
+    plt.title(
+        f"Truth: {int(y_test[tp])}, Predict: {int(model.predict(x_test[tp].reshape(1,-1)))}, Prob: {round(model.predict_proba(x_test[tp].reshape(1,-1))[:,1][0], 2)}"
+    )
+    shap.bar_plot(
+        explainer(x_test[tp])[:, 1].values, feature_names=features, max_display=20
+    )
+    plt.show()
+
+    # Incorrect (FN)
+    fns = np.argwhere(y_test > y_hat)
+
+    if len(fns) > 0:
+        fn = fns[0][0]
+
+    plt.figure(figsize=(12, 4))
+    plt.title(
+        f"Truth: {int(y_test[fn])}, Predict: {int(model.predict(x_test[fn].reshape(1,-1)))}, Prob: {round(model.predict_proba(x_test[fn].reshape(1,-1))[:,1][0], 2)}"
+    )
+    shap.bar_plot(
+        explainer(x_test[fn])[:, 1].values, feature_names=features, max_display=20
+    )
+    plt.show()
+
+    # Plot summary over all test
+    start = time.time()
+    shap_values = explainer(x_test)
+    print(time.time() - start)
+
     plt.figure()
-    shap.waterfall_plot(shap_values[0], max_display=20)
+    shap.summary_plot(shap_values[:, :, 1], feature_names=features, max_display=20)
     plt.show()
