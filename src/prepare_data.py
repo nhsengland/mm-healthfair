@@ -99,6 +99,8 @@ else:
 
 #### STATIC DATA PREPROCESSING ####
 
+metadata = stays.collect()
+
 static_features = [
     "anchor_age",
     "gender",
@@ -112,13 +114,9 @@ static_features = [
 ]
 
 # Select features of interest only
-static_data = (
-    stays.select(["hadm_id"] + static_features)
-    .cast({"los": pl.Float64, "los_ed": pl.Float64})
-    .collect()
+static_data = metadata.select(["hadm_id"] + static_features).cast(
+    {"los": pl.Float64, "los_ed": pl.Float64}
 )
-
-metadata = stays.collect()
 
 # Applies min max scaling to  numerical features
 numeric_cols = ["anchor_age", "height", "weight", "los_ed"]
@@ -193,27 +191,17 @@ for stay_events in tqdm(
     # Get static data for stay
     stay_static = static_data.filter(pl.col("hadm_id") == id_val).drop("hadm_id")
 
-    # Get metadata (unprocessed static data)
-    stay_metadata = metadata.filter(pl.col("hadm_id") == id_val)
-
     if stay_static.shape[0] == 0:
         # skip if not in stays
         continue
 
-    admittime = (
-        metadata.filter(pl.col.hadm_id == id_val)
-        .select("admittime")
-        .cast(pl.Datetime)
-        .item()
-    )
+    # Get metadata (unprocessed static data)
+    stay_metadata = metadata.filter(pl.col("hadm_id") == id_val)
+
+    admittime = stay_metadata.select("admittime").cast(pl.Datetime).item()
 
     if with_notes:
-        dischtime = (
-            metadata.filter(pl.col.hadm_id == id_val)
-            .select("dischtime")
-            .cast(pl.Datetime)
-            .item()
-        )
+        dischtime = stay_metadata.select("dischtime").cast(pl.Datetime).item()
         # Get discharge notes relating to hospital stay
         stay_notes = notes.filter(pl.col("hadm_id") == id_val).drop("hadm_id")
 
