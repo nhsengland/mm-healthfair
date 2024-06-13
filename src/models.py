@@ -8,13 +8,19 @@ from torch.optim.lr_scheduler import ReduceLROnPlateau
 
 # nn.Modules
 class LSTM(nn.Module):
-    def __init__(self, input_dim, hidden_dim):
+    def __init__(self, input_dim, embed_dim, num_layers=1, hidden_dim=128, dropout=0):
         super().__init__()
-        self.lstm = nn.LSTM(input_dim, hidden_dim, batch_first=True)
+        self.lstm = nn.LSTM(
+            input_dim, hidden_dim, num_layers=num_layers, batch_first=True
+        )
+        self.project = nn.Linear(hidden_dim, embed_dim)
+        self.dropout = nn.Dropout(dropout)
+        self.relu = nn.ReLU()
 
     def forward(self, input_):
-        output, (_, _) = self.lstm(input_)
-        return output
+        _, (h_T, _) = self.lstm(input_)
+        output = self.dropout(self.project(h_T[-1]))
+        return self.relu(output)
 
 
 class Gate(nn.Module):
@@ -53,6 +59,8 @@ class MMModel(L.LightningModule):
         st_embed_dim=64,
         ts_input_dim=(9, 7),
         ts_embed_dim=64,
+        num_layers=1,
+        dropout=0.1,
         num_ts=2,
         target_size=1,
         lr=0.1,
@@ -69,6 +77,8 @@ class MMModel(L.LightningModule):
                     LSTM(
                         ts_input_dim[i],
                         ts_embed_dim,
+                        num_layers=num_layers,
+                        dropout=dropout,
                     )
                     for i in range(self.num_ts)
                 ]
@@ -76,15 +86,17 @@ class MMModel(L.LightningModule):
 
         self.embed_static = nn.Sequential(
             nn.Linear(st_input_dim, st_embed_dim // 2),
-            nn.ReLU(),
             nn.LayerNorm(st_embed_dim // 2),
-            nn.Dropout(0.2),
             nn.Linear(st_embed_dim // 2, st_embed_dim),
+            nn.Dropout(dropout),
+            nn.ReLU(),
         )
 
         self.fusion_method = fusion_method
         if self.fusion_method == "mag":
-            self.fuse = Gate(st_embed_dim, *([ts_embed_dim] * self.num_ts), dropout=0.1)
+            self.fuse = Gate(
+                *([ts_embed_dim] * self.num_ts), st_embed_dim, dropout=dropout
+            )
             self.fc = nn.Linear(st_embed_dim, target_size)
 
         elif self.fusion_method == "concat":
@@ -126,13 +138,7 @@ class MMModel(L.LightningModule):
                 else:
                     embed = self.embed_timeseries[i](d[i])
 
-                #  unpack if using packed sequences
-                if self.with_packed_sequences:
-                    embed, _ = torch.nn.utils.rnn.pad_packed_sequence(
-                        embed, batch_first=True
-                    )
-
-                ts_embed.append(embed[:, -1].unsqueeze(1))
+                ts_embed.append(embed.unsqueeze(1))
 
         st_embed = self.embed_static(s)
 
@@ -147,9 +153,8 @@ class MMModel(L.LightningModule):
         elif self.fusion_method is None:
             out = st_embed.squeeze()
 
-        # Parse through FC + sigmoid layer
-        logits = self.fc(out)  # b x 1
-        x_hat = F.sigmoid(logits)  # b x 1
+        # Parse through FC
+        x_hat = self.fc(out)  # b x 1 - logits
         if len(x_hat.shape) < 2:  # noqa: PLR2004
             x_hat = x_hat.unsqueeze(0)
         return x_hat, y
@@ -163,7 +168,7 @@ class MMModel(L.LightningModule):
         accuracy = self.acc(y_hat, y)
         auc = self.auc(y_hat, y)
         f1 = self.f1(y_hat, y)
-        ap = self.ap(y_hat, y)
+        ap = self.ap(y_hat, y.long())
 
         self.log(
             "train_loss",
@@ -214,7 +219,7 @@ class MMModel(L.LightningModule):
         accuracy = self.acc(y_hat, y)
         auc = self.auc(y_hat, y)
         f1 = self.f1(y_hat, y)
-        ap = self.ap(y_hat, y)
+        ap = self.ap(y_hat, y.long())
         self.log("val_loss", loss, prog_bar=True, batch_size=len(y))
         self.log("val_acc", accuracy, prog_bar=True, batch_size=len(y))
         self.log("val_auc", auc, prog_bar=True, batch_size=len(y))
@@ -223,7 +228,7 @@ class MMModel(L.LightningModule):
 
     def configure_optimizers(self):
         optimizer = torch.optim.SGD(self.parameters(), lr=self.lr)
-        scheduler = ReduceLROnPlateau(optimizer, mode="min", patience=5)
+        scheduler = ReduceLROnPlateau(optimizer, mode="min", patience=10)
         return [optimizer], [
             {"scheduler": scheduler, "monitor": "val_loss", "interval": "epoch"}
         ]
