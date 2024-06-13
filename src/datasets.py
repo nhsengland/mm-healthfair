@@ -1,11 +1,10 @@
 import argparse
-import pickle
 
 import polars as pl
 import torch
 from sklearn.model_selection import train_test_split
 from torch.utils.data import Dataset
-from utils.functions import preview_data
+from utils.functions import load_pickle, preview_data
 
 
 class CollateFn:
@@ -77,9 +76,7 @@ class MIMIC4Dataset(Dataset):
     ) -> None:
         super().__init__()
 
-        with open(data_path, "rb") as f:
-            self.data_dict = pickle.load(f)
-
+        self.data_dict = load_pickle(data_path)
         self.hadm_id_list = list(self.data_dict.keys()) if ids is None else ids
         self.dynamic_keys = [
             key

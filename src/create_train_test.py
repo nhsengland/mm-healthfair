@@ -1,8 +1,8 @@
 import argparse
 import os
-import pickle
 
 import polars as pl
+from utils.functions import load_pickle
 
 parser = argparse.ArgumentParser(description="Create train/val/test split.")
 parser.add_argument(
@@ -38,8 +38,8 @@ args = parser.parse_args()
 
 output_dir = args.data_dir if args.output_dir is None else args.output_dir
 
-with open(os.path.join(output_dir, "processed_data.pkl"), "rb") as f:
-    data_dict = pickle.load(f)
+# Load in pickled data
+data_dict = load_pickle(os.path.join(output_dir, "processed_data.pkl"))
 
 # Load in stays data since contains the subject ids we need
 stays = pl.scan_csv(os.path.join(args.data_dir, "stays.csv"))

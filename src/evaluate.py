@@ -1,5 +1,5 @@
 import argparse
-import pickle
+import os
 import time
 
 import matplotlib.pyplot as plt
@@ -18,14 +18,14 @@ from sklearn.metrics import (
     balanced_accuracy_score,
     roc_auc_score,
 )
-from utils.functions import read_from_txt
+from utils.functions import load_pickle, read_from_txt
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        "data_path",
+        "data_dir",
         type=str,
-        help="Path to the pickled data.",
+        help="Path to the directory containing processed data (and metadata).",
     )
     parser.add_argument(
         "model_path",
@@ -52,6 +52,9 @@ if __name__ == "__main__":
     )
     args = parser.parse_args()
 
+    data_path = os.path.join(args.data_dir, "processed_data.pkl")
+    metadata_path = os.path.join(args.data_dir, "metadata.pkl")
+
     config = toml.load(args.config)
     los_threshold = config["model"]["threshold"]
 
@@ -59,14 +62,16 @@ if __name__ == "__main__":
     test_ids = read_from_txt(args.test) if args.test is not None else None
 
     print("Loading dataset...")
+
     test_set = MIMIC4Dataset(
-        args.data_path,
         "test",
         ids=test_ids,
         los_thresh=los_threshold,
         static_only=True,
     )
     test_set.print_label_dist()
+
+    metadata = load_pickle(metadata_path)
 
     x_test = []
     y_test = []
@@ -78,8 +83,7 @@ if __name__ == "__main__":
     x_test = np.array(x_test)
     y_test = np.array(y_test)
 
-    with open(args.model_path, "rb") as f:
-        model = pickle.load(f)
+    model = load_pickle(args.model_path)
 
     print("Evaluating on validation data...")
     y_hat = model.predict(x_test)
