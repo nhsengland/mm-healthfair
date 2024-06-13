@@ -24,6 +24,7 @@ wandb = "^0.17.0"
 torch = "2.3.0"
 torchvision = "^0.18.0"
 shap = "^0.45.1"
+fairlearn = "^0.10.0"
 
 [tool.poetry.group.dev.dependencies]
 deptry = "^0.16.1"

@@ -605,6 +605,23 @@ files = [
 tests = ["asttokens (>=2.1.0)", "coverage", "coverage-enable-subprocess", "ipython", "littleutils", "pytest", "rich"]
 
 [[package]]
+name = "fairlearn"
+version = "0.10.0"
+description = "A Python package to assess and improve fairness of machine learning models."
+optional = false
+python-versions = ">=3.8"
+files = [
+    {file = "fairlearn-0.10.0-py3-none-any.whl", hash = "sha256:772224097f8c073168bde44e659d7a2107f96d608063a738df9c985e17dab30f"},
+    {file = "fairlearn-0.10.0.tar.gz", hash = "sha256:70e7aefaf9cb16e00462624d58b0517397970dc40d4cbc71e8d40f7c69800f9d"},
+]
+
+[package.dependencies]
+numpy = ">=1.24.4"
+pandas = ">=2.0.3"
+scikit-learn = ">=1.2.1"
+scipy = ">=1.9.3"
+
+[[package]]
 name = "filelock"
 version = "3.14.0"
 description = "A platform independent file lock."
@@ -3367,4 +3384,4 @@ multidict = ">=4.0"
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.10"
-content-hash = "4a5873f45cae6d018cf44ca775a0e0d0c9bbd7f305c4bd6c23826a9119631431"
+content-hash = "cc557efee64e0cc3ab42ab4016ff9e74a32ad093a8e739652446a8ca987381e2"
