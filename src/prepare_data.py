@@ -109,8 +109,6 @@ static_features = [
     "insurance",
     "los",
     "los_ed",
-    # "height",
-    # "weight",
 ]
 
 # Select features of interest only
@@ -292,7 +290,7 @@ for stay_events in tqdm(
         timeseries = timeseries.fill_null(strategy="forward")
 
         timeseries = add_time_elapsed_to_events(timeseries, admittime)
-        # only include first 36 hours - note this could lead to all data being lost so skip if that is the case
+        # only include first x hours - note this could lead to all data being lost so skip if that is the case
         timeseries = timeseries.filter(pl.col("elapsed") <= args.max_elapsed)
 
         if timeseries.shape[0] == 0:
@@ -306,7 +304,6 @@ for stay_events in tqdm(
 
     if write_data:
         data_dict[id_val] = {}
-        data_dict[id_val]["metadata"] = stay_metadata
         data_dict[id_val]["static"] = stay_static
 
         if with_notes:
