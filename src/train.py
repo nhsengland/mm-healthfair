@@ -130,7 +130,7 @@ if __name__ == "__main__":
     else:
         logger = CSVLogger("logs")
 
-    early_stop = EarlyStopping(monitor="val_loss", mode="min", patience=10)
+    early_stop = EarlyStopping(monitor="val_loss", mode="min", patience=3)
     checkpoint = ModelCheckpoint(
         monitor="val_loss",
         mode="min",
