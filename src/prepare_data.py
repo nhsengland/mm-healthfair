@@ -118,7 +118,7 @@ static_data = (
     .collect()
 )
 
-durations = stays.select(["hadm_id", "admittime", "dischtime"]).collect()
+metadata = stays.collect()
 
 # Applies min max scaling to  numerical features
 numeric_cols = ["anchor_age", "height", "weight", "los_ed"]
@@ -193,12 +193,15 @@ for stay_events in tqdm(
     # Get static data for stay
     stay_static = static_data.filter(pl.col("hadm_id") == id_val).drop("hadm_id")
 
+    # Get metadata (unprocessed static data)
+    stay_metadata = metadata.filter(pl.col("hadm_id") == id_val)
+
     if stay_static.shape[0] == 0:
         # skip if not in stays
         continue
 
     admittime = (
-        durations.filter(pl.col.hadm_id == id_val)
+        metadata.filter(pl.col.hadm_id == id_val)
         .select("admittime")
         .cast(pl.Datetime)
         .item()
@@ -206,7 +209,7 @@ for stay_events in tqdm(
 
     if with_notes:
         dischtime = (
-            durations.filter(pl.col.hadm_id == id_val)
+            metadata.filter(pl.col.hadm_id == id_val)
             .select("dischtime")
             .cast(pl.Datetime)
             .item()
@@ -315,6 +318,7 @@ for stay_events in tqdm(
 
     if write_data:
         data_dict[id_val] = {}
+        data_dict[id_val]["metadata"] = stay_metadata
         data_dict[id_val]["static"] = stay_static
 
         if with_notes:
