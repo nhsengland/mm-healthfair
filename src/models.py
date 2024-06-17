@@ -66,14 +66,27 @@ class MMModel(L.LightningModule):
         lr=0.1,
         fusion_method="concat",
         st_first=True,
+        with_ts=True,
+        with_notes=False,
         with_packed_sequences=False,
     ):
         super().__init__()
         self.save_hyperparameters()
         self.num_ts = num_ts
+        self.with_ts = with_ts
+        self.with_notes = with_notes
         self.st_first = st_first
+        self.fusion_method = fusion_method
 
-        if fusion_method is not None:
+        self.embed_static = nn.Sequential(
+            nn.Linear(st_input_dim, st_embed_dim // 2),
+            nn.LayerNorm(st_embed_dim // 2),
+            nn.Linear(st_embed_dim // 2, st_embed_dim),
+            nn.Dropout(dropout),
+            nn.ReLU(),
+        )
+
+        if self.with_ts:
             self.embed_timeseries = nn.ModuleList(
                 [
                     LSTM(
@@ -86,15 +99,6 @@ class MMModel(L.LightningModule):
                 ]
             )
 
-        self.embed_static = nn.Sequential(
-            nn.Linear(st_input_dim, st_embed_dim // 2),
-            nn.LayerNorm(st_embed_dim // 2),
-            nn.Linear(st_embed_dim // 2, st_embed_dim),
-            nn.Dropout(dropout),
-            nn.ReLU(),
-        )
-
-        self.fusion_method = fusion_method
         if self.fusion_method == "mag":
             if self.st_first:
                 self.fuse = Gate(
@@ -128,20 +132,21 @@ class MMModel(L.LightningModule):
         self.with_packed_sequences = with_packed_sequences
 
     def prepare_batch(self, batch):  # noqa: PLR0912
-        if self.fusion_method is not None:
+        # static, labels, dynamic, lengths, notes  # noqa: E741
+        s = batch[0]
+        y = batch[1]
+
+        if self.with_ts:
+            d = batch[2]
             if self.with_packed_sequences:
-                s, y, d, l = batch  # static, labels, dynamic, lengths  # noqa: E741
-            else:
-                s, y, d = batch
-        else:
-            s, y = batch
+                lengths = batch[3]
 
         if self.fusion_method is not None:
             ts_embed = []
             for i in range(self.num_ts):
                 if self.with_packed_sequences:
                     packed_d = torch.nn.utils.rnn.pack_padded_sequence(
-                        d[i], l[i], batch_first=True, enforce_sorted=False
+                        d[i], lengths[i], batch_first=True, enforce_sorted=False
                     )
                     embed = self.embed_timeseries[i](packed_d)
                 else:
