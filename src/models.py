@@ -65,11 +65,13 @@ class MMModel(L.LightningModule):
         target_size=1,
         lr=0.1,
         fusion_method="concat",
+        st_first=True,
         with_packed_sequences=False,
     ):
         super().__init__()
         self.save_hyperparameters()
         self.num_ts = num_ts
+        self.st_first = st_first
 
         if fusion_method is not None:
             self.embed_timeseries = nn.ModuleList(
@@ -94,10 +96,17 @@ class MMModel(L.LightningModule):
 
         self.fusion_method = fusion_method
         if self.fusion_method == "mag":
-            self.fuse = Gate(
-                *([ts_embed_dim] * self.num_ts), st_embed_dim, dropout=dropout
-            )
-            self.fc = nn.Linear(st_embed_dim, target_size)
+            if self.st_first:
+                self.fuse = Gate(
+                    st_embed_dim, *([ts_embed_dim] * self.num_ts), dropout=dropout
+                )
+                self.fc = nn.Linear(st_embed_dim, target_size)
+
+            else:
+                self.fuse = Gate(
+                    *([ts_embed_dim] * self.num_ts), st_embed_dim, dropout=dropout
+                )
+                self.fc = nn.Linear(ts_embed_dim, target_size)
 
         elif self.fusion_method == "concat":
             # embeddings must be same dim
@@ -148,7 +157,10 @@ class MMModel(L.LightningModule):
             # concat along feature dim
             out = torch.concat([st_embed, *ts_embed], dim=-1).squeeze()  # b x dim*2
         elif self.fusion_method == "mag":
-            out = self.fuse(st_embed, *ts_embed)  # b x st_embed_dim
+            if self.st_first:
+                out = self.fuse(st_embed, *ts_embed)  # b x st_embed_dim
+            else:
+                out = self.fuse(*ts_embed, st_embed)
 
         elif self.fusion_method is None:
             out = st_embed.squeeze()
@@ -225,6 +237,11 @@ class MMModel(L.LightningModule):
         self.log("val_auc", auc, prog_bar=True, batch_size=len(y))
         self.log("val_f1", f1, prog_bar=True, batch_size=len(y))
         self.log("val_ap", ap, prog_bar=True, batch_size=len(y))
+
+    def predict_step(self, batch):
+        x_hat, y = self.prepare_batch(batch)
+        y_hat = torch.sigmoid(x_hat)
+        return y_hat, y
 
     def configure_optimizers(self):
         optimizer = torch.optim.SGD(self.parameters(), lr=self.lr)
