@@ -128,13 +128,33 @@ static_data = encode_categorical_features(static_data)
 #### NOTES PREPROCESSING ###
 
 if with_notes:
-    notes = (
-        notes.select(["hadm_id", "charttime", "text"])
-        .cast({"hadm_id": pl.Int64, "charttime": pl.Datetime, "text": pl.String})
-        .collect()
+    notes = notes.select(["hadm_id", "charttime", "text"]).cast(
+        {"hadm_id": pl.Int64, "charttime": pl.Datetime, "text": pl.String}
     )
+    # Extract specific section of notes "Brief Hospital Course"
+    # Drops ~3k missing the section entirely
+    notes = notes.with_columns(
+        (pl.col("text").str.find("History of Present Illness:")).alias("begin")
+    ).drop_nulls(subset="begin")
+    # Get the end
+    # Drops any remaining where the end cant be found (~450)
+    notes = notes.with_columns(
+        (
+            pl.col("text")
+            .str.slice(pl.col("begin"))
+            .str.find("\n \nPast Medical History")
+        ).alias("end")
+    ).drop_nulls(subset="end")
 
-    # TODO: Extract specific section of notes
+    # Get subsection
+    # NOTE: This is not perfect and in some cases snippet may contain text from other preceding sections
+    notes = (
+        notes.with_columns(
+            subtext=pl.col("text").str.slice(pl.col("begin") + 27, pl.col("end"))
+        )
+        .drop(["text", "begin", "end"])
+        .collect(streaming=True)
+    )
 
 #### TIMESERIES PREPROCESSING ####
 
@@ -151,6 +171,7 @@ if not args.no_scale:
 ### CREATE DICTIONARY DATA
 
 data_dict = {}
+notes_data_dict = {}
 
 # Filter events by number of events per stay
 min_events = 1 if args.min_events is None else int(args.min_events)
@@ -306,10 +327,11 @@ for stay_events in tqdm(
         data_dict[id_val] = {}
         data_dict[id_val]["static"] = stay_static
 
-        if with_notes:
-            data_dict[id_val]["notes"] = stay_notes
         for idx, ts in enumerate(ts_data):
             data_dict[id_val][f"dynamic_{idx}"] = ts
+
+        if with_notes:
+            notes_data_dict[id_val] = stay_notes
         n += 1
 
     write_data = True
@@ -328,5 +350,6 @@ print(f"Example data:\n\t{data_dict[example_id]}")
 # Save dictionary to disk
 with open(os.path.join(output_dir, "processed_data.pkl"), "wb") as f:
     pickle.dump(data_dict, f)
-
+with open(os.path.join(output_dir, "processed_notes.pkl"), "wb") as f:
+    pickle.dump(notes_data_dict, f)
 print("Finished.")
