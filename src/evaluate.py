@@ -223,6 +223,11 @@ if __name__ == "__main__":
                 }
                 metadata = metadata.with_columns(pl.col("race").replace(race_groups))
 
+            if pf == "marital_status":
+                metadata = metadata.with_columns(
+                    pl.col("marital_status").replace({None: "Unspecified"})
+                )
+
             metrics = {
                 "accuracy": accuracy_score,
                 "false positive rate": false_positive_rate,
