@@ -162,19 +162,6 @@ class MIMIC4Dataset(Dataset):
             data = data.drop("los")
         return data.columns
 
-    def view_metadata(self, columns: list = None):
-        if columns is not None:
-            return pl.concat(
-                [
-                    self.data_dict[int(i)]["metadata"].select(columns)
-                    for i in self.hadm_id_list
-                ]
-            )
-        else:
-            return pl.concat(
-                [self.data_dict[int(i)]["metadata"] for i in self.hadm_id_list]
-            )
-
     def get_split_ids(self, split):
         return self.splits[split]
 
