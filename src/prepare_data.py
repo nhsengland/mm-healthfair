@@ -350,6 +350,9 @@ print(f"Example data:\n\t{data_dict[example_id]}")
 # Save dictionary to disk
 with open(os.path.join(output_dir, "processed_data.pkl"), "wb") as f:
     pickle.dump(data_dict, f)
-with open(os.path.join(output_dir, "processed_notes.pkl"), "wb") as f:
-    pickle.dump(notes_data_dict, f)
+
+if with_notes:
+    with open(os.path.join(output_dir, "processed_notes.pkl"), "wb") as f:
+        pickle.dump(notes_data_dict, f)
+
 print("Finished.")
