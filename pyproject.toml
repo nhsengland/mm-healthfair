@@ -7,7 +7,7 @@ readme = "README.md"
 package-mode = false
 
 [tool.poetry.dependencies]
-python = "^3.10"
+python = ">=3.10,<3.12"
 numpy = "^1.26.4"
 matplotlib = "^3.8.3"
 scikit-learn = "^1.4.1.post1"
@@ -25,6 +25,9 @@ torch = "2.3.0"
 torchvision = "^0.18.0"
 shap = "^0.45.1"
 fairlearn = "^0.10.0"
+nmslib = "2.1.1"
+scispacy = "^0.5.4"
+en-core-sci-md = {url = "https://s3-us-west-2.amazonaws.com/ai2-s2-scispacy/releases/v0.5.4/en_core_sci_md-0.5.4.tar.gz"}
 
 [tool.poetry.group.dev.dependencies]
 deptry = "^0.16.1"
