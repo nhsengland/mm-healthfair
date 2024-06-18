@@ -10,8 +10,10 @@ from utils.functions import scale_numeric_features
 from utils.preprocessing import (
     add_time_elapsed_to_events,
     clean_events,
+    clean_notes,
     convert_events_to_timeseries,
     encode_categorical_features,
+    process_text_to_embeddings,
 )
 
 parser = argparse.ArgumentParser(
@@ -148,14 +150,19 @@ if with_notes:
 
     # Get subsection
     # NOTE: This is not perfect and in some cases snippet may contain text from other preceding sections
-    notes = (
-        notes.with_columns(
-            subtext=pl.col("text").str.slice(pl.col("begin") + 27, pl.col("end"))
-        )
-        .drop(["text", "begin", "end"])
-        .collect(streaming=True)
-    )
 
+    notes = notes.with_columns(
+        subtext=pl.col("text").str.slice(pl.col("begin") + 27, pl.col("end"))
+    ).drop(["text", "begin", "end"])
+
+    # Clean notes by removing "___" identifiers
+    notes = clean_notes(notes).limit(100).collect(streaming=True)
+
+    # Generate embeddings
+    embeddings = process_text_to_embeddings(notes)
+
+with open(os.path.join(output_dir, "notes_embed.pkl"), "wb") as f:
+    pickle.dump(embeddings, f)
 #### TIMESERIES PREPROCESSING ####
 
 # clean events
@@ -171,7 +178,7 @@ if not args.no_scale:
 ### CREATE DICTIONARY DATA
 
 data_dict = {}
-notes_data_dict = {}
+notes_embed_dict = {}
 
 # Filter events by number of events per stay
 min_events = 1 if args.min_events is None else int(args.min_events)
@@ -221,18 +228,20 @@ for stay_events in tqdm(
 
     if with_notes:
         dischtime = stay_metadata.select("dischtime").cast(pl.Datetime).item()
+
         # Get discharge notes relating to hospital stay
         stay_notes = notes.filter(pl.col("hadm_id") == id_val).drop("hadm_id")
 
-        if stay_notes.shape[0] == 0:
-            missing_notes += 1
-            # skip if no notes for stay
-            continue
-
         # Ensure that notes are charted during hospital stay
+        # TODO: Change to first x hours after admission??
         stay_notes = stay_notes.filter(
             (pl.col("charttime") >= admittime) & (pl.col("charttime") <= dischtime)
         )
+
+        if stay_notes.shape[0] == 0:
+            missing_notes += 1
+            # skip if no notes for stay or within hospital stay
+            continue
 
     # filter if not at least one entry from each event data source
     if stay_events.n_unique("linksto") < n_src:
@@ -331,7 +340,7 @@ for stay_events in tqdm(
             data_dict[id_val][f"dynamic_{idx}"] = ts
 
         if with_notes:
-            notes_data_dict[id_val] = stay_notes
+            notes_embed_dict[id_val] = embeddings[id_val]
         n += 1
 
     write_data = True
@@ -352,7 +361,7 @@ with open(os.path.join(output_dir, "processed_data.pkl"), "wb") as f:
     pickle.dump(data_dict, f)
 
 if with_notes:
-    with open(os.path.join(output_dir, "processed_notes.pkl"), "wb") as f:
-        pickle.dump(notes_data_dict, f)
+    with open(os.path.join(output_dir, "notes_embed.pkl"), "wb") as f:
+        pickle.dump(notes_embed_dict, f)
 
 print("Finished.")
