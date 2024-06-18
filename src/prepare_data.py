@@ -156,13 +156,11 @@ if with_notes:
     ).drop(["text", "begin", "end"])
 
     # Clean notes by removing "___" identifiers
-    notes = clean_notes(notes).limit(100).collect(streaming=True)
+    notes = clean_notes(notes).collect(streaming=True)
 
     # Generate embeddings
     embeddings = process_text_to_embeddings(notes)
 
-with open(os.path.join(output_dir, "notes_embed.pkl"), "wb") as f:
-    pickle.dump(embeddings, f)
 #### TIMESERIES PREPROCESSING ####
 
 # clean events
