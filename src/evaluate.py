@@ -1,5 +1,6 @@
 import argparse
 import os
+import sys
 import time
 
 import matplotlib.pyplot as plt
@@ -137,6 +138,10 @@ if __name__ == "__main__":
 
     ### Explain
     if args.explain:
+        if model_type != "rf":
+            print("Explanations for fusion models have not been implemented.")
+            sys.exit()
+
         # Visualise important features
         features = test_set.get_feature_list()
         importances = model.feature_importances_

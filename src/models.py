@@ -59,6 +59,8 @@ class MMModel(L.LightningModule):
         st_embed_dim=64,
         ts_input_dim=(9, 7),
         ts_embed_dim=64,
+        nt_input_dim=768,
+        nt_embed_dim=64,
         num_layers=1,
         dropout=0.1,
         num_ts=2,
@@ -99,6 +101,12 @@ class MMModel(L.LightningModule):
                 ]
             )
 
+        if self.with_notes:
+            self.embed_notes = nn.Linear(nt_input_dim, nt_embed_dim)
+        else:
+            self.embed_notes = None
+            self.nt_embed_dim = 0
+
         if self.fusion_method == "mag":
             if self.st_first:
                 self.fuse = Gate(
@@ -115,8 +123,10 @@ class MMModel(L.LightningModule):
         elif self.fusion_method == "concat":
             # embeddings must be same dim
             assert st_embed_dim == ts_embed_dim
+            if self.with_notes:
+                assert nt_embed_dim == st_embed_dim
             self.fc = nn.Linear(
-                st_embed_dim + (self.num_ts * ts_embed_dim), target_size
+                st_embed_dim + (self.num_ts * ts_embed_dim) + nt_embed_dim, target_size
             )
 
         elif self.fusion_method is None:
