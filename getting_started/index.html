@@ -18,7 +18,7 @@
       
       
       <link rel="icon" href="../assets/NHS.svg">
-      <meta name="generator" content="mkdocs-1.6.0, mkdocs-material-9.5.27">
+      <meta name="generator" content="mkdocs-1.6.0, mkdocs-material-9.5.28">
     
     
       
@@ -737,7 +737,7 @@
 <p>Example:</p>
 <div class="language-text highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>extract_data.py /path/to/data/  -o /data/extracted_data --event_tables labevents vitalsign --sample 1000 --lazy --labitems labitems.txt
 </span></code></pre></div>
-<p>This command will read from the /data/mimic directory and extract relevant events from the MIMIC-IV hosp/labevents.csv and ed/vitalsign.csv for 1000 stays. Output files will be saved under the <code>/data/extracted_data</code> folder.</p>
+<p>This command will read from the <code>/data/mimic</code> directory and extract relevant events from the MIMIC-IV hosp/labevents.csv and ed/vitalsign.csv for 1000 stays. Output files will be saved under the <code>/data/extracted_data</code> folder.</p>
 <h3 id="2-preparing-the-data">2. Preparing the data</h3>
 <p>Once these core files have been downloaded, run <code>prepare_data.py</code> to create a dictionary (key = hadm_id, values = dataframes of preprocessed data) for model training and evaluation. The resulting file will be called <strong><code>processed_data.pkl</code></strong> and is required for downstream analysis scripts.</p>
 <p>Usage:
@@ -867,7 +867,7 @@
     <script id="__config" type="application/json">{"base": "..", "features": ["navigation.instant", "navigation.tracking", "navigation.tabs", "navigation.tabs.sticky", "toc.integrate", "navigation.top", "search.suggest", "search.highlight", "search.share", "navigation.footer", "content.action.view", "content.action.edit", "content.code.copy"], "search": "../assets/javascripts/workers/search.b8dbb3d2.min.js", "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}}</script>
     
     
-      <script src="../assets/javascripts/bundle.ad660dcc.min.js"></script>
+      <script src="../assets/javascripts/bundle.fe8b6f2b.min.js"></script>
       
     
   </body>
