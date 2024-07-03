@@ -46,6 +46,11 @@ parser.add_argument(
     "--no_scale", action="store_true", help="Flag to turn off feature scaling."
 )
 parser.add_argument(
+    "--no_resample",
+    action="store_true",
+    help="Flag to turn off time-series resampling.",
+)
+parser.add_argument(
     "--include_dyn_mean",
     action="store_true",
     help="Flag for whether to add mean of dynamic features to static data.",
@@ -307,15 +312,14 @@ for stay_events in tqdm(
             # Add to static data
             stay_static = stay_static.hstack(timeseries_mean)
 
-        # Upsample and then downsample to create regular intervals e.g., 2-hours
-        timeseries = timeseries.upsample(time_column="charttime", every="1m")
-
-        timeseries = timeseries.group_by_dynamic(
-            "charttime",
-            every=freq[src],
-        ).agg(pl.col(pl.Float64).mean())
-
-        timeseries = timeseries.fill_null(strategy="forward")
+        if not args.no_resample:
+            # Upsample and then downsample to create regular intervals e.g., 2-hours
+            timeseries = timeseries.upsample(time_column="charttime", every="1m")
+            timeseries = timeseries.group_by_dynamic(
+                "charttime",
+                every=freq[src],
+            ).agg(pl.col(pl.Float64).mean())
+            timeseries = timeseries.fill_null(strategy="forward")
 
         timeseries = add_time_elapsed_to_events(timeseries, admittime)
         # only include first x hours - note this could lead to all data being lost so skip if that is the case
