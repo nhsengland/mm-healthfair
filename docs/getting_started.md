@@ -6,7 +6,7 @@ To get started, you will need to install the repository, download the data and r
 Refer to [README](https://github.com/nhsengland/mm-healthfair/tree/main) for installation instructions. Recommended to use `poetry` to avoid compatibility issues.
 
 ## Data Curation
-### Downloading the data
+### 0. Downloading the data
 The MIMIC-IV dataset (v2.2) can be downloaded from [PhysioNet](https://physionet.org). This project made use of three modules:
 
 - Hosp: hospital level data for patients: labs, micro, and electronic medication administration
@@ -21,7 +21,7 @@ Steps to download:
 3. Download the data.
 
 
-### Extracting the data
+### 1. Extracting the data
 `extract_data.py` reads from the downloaded MIMIC-IV files and generates a filtered list of hospital stays (`stays.csv`), time-series events (`events.csv`) and optionally discharge summary notes (`notes.csv`). These entries are filtered and matched according to the hospital admission identifier `hadm_id`, corresponding to a single transfer from the emergency department to the hospital.
 
 ```
@@ -30,6 +30,7 @@ extract_data.py [-h] --output_path OUTPUT_PATH [--event_tables EVENT_TABLES [EVE
                     [--lazy] mimic4_path
 ```
 
+- `mimic4_path`: [Required] Path to root directory containing downloaded `mimiciv/` and `mimic-iv-ed/` subfolders.
 - `--output_path` or `-o`: Path to a folder to store filtered csv files.
 - `--event_tables` or `-e`: Which MIMIC-IV event files to read from. Options are one or more from ["labevents", "vitalsign"]
 - `--include_notes` or `-n`: Flag to determine whether to extract relevant notes.
@@ -41,12 +42,12 @@ extract_data.py [-h] --output_path OUTPUT_PATH [--event_tables EVENT_TABLES [EVE
 Example:
 
 ```
-extract_data.py /data/mimic  -o /data/extracted_data --event_tables labevents vitalsign --sample 1000 --lazy --labitems labitems.txt
+extract_data.py /path/to/data/  -o /data/extracted_data --event_tables labevents vitalsign --sample 1000 --lazy --labitems labitems.txt
 ```
 
-This command will read from the /data/mimic directory and extract relevant events from the MIMIC-IV hosp/labevents.csv and ed/vitalsign.csv for 1000 stays. Output files will be saved under the `/data/extracted_data` folder.
+This command will read from the `/data/mimic` directory and extract relevant events from the MIMIC-IV hosp/labevents.csv and ed/vitalsign.csv for 1000 stays. Output files will be saved under the `/data/extracted_data` folder.
 
-### Preparing the data
+### 2. Preparing the data
 Once these core files have been downloaded, run `prepare_data.py` to create a dictionary (key = hadm_id, values = dataframes of preprocessed data) for model training and evaluation. The resulting file will be called **`processed_data.pkl`** and is required for downstream analysis scripts.
 
 Usage:
@@ -56,10 +57,47 @@ prepare_data.py [-h] [--output_dir OUTPUT_DIR] [--min_events MIN_EVENTS] [--max_
                      [--max_elapsed MAX_ELAPSED] [--include_notes] [--verbose] data_dir
 ```
 
+- `data_dir`: [Required] Path to folder containing extracted data.
+- `--output_dir`: Path to directory for saving processed data file. If left, will use the same folder as `data_dir`.
+- `--min_events`: Filter stays by minimum number of events in any one timeseries. Ensures enough readings available.
+- `--max_events`: Filter stays by a maximum number of events in any one timeseries.
+- `--impute`: Method to use to impute missing value. Options are `None`, `value` (uses constant value of -1), `mask` (create new feature columns which are booleans indicating missingness - inspired by [Lipton et al. (2016)](http://proceedings.mlr.press/v56/Lipton16.pdf)), `forward` (fill), `backward` (fill)
+- `--no_scale`: Flag to disable min/max scaling of continuous variables.
+- `--no_resample`: Flag to disable resampling of time-series to fixed frequency (underlying assumption of LSTM).
+- `--include_dyn_mean`: Flag to include mean value of time-series features as additional static features.
+- `--max_elapsed`: Number of hours (int) to filter time-series (after hospital admission time).
+- `--include_notes`: Whether to include notes in processed data file. Requires `notes.csv` to be present in extracted `data_dir`. See `extract_data.py`.
+- `--verbose` or `-v`: Controls verbosity.
+
+Example:
+
+```
+prepare_data.py /data/extracted_data --min_events 5 --impute value --max_elapsed 24 --include_notes
+```
+
+This will process the filtered stays, events and notes csv files in `/data/extracted_data/` and output a single .pkl file at `/data/extracted_data/processed_data.pkl`. This will be a dictionary with `hadm_id` keys and three dataframes as values for each: `static`, `dynamic`and `notes`. This is the file that will be parsed to model training and evaluation scripts.
+
 ## Model Development
 
-### Training a model
+### 1. Create data splits
+To avoid data leakage, it is good practice to split up the data into training, validation and test at the start of experimentation. This ensures that the test set can be held-out until all model development and exploration has been finalised so that fully trained models can be fairly compared. `create_train_test.py` takes in a `processed_data.pkl` file and generates .txt files containing `hadm_id`'s for trainining (70%), validation (10%) and testing (20%). Optionally, stratification can be applied to balance the splits based on the length-of-stay label.
 
-### Evaluating a model
+Usage:
+```
+create_train_test.py [-h] [--output_dir OUTPUT_DIR] [--suffix SUFFIX] [--stratify] [--thresh THRESH] [--seed SEED] data_dir
+```
+- `data_dir`: [Required] Path to folder containing processed .pkl file.
+- `--output_dir`: Path to save generated .txt files.
+- `--suffix`: Suffix to append to generated .txt files. Useful for avoiding overwriting or generating multiple sets for repeatibility.
+- `--stratify`: Flag to turn on stratification.
+- `--thresh`: Threshold to use for stratification based on length-of-stay label (days). Defaults to 2.
+- `--seed`: Seed to use for reproducibility during application of random sample.
+
+
+### 2. Training a model
+
+
+
+### 3. Evaluating a model
 
 ## General Tips
