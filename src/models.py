@@ -24,7 +24,7 @@ class LSTM(nn.Module):
 
 
 class Gate(nn.Module):
-    # Adapted from https://github.com/emnlp-mimic/mimic/blob/main/base.py#L136 inspired by https://ieeexplore.ieee.org/document/9746536
+    # Adapted from https://github.com/emnlp-mimic/mimic/blob/main/base.py#L136 inspired by https://arxiv.org/pdf/1908.05787
     def __init__(self, inp1_size, inp2_size, inp3_size: int = 0, dropout: int = 0):
         super().__init__()
 
@@ -105,7 +105,7 @@ class MMModel(L.LightningModule):
             self.embed_notes = nn.Linear(nt_input_dim, nt_embed_dim)
         else:
             self.embed_notes = None
-            self.nt_embed_dim = 0
+            nt_embed_dim = 0
 
         if self.fusion_method == "mag":
             if self.st_first:
