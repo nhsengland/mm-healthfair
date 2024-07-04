@@ -9,6 +9,7 @@ import shap
 import toml
 from datasets import CollateTimeSeries, MIMIC4Dataset
 from fairlearn.metrics import (
+    MetricFrame,
     count,
     demographic_parity_ratio,
     equalized_odds_difference,
@@ -117,10 +118,7 @@ if __name__ == "__main__":
             collate_fn=CollateTimeSeries(),
         )
 
-        st_first = False if "mag-ts" in args.model_path else True
-        model = MMModel.load_from_checkpoint(
-            checkpoint_path=args.model_path, st_first=st_first
-        )
+        model = MMModel.load_from_checkpoint(checkpoint_path=args.model_path)
         print("Evaluating on test data...")
 
         trainer = Trainer(accelerator="gpu")
@@ -218,9 +216,9 @@ if __name__ == "__main__":
 
                 plt.figure()
                 shap.summary_plot(
-                    shap_values.mean(axis=3)[:, 5, :],
+                    shap_values.mean(axis=3)[:, 0, :],
                     feature_names=features,
-                    features=x_test[:, 5, :],
+                    features=x_test[:, 0, :],
                 )
                 plt.show()
 
@@ -263,22 +261,22 @@ if __name__ == "__main__":
                 "count": count,
             }
 
-            # metric_frame = MetricFrame(
-            #     metrics=metrics,
-            #     y_true=y_test,
-            #     y_pred=y_hat,
-            #     sensitive_features=metadata,
-            # )
+            metric_frame = MetricFrame(
+                metrics=metrics,
+                y_true=y_test,
+                y_pred=y_hat,
+                sensitive_features=metadata,
+            )
 
-            # metric_frame.by_group.plot.bar(
-            #     subplots=True,
-            #     layout=[3, 2],
-            #     colormap="Pastel2",
-            #     legend=False,
-            #     figsize=[12, 8],
-            #     title="Fairness evaluation",
-            #     xlabel=pf,
-            # )
+            metric_frame.by_group.plot.bar(
+                subplots=True,
+                layout=[3, 2],
+                colormap="Pastel2",
+                legend=False,
+                figsize=[12, 8],
+                title="Fairness evaluation",
+                xlabel=pf,
+            )
 
             # fairness
             eor = equalized_odds_ratio(y_test, y_hat, sensitive_features=metadata)
