@@ -1,0 +1,12 @@
+[model]
+task = 'los'
+threshold = 2
+fusion_method = 'concat'
+
+[data]
+batch_size = 16
+num_workers = 1
+
+[train]
+epochs = 10
+learning_rate = 1e-1
