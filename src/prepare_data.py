@@ -59,7 +59,7 @@ parser.add_argument(
     "--max_elapsed",
     type=int,
     default=48,
-    help="Max time elapsed from admission (hours). Filters any events that occur after this.",
+    help="Max time elapsed from hospital admission (hours). Filters any events that occur after this.",
 )
 parser.add_argument(
     "--include_notes",
@@ -181,7 +181,6 @@ if not args.no_scale:
 ### CREATE DICTIONARY DATA
 
 data_dict = {}
-notes_embed_dict = {}
 
 # Filter events by number of events per stay
 min_events = 1 if args.min_events is None else int(args.min_events)
@@ -342,7 +341,7 @@ for stay_events in tqdm(
             data_dict[id_val][f"dynamic_{idx}"] = ts
 
         if with_notes:
-            notes_embed_dict[id_val] = embeddings[id_val]
+            data_dict[id_val]["notes"] = embeddings[id_val]
         n += 1
 
     write_data = True
@@ -361,9 +360,4 @@ print(f"Example data:\n\t{data_dict[example_id]}")
 # Save dictionary to disk
 with open(os.path.join(output_dir, "processed_data.pkl"), "wb") as f:
     pickle.dump(data_dict, f)
-
-if with_notes:
-    with open(os.path.join(output_dir, "notes_embed.pkl"), "wb") as f:
-        pickle.dump(notes_embed_dict, f)
-
 print("Finished.")

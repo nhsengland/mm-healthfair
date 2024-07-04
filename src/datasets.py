@@ -27,6 +27,10 @@ class CollateTimeSeries:
     def __call__(self, batch):
         static = torch.stack([data[0] for data in batch])
         labels = torch.stack([data[1] for data in batch])
+        notes = None
+        if len(batch[0]) > 3:  # noqa: PLR2004
+            # will also be notes
+            notes = torch.stack([data[3] for data in batch])
 
         # number of dynamic timeseries data (note: dynamic is a list of timeseries)
         n_ts = len(batch[0][2])
@@ -48,7 +52,10 @@ class CollateTimeSeries:
                 dynamic.append(events)
                 lengths.append(timeseries_lengths)
 
-            return static, labels, dynamic, lengths
+            if notes is not None:
+                return static, labels, dynamic, lengths, notes
+            else:
+                return static, labels, dynamic, lengths
 
         elif self.method == "truncate":
             # Truncate to minimum num of events in batch/ specified args
@@ -138,7 +145,7 @@ class MIMIC4Dataset(Dataset):
 
             if self.with_notes:
                 notes = self.data_dict[hadm_id]["notes"]  # 1 x 768
-                notes = torch.tensor(notes.to_numpy(), dtype=torch.float32)
+                notes = torch.tensor(notes, dtype=torch.float32)
                 return static, label, dynamic, notes
             else:
                 return static, label, dynamic

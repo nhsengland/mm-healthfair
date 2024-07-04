@@ -142,7 +142,7 @@ class MMModel(L.LightningModule):
         self.with_packed_sequences = with_packed_sequences
 
     def prepare_batch(self, batch):  # noqa: PLR0912
-        # static, labels, dynamic, lengths, notes  # noqa: E741
+        # static, labels, dynamic, lengths, notes (optional) # noqa: E741
         s = batch[0]
         y = batch[1]
 
@@ -164,13 +164,21 @@ class MMModel(L.LightningModule):
 
                 ts_embed.append(embed.unsqueeze(1))
 
+        if self.with_notes:
+            n = batch[4]
+            nt_embed = self.embed_notes(n)
+        else:
+            nt_embed = None
+
         st_embed = self.embed_static(s)
 
         # Fuse time-series and static data
         if self.fusion_method == "concat":
             # use * to allow variable number of ts_embeddings
             # concat along feature dim
-            out = torch.concat([st_embed, *ts_embed], dim=-1).squeeze()  # b x dim*2
+            embeddings = [st_embed, *ts_embed]
+            embeddings = embeddings + [nt_embed] if nt_embed is not None else embeddings
+            out = torch.concat(embeddings, dim=-1).squeeze()  # b x dim*2
         elif self.fusion_method == "mag":
             if self.st_first:
                 out = self.fuse(st_embed, *ts_embed)  # b x st_embed_dim

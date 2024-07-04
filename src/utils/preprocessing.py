@@ -172,7 +172,7 @@ def process_text_to_embeddings(notes: pl.DataFrame) -> dict:
         hadm_id = row["hadm_id"]
         text = row["subtext"]
 
-        # Tokenize text into sentences
+        # Turn text into sentences
         doc = nlp(text)
         sentences = [sent.text for sent in doc.sents]
 
