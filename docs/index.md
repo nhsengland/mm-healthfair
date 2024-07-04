@@ -32,8 +32,3 @@ Once models have been trained and saved, we also include the scripts used to com
 
 1. `evaluate.py`: Evaluate a trained model's performance. Generates explainations with `--explain` and/or fairness metrics and plots with `--fairness`.
 2. `postprocess.py`: Run Fairlearn's [Threshold Optimizer](https://fairlearn.org/v0.10/user_guide/mitigation/postprocessing.html) to mitigate bias for a sensitive attribute.
-
-## Running experiments
-For running experiments on different models and datasets, you can create different processed data files by running `prepare_data.py` with a variety of command-line arguments. For example, you may wish to explore different imputation methods with `--impute` or remove the resampling of time-series data to only use the exact frequency of events `--no_resample`.
-
-Currently two fusion strategies are implemented: `mag` and `concat` which can be specified in the config file.
