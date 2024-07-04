@@ -24,7 +24,7 @@ class LSTM(nn.Module):
 
 
 class Gate(nn.Module):
-    # Adapted from https://github.com/emnlp-mimic/mimic/blob/main/base.py#L136 inspired by https://ieeexplore.ieee.org/document/9746536
+    # Adapted from https://github.com/emnlp-mimic/mimic/blob/main/base.py#L136 inspired by https://arxiv.org/pdf/1908.05787
     def __init__(self, inp1_size, inp2_size, inp3_size: int = 0, dropout: int = 0):
         super().__init__()
 
@@ -59,6 +59,8 @@ class MMModel(L.LightningModule):
         st_embed_dim=64,
         ts_input_dim=(9, 7),
         ts_embed_dim=64,
+        nt_input_dim=768,
+        nt_embed_dim=64,
         num_layers=1,
         dropout=0.1,
         num_ts=2,
@@ -99,6 +101,12 @@ class MMModel(L.LightningModule):
                 ]
             )
 
+        if self.with_notes:
+            self.embed_notes = nn.Linear(nt_input_dim, nt_embed_dim)
+        else:
+            self.embed_notes = None
+            nt_embed_dim = 0
+
         if self.fusion_method == "mag":
             if self.st_first:
                 self.fuse = Gate(
@@ -115,8 +123,10 @@ class MMModel(L.LightningModule):
         elif self.fusion_method == "concat":
             # embeddings must be same dim
             assert st_embed_dim == ts_embed_dim
+            if self.with_notes:
+                assert nt_embed_dim == st_embed_dim
             self.fc = nn.Linear(
-                st_embed_dim + (self.num_ts * ts_embed_dim), target_size
+                st_embed_dim + (self.num_ts * ts_embed_dim) + nt_embed_dim, target_size
             )
 
         elif self.fusion_method is None:
@@ -132,7 +142,7 @@ class MMModel(L.LightningModule):
         self.with_packed_sequences = with_packed_sequences
 
     def prepare_batch(self, batch):  # noqa: PLR0912
-        # static, labels, dynamic, lengths, notes  # noqa: E741
+        # static, labels, dynamic, lengths, notes (optional) # noqa: E741
         s = batch[0]
         y = batch[1]
 
@@ -154,13 +164,21 @@ class MMModel(L.LightningModule):
 
                 ts_embed.append(embed.unsqueeze(1))
 
+        if self.with_notes:
+            n = batch[4]
+            nt_embed = self.embed_notes(n)
+        else:
+            nt_embed = None
+
         st_embed = self.embed_static(s)
 
         # Fuse time-series and static data
         if self.fusion_method == "concat":
             # use * to allow variable number of ts_embeddings
             # concat along feature dim
-            out = torch.concat([st_embed, *ts_embed], dim=-1).squeeze()  # b x dim*2
+            embeddings = [st_embed, *ts_embed]
+            embeddings = embeddings + [nt_embed] if nt_embed is not None else embeddings
+            out = torch.concat(embeddings, dim=-1).squeeze()  # b x dim*2
         elif self.fusion_method == "mag":
             if self.st_first:
                 out = self.fuse(st_embed, *ts_embed)  # b x st_embed_dim

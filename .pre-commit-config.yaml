@@ -6,6 +6,7 @@ repos:
     - id: poetry-check
       args: [ "--lock" ]
     - id: poetry-export
+      args: ["--without-hashes"]
 
 # Run ruff:
 - repo: https://github.com/astral-sh/ruff-pre-commit

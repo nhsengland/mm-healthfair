@@ -7,7 +7,7 @@ readme = "README.md"
 package-mode = false
 
 [tool.poetry.dependencies]
-python = ">=3.10,<3.12"
+python = ">=3.10,<3.11"
 numpy = "^1.26.4"
 matplotlib = "^3.8.3"
 scikit-learn = "^1.4.1.post1"
@@ -17,7 +17,6 @@ pre-commit = "^3.7.0"
 tqdm = "^4.66.3"
 toml = "^0.10.2"
 ruff = "^0.3.5"
-icd-mappings = "^0.3.8"
 polars = "^0.20.23"
 lightning = "^2.2.4"
 wandb = "^0.17.0"
@@ -28,9 +27,18 @@ fairlearn = "^0.10.0"
 nmslib = "2.1.1"
 scispacy = "^0.5.4"
 en-core-sci-md = {url = "https://s3-us-west-2.amazonaws.com/ai2-s2-scispacy/releases/v0.5.4/en_core_sci_md-0.5.4.tar.gz"}
+transformers = "^4.41.2"
 
 [tool.poetry.group.dev.dependencies]
 deptry = "^0.16.1"
+
+[tool.poetry.group.docs.dependencies]
+mkdocs = "^1.6.0"
+mkdocs-material = "^9.5.27"
+pymdown-extensions = "^10.8.1"
+mkdocs-gen-files = "^0.5.0"
+mkdocs-autorefs = "^1.0.1"
+mkdocstrings = {extras = ["python"], version = "^0.25.1"}
 
 [tool.ruff]
 target-version = "py310"
