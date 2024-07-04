@@ -1,104 +1,30 @@
-# LSTM Model for time-series data embedding
-
 import lightning as L
 import torch
 import torch.nn.functional as F
 import torchmetrics
-from torch import bmm, nn, tanh
+from torch import nn
+from torch.optim.lr_scheduler import ReduceLROnPlateau
 
 
 # nn.Modules
 class LSTM(nn.Module):
-    def __init__(self, input_dim, hidden_dim, target_size, with_packed_sequences=False):
+    def __init__(self, input_dim, embed_dim, num_layers=1, hidden_dim=128, dropout=0):
         super().__init__()
-        self.lstm = nn.LSTM(input_dim, hidden_dim, batch_first=True)
-        self.with_packed_sequences = with_packed_sequences
+        self.lstm = nn.LSTM(
+            input_dim, hidden_dim, num_layers=num_layers, batch_first=True
+        )
+        self.project = nn.Linear(hidden_dim, embed_dim)
+        self.dropout = nn.Dropout(dropout)
+        self.relu = nn.ReLU()
 
     def forward(self, input_):
-        output, (_, _) = self.lstm(input_)
-        return output
-
-
-class AttentionLSTM(nn.Module):
-    def __init__(self, input_size, hidden_size, num_layers, attention_size):
-        super().__init__()
-        self.hidden_size = hidden_size
-        self.num_layers = num_layers
-
-        # LSTM layers
-        self.lstm = nn.LSTM(input_size, hidden_size, num_layers, batch_first=True)
-
-        # Attention mechanism
-        self.attention = nn.Linear(hidden_size, attention_size)
-        self.context_vector = nn.Linear(attention_size, 1, bias=False)
-
-    def forward(self, x, lengths):
-        # Pack the padded sequence
-        packed_input = nn.utils.rnn.pack_padded_sequence(
-            x, lengths, batch_first=True, enforce_sorted=False
-        )
-
-        # LSTM forward pass
-        packed_output, (hidden, _) = self.lstm(packed_input)
-
-        # Unpack the packed sequence
-        padded_output, _ = nn.utils.rnn.pad_packed_sequence(
-            packed_output, batch_first=True
-        )
-
-        # Attention mechanism
-        attention_weights = tanh(self.attention(padded_output))
-        attention_scores = F.softmax(self.context_vector(attention_weights), dim=1)
-        context_vector = bmm(attention_scores.transpose(1, 2), padded_output).squeeze(1)
-
-        return context_vector, hidden
-
-
-class AttentionLSTMWithMasking(nn.Module):
-    def __init__(self, input_size, hidden_size, num_layers, attention_size):
-        super().__init__()
-        self.hidden_size = hidden_size
-        self.num_layers = num_layers
-
-        # LSTM layers
-        self.lstm = nn.LSTM(input_size, hidden_size, num_layers, batch_first=True)
-
-        # Attention mechanism
-        self.attention = nn.Linear(hidden_size, attention_size)
-        self.context_vector = nn.Linear(attention_size, 1, bias=False)
-
-    def forward(self, x, lengths):
-        # Create a mask tensor based on missing values
-        mask = ~(torch.isnan(x).any(dim=-1))
-
-        # Pack the padded sequence with the mask
-        packed_input = nn.utils.rnn.pack_padded_sequence(
-            x, lengths, batch_first=True, enforce_sorted=False
-        )
-
-        # LSTM forward pass
-        packed_output, (hidden, _) = self.lstm(packed_input)
-
-        # Unpack the packed sequence
-        padded_output, _ = nn.utils.rnn.pad_packed_sequence(
-            packed_output, batch_first=True
-        )
-
-        # Apply the mask to the output
-        padded_output = padded_output * mask.unsqueeze(-1)
-
-        # Attention mechanism
-        attention_weights = torch.tanh(self.attention(padded_output))
-        attention_scores = F.softmax(self.context_vector(attention_weights), dim=1)
-        context_vector = torch.bmm(
-            attention_scores.transpose(1, 2), padded_output
-        ).squeeze(1)
-
-        return context_vector, hidden
+        _, (h_T, _) = self.lstm(input_)
+        output = self.dropout(self.project(h_T[-1]))
+        return self.relu(output)
 
 
 class Gate(nn.Module):
-    # Adapted from https://github.com/emnlp-mimic/mimic/blob/main/base.py#L136 inspired by https://ieeexplore.ieee.org/document/9746536
+    # Adapted from https://github.com/emnlp-mimic/mimic/blob/main/base.py#L136 inspired by https://arxiv.org/pdf/1908.05787
     def __init__(self, inp1_size, inp2_size, inp3_size: int = 0, dropout: int = 0):
         super().__init__()
 
@@ -126,96 +52,226 @@ class Gate(nn.Module):
 
 
 # lightning.LightningModules
-
-
 class MMModel(L.LightningModule):
     def __init__(
         self,
-        st_input_dim=9,
-        st_embed_dim=256,
-        ts_input_dim=16,
-        ts_embed_dim=256,
+        st_input_dim=18,
+        st_embed_dim=64,
+        ts_input_dim=(9, 7),
+        ts_embed_dim=64,
+        nt_input_dim=768,
+        nt_embed_dim=64,
+        num_layers=1,
+        dropout=0.1,
+        num_ts=2,
         target_size=1,
         lr=0.1,
         fusion_method="concat",
+        st_first=True,
+        with_ts=True,
+        with_notes=False,
         with_packed_sequences=False,
     ):
         super().__init__()
-        self.embed_timeseries = LSTM(
-            ts_input_dim,
-            ts_embed_dim,
-            target_size,
-            with_packed_sequences=with_packed_sequences,
-        )
-        self.embed_static = nn.Linear(st_input_dim, st_embed_dim)
-
+        self.save_hyperparameters()
+        self.num_ts = num_ts
+        self.with_ts = with_ts
+        self.with_notes = with_notes
+        self.st_first = st_first
         self.fusion_method = fusion_method
+
+        self.embed_static = nn.Sequential(
+            nn.Linear(st_input_dim, st_embed_dim // 2),
+            nn.LayerNorm(st_embed_dim // 2),
+            nn.Linear(st_embed_dim // 2, st_embed_dim),
+            nn.Dropout(dropout),
+            nn.ReLU(),
+        )
+
+        if self.with_ts:
+            self.embed_timeseries = nn.ModuleList(
+                [
+                    LSTM(
+                        ts_input_dim[i],
+                        ts_embed_dim,
+                        num_layers=num_layers,
+                        dropout=dropout,
+                    )
+                    for i in range(self.num_ts)
+                ]
+            )
+
+        if self.with_notes:
+            self.embed_notes = nn.Linear(nt_input_dim, nt_embed_dim)
+        else:
+            self.embed_notes = None
+            nt_embed_dim = 0
+
         if self.fusion_method == "mag":
-            self.fuse = Gate(st_embed_dim, ts_embed_dim, dropout=0.1)
-            self.fc = nn.Linear(st_embed_dim, target_size)
+            if self.st_first:
+                self.fuse = Gate(
+                    st_embed_dim, *([ts_embed_dim] * self.num_ts), dropout=dropout
+                )
+                self.fc = nn.Linear(st_embed_dim, target_size)
+
+            else:
+                self.fuse = Gate(
+                    *([ts_embed_dim] * self.num_ts), st_embed_dim, dropout=dropout
+                )
+                self.fc = nn.Linear(ts_embed_dim, target_size)
 
         elif self.fusion_method == "concat":
             # embeddings must be same dim
             assert st_embed_dim == ts_embed_dim
-            self.fc = nn.Linear(st_embed_dim * 2, target_size)
+            if self.with_notes:
+                assert nt_embed_dim == st_embed_dim
+            self.fc = nn.Linear(
+                st_embed_dim + (self.num_ts * ts_embed_dim) + nt_embed_dim, target_size
+            )
+
+        elif self.fusion_method is None:
+            self.fc = nn.Linear(st_embed_dim, target_size)
 
         self.criterion = torch.nn.BCEWithLogitsLoss()
         self.lr = lr
         self.acc = torchmetrics.Accuracy(task="binary")
+        self.auc = torchmetrics.AUROC(task="binary")
+        self.f1 = torchmetrics.F1Score(task="binary")
+        self.ap = torchmetrics.AveragePrecision(task="binary")
+
         self.with_packed_sequences = with_packed_sequences
 
-    def prepare_batch(self, batch):
-        if self.with_packed_sequences:
-            s, d, l, y = batch  # static, dynamic, lengths, labels  # noqa: E741
-            d = torch.nn.utils.rnn.pack_padded_sequence(
-                d, l, batch_first=True, enforce_sorted=False
-            )
+    def prepare_batch(self, batch):  # noqa: PLR0912
+        # static, labels, dynamic, lengths, notes (optional) # noqa: E741
+        s = batch[0]
+        y = batch[1]
+
+        if self.with_ts:
+            d = batch[2]
+            if self.with_packed_sequences:
+                lengths = batch[3]
+
+        if self.fusion_method is not None:
+            ts_embed = []
+            for i in range(self.num_ts):
+                if self.with_packed_sequences:
+                    packed_d = torch.nn.utils.rnn.pack_padded_sequence(
+                        d[i], lengths[i], batch_first=True, enforce_sorted=False
+                    )
+                    embed = self.embed_timeseries[i](packed_d)
+                else:
+                    embed = self.embed_timeseries[i](d[i])
+
+                ts_embed.append(embed.unsqueeze(1))
+
+        if self.with_notes:
+            n = batch[4]
+            nt_embed = self.embed_notes(n)
         else:
-            s, d, y = batch
+            nt_embed = None
 
-        ts_embed = self.embed_timeseries(d)
-        #  unpack if using packed sequences
-        if self.with_packed_sequences:
-            ts_embed, _ = torch.nn.utils.rnn.pad_packed_sequence(
-                ts_embed, batch_first=True
-            )
-
-        ts_embed = ts_embed[:, -1].unsqueeze(1)
         st_embed = self.embed_static(s)
 
         # Fuse time-series and static data
         if self.fusion_method == "concat":
+            # use * to allow variable number of ts_embeddings
             # concat along feature dim
-            out = torch.concat([ts_embed, st_embed], dim=-1).squeeze()  # b x dim*2
+            embeddings = [st_embed, *ts_embed]
+            embeddings = embeddings + [nt_embed] if nt_embed is not None else embeddings
+            out = torch.concat(embeddings, dim=-1).squeeze()  # b x dim*2
         elif self.fusion_method == "mag":
-            out = self.fuse(st_embed, ts_embed)  # b x st_embed_dim
+            if self.st_first:
+                out = self.fuse(st_embed, *ts_embed)  # b x st_embed_dim
+            else:
+                out = self.fuse(*ts_embed, st_embed)
 
-        # Parse through FC + sigmoid layer
-        logits = self.fc(out)  # b x 1
-        x_hat = F.sigmoid(logits)  # b x 1
+        elif self.fusion_method is None:
+            out = st_embed.squeeze()
+
+        # Parse through FC
+        x_hat = self.fc(out)  # b x 1 - logits
+        if len(x_hat.shape) < 2:  # noqa: PLR2004
+            x_hat = x_hat.unsqueeze(0)
         return x_hat, y
 
     def training_step(self, batch, batch_idx):
         # training_step defines the train loop.
         # it is independent of forward
-        x_hat, y = self.prepare_batch(batch)
+        x_hat, y = self.prepare_batch(batch)  # logit
+        y_hat = torch.sigmoid(x_hat)  # prob
         loss = self.criterion(x_hat, y)
-        accuracy = self.acc(x_hat, y)
-        self.log("train_loss", loss, prog_bar=True)
-        self.log("train_acc", accuracy, prog_bar=True)
+        accuracy = self.acc(y_hat, y)
+        auc = self.auc(y_hat, y)
+        f1 = self.f1(y_hat, y)
+        ap = self.ap(y_hat, y.long())
+
+        self.log(
+            "train_loss",
+            loss,
+            prog_bar=True,
+            on_epoch=True,
+            on_step=False,
+            batch_size=len(y),
+        )
+        self.log(
+            "train_acc",
+            accuracy,
+            prog_bar=True,
+            on_epoch=True,
+            on_step=False,
+            batch_size=len(y),
+        )
+        self.log(
+            "train_auc",
+            auc,
+            prog_bar=True,
+            on_epoch=True,
+            on_step=False,
+            batch_size=len(y),
+        )
+        self.log(
+            "train_f1",
+            f1,
+            prog_bar=True,
+            on_epoch=True,
+            on_step=False,
+            batch_size=len(y),
+        )
+        self.log(
+            "train_ap",
+            ap,
+            prog_bar=True,
+            on_epoch=True,
+            on_step=False,
+            batch_size=len(y),
+        )
         return loss
 
     def validation_step(self, batch, batch_idx):
         x_hat, y = self.prepare_batch(batch)
+        y_hat = torch.sigmoid(x_hat)
         loss = self.criterion(x_hat, y)
-        accuracy = self.acc(x_hat, y)
+        accuracy = self.acc(y_hat, y)
+        auc = self.auc(y_hat, y)
+        f1 = self.f1(y_hat, y)
+        ap = self.ap(y_hat, y.long())
         self.log("val_loss", loss, prog_bar=True, batch_size=len(y))
         self.log("val_acc", accuracy, prog_bar=True, batch_size=len(y))
-        return loss
+        self.log("val_auc", auc, prog_bar=True, batch_size=len(y))
+        self.log("val_f1", f1, prog_bar=True, batch_size=len(y))
+        self.log("val_ap", ap, prog_bar=True, batch_size=len(y))
+
+    def predict_step(self, batch):
+        x_hat, y = self.prepare_batch(batch)
+        y_hat = torch.sigmoid(x_hat)
+        return y_hat, y
 
     def configure_optimizers(self):
         optimizer = torch.optim.SGD(self.parameters(), lr=self.lr)
-        return optimizer
+        scheduler = ReduceLROnPlateau(optimizer, mode="min", patience=10)
+        return [optimizer], [
+            {"scheduler": scheduler, "monitor": "val_loss", "interval": "epoch"}
+        ]
 
 
 class EmbedStatic(nn.Module):
@@ -261,13 +317,13 @@ class LitLSTM(L.LightningModule):
 
     def prepare_batch(self, batch):
         if self.with_packed_sequences:
-            _, d, l, y = batch  # static, dynamic, lengths, labels  # noqa: E741
+            _, y, d, l = batch  # static, dynamic, lengths, labels  # noqa: E741
             d = torch.nn.utils.rnn.pack_padded_sequence(
                 d, l, batch_first=True, enforce_sorted=False
             )
 
         else:
-            _, d, y = batch
+            _, y, d = batch
 
         ts_embed = self.embed_timeseries(d)
 

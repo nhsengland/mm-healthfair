@@ -33,31 +33,44 @@ To get a local copy up and running follow these simple steps.
 
 To clone the repo:
 
-`git clone https://github.com/nhsx/{REPO NAME}`
+`git clone https://github.com/nhsengland/mm-healthfair`
 
 To create a suitable environment:
+
+1. Use pip + requirements.txt
 - ```python -m venv _env```
 - `source _env/bin/activate`
 - `pip install -r requirements.txt`
 
-{ADDITIONAL TECHNICAL SUPPORT AND NEEDS}
+2. Use poetry (*recommended*)
+- Install poetry (see [website](https://python-poetry.org) for documentation)
+- Navigate to project root directory `cd mm-healthfair`
+- Create environment from poetry lock file: `poetry install`
+- Run scripts using `poetry run python3 xxx.py`
+
+Note: There are known issues when installing the scispacy package for Python versions >3.10 or Apple M1 chips. Project dependencies strictly require py3.10 to avoid this, however OSX users may need to manually install nmslib with `CFLAGS="-mavx -DWARN(a)=(a)" pip install nmslib` to circumvent this issue (see open issue https://github.com/nmslib/nmslib/issues/476).
 
 ### Usage
-{DESCRIPTION OF CODE}
+This repository contains code used to extract and preprocess demographic, time-series and clinical notes from MIMIC-IV v2.2. Additionally, it includes the model architectures and training scripts used to train multimodal models on different modalities and generate the results described in the report.
 
 #### Outputs
-{LIST AND DESCRIPTION OF OUTPUTS}
+- Preprocessed features from MIMIC-IV 2.2
+- Trained models
+- Notebook exploring the dataset and visualising results
 
-{NOTES ON REPRODUCIBILITY OF RESULTS}
+Seeds have been set to reproduce the results in the report.
 
 #### Datasets
-{DESCRIPTION AND LINKS TO DATASETS}
+The MIMIC-IV dataset (v2.2) can be downloaded from [PhysioNet.org](https://physionet.org). This project made use of three modules:
+- Hosp: hospital level data for patients: labs, micro, and electronic medication administration
+- ED: data from the emergency department
+- Notes: deidentified free-text clinical notes
 
-{LINK TO FAKE DATA TO SUPPORT INITAIL CODE RUNS}
+Further information can be found in PhysioNet's [documentation](https://mimic.mit.edu/).
 
 ### Roadmap
 
-See the {LINK TO REPO ISSUES} for a list of proposed features (and known issues).
+See the repo [issues](https://github.com/nhsengland/mm-healthfair/issues) for a list of proposed features (and known issues).
 
 ### Contributing
 

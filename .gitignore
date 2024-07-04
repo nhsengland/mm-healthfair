@@ -913,3 +913,7 @@ FodyWeavers.xsd
 .xls*
 notebooks/exploratory
 lightning_logs
+*.toml
+!poetry.toml
+!example.toml
+!pyproject.toml

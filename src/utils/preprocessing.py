@@ -1,29 +1,65 @@
 import numpy as np
 import polars as pl
+import spacy
+from tqdm import tqdm
+from transformers import AutoModel, AutoTokenizer
 
 ###############################
 # Static data preprocessing
 ###############################
 
 
-def transform_gender(data):
-    g_map = {"F": 1, "M": 2, "OTHER": 3}
-    return data.with_columns(gender=pl.col("gender").replace(g_map, default=0))
+def transform_gender(data: pl.DataFrame) -> pl.DataFrame:
+    """Maps gender values to predefined categories.
+
+    Args:
+        data (pl.DataFrame): Data to apply to.
+
+    Returns:
+        pl.DataFrame: Updated data.
+    """
+
+    g_map = {"F": 1, "M": 0, "OTHER": 2}
+    return data.with_columns(gender=pl.col("gender").replace(g_map, default=2))
 
 
-def transform_marital(data):
+def transform_marital(data: pl.DataFrame) -> pl.DataFrame:
+    """Maps marital status values to predefined categories.
+
+    Args:
+        data (pl.DataFrame): Data to apply to.
+
+    Returns:
+        pl.DataFrame: Updated data.
+    """
     m_map = {"MARRIED": 1, "SINGLE": 2, "WIDOWED": 3, "DIVORCED": 4}
     return data.with_columns(
         marital_status=pl.col("marital_status").replace(m_map, default=0)
     )
 
 
-def transform_insurance(data):
-    i_map = {"Medicare": 1, "Medicaid": 2, "Other": 3}  # TODO: 0 or nan?
+def transform_insurance(data: pl.DataFrame) -> pl.DataFrame:
+    """Maps insurance status values to predefined categories.
+
+    Args:
+        data (pl.DataFrame): Data to apply to.
+
+    Returns:
+        pl.DataFrame: Updated data.
+    """
+    i_map = {"Medicare": 1, "Medicaid": 2, "Other": 0}  # TODO: 0 or nan?
     return data.with_columns(insurance=pl.col("insurance").replace(i_map, default=0))
 
 
-def transform_race(race_series):
+def transform_race(data: pl.DataFrame) -> pl.DataFrame:
+    """Maps race values to predefined categories.
+
+    Args:
+        data (pl.DataFrame): Data to apply to.
+
+    Returns:
+        pl.DataFrame: Updated data.
+    """
     r_map = {
         "ASIAN": 1,
         "BLACK": 2,
@@ -41,38 +77,128 @@ def transform_race(race_series):
         "OTHER": 0,
     }
 
-    race_series = race_series.with_columns(
-        race=pl.col("race").str.replace(" OR ", "/", literal=True)
-    )
-    race_series = race_series.with_columns(
+    # Identifies values with OR
+    data = data.with_columns(race=pl.col("race").str.replace(" OR ", "/", literal=True))
+
+    # Strips first value from e.g., White - European
+    data = data.with_columns(
         pl.col("race")
         .str.split_exact(" - ", n=1)
         .struct.rename_fields(["race_a", "race_b"])
         .alias("race")
     ).unnest("race")
-    race_series = race_series.with_columns(
+
+    # Strips first value from e.g., White / Portuguese
+    data = data.with_columns(
         pl.col("race_a")
         .str.split_exact("/", n=1)
         .struct.rename_fields(["race_c", "race_d"])
         .alias("race")
     ).unnest("race")
 
-    race_series = race_series.with_columns(
-        race=pl.col("race_c").replace(r_map, default=0)
-    ).drop(columns=["race_a", "race_b", "race_c", "race_d"])
-    return race_series
+    data = data.with_columns(race=pl.col("race_c").replace(r_map, default=0)).drop(
+        columns=["race_a", "race_b", "race_c", "race_d"]
+    )
+    return data
 
 
-def encode_categorical_features(stays):
-    stays = transform_gender(stays)
-    stays = transform_race(stays)
-    stays = transform_marital(stays)
-    stays = transform_insurance(stays)
+def encode_categorical_features(stays: pl.DataFrame) -> pl.DataFrame:
+    """Groups and applied one-hot encoding to categorical features.
 
-    # Round all float values to 1.dp
-    stays = stays.with_columns(pl.selectors.by_dtype(pl.FLOAT_DTYPES).round(1))
+    Args:
+        stays (pl.DataFrame): Stays data.
+
+    Returns:
+        pl.DataFrame: Transformed stays data.
+    """
+    if "gender" in stays.columns:
+        stays = transform_gender(stays)
+    if "race" in stays.columns:
+        stays = transform_race(stays)
+    if "marital_status" in stays.columns:
+        stays = transform_marital(stays)
+    if "insurance" in stays.columns:
+        stays = transform_insurance(stays)
+
+    # apply one-hot encoding to integer columns
+    stays = stays.to_dummies(
+        [
+            i
+            for i in stays.columns
+            if i in ["gender", "race", "marital_status", "insurance"]
+        ]
+    )
 
     return stays
+
+
+###############################
+# Notes preprocessing
+###############################
+
+
+def clean_notes(notes: pl.DataFrame | pl.LazyFrame) -> pl.DataFrame | pl.LazyFrame:
+    # Remove __
+    notes = notes.with_columns(
+        subtext=pl.col("subtext").str.replace_all(r"\s___\s", " ")
+    )
+
+    return notes
+
+
+def process_text_to_embeddings(notes: pl.DataFrame) -> dict:
+    """Generates dictionary containing embeddings from Bio+Discharge ClinicalBERT (mean vector).
+    https://huggingface.co/emilyalsentzer/Bio_Discharge_Summary_BERT
+
+    Args:
+        notes (pl.DataFrame): Dataframe containing notes data.
+
+    Returns:
+        dict: Dictionary containing hadm_id as keys and average wode embeddings as values.
+    """
+    embeddings_dict = {}
+
+    nlp = spacy.load("en_core_sci_md")
+    tokenizer = AutoTokenizer.from_pretrained(
+        "emilyalsentzer/Bio_Discharge_Summary_BERT"
+    )
+    model = AutoModel.from_pretrained("emilyalsentzer/Bio_Discharge_Summary_BERT")
+
+    for row in tqdm(
+        notes.iter_rows(named=True),
+        desc="Generating notes embeddings with ClinicalBERT...",
+        total=notes.height,
+    ):
+        hadm_id = row["hadm_id"]
+        text = row["subtext"]
+
+        # Turn text into sentences
+        doc = nlp(text)
+        sentences = [sent.text for sent in doc.sents]
+
+        # Generate embeddings for each sentence
+        sentence_embeddings = []
+        for sentence in sentences:
+            inputs = tokenizer(
+                sentence,
+                return_tensors="pt",
+                truncation=True,
+                padding=True,
+                max_length=128,
+            )
+            outputs = model(**inputs)
+            sentence_embeddings.append(
+                outputs.last_hidden_state.mean(dim=1).detach().numpy()
+            )
+
+        if sentence_embeddings:
+            embeddings = np.mean(sentence_embeddings, axis=0)
+        else:
+            embeddings = np.zeros((1, 768))  # Handle case with no sentences
+
+        embeddings_dict[hadm_id] = embeddings
+
+    return embeddings_dict
 
 
 ###############################
@@ -80,15 +206,22 @@ def encode_categorical_features(stays):
 ###############################
 
 
-def map_itemids_to_variables(events, var_map):
-    return events.join(var_map, on="itemid")
+def clean_events(events: pl.DataFrame) -> pl.DataFrame:
+    """Maps non-integer values to None and removes outliers.
 
+    Args:
+        events (pl.DataFrame): Events table.
 
-def clean_events(events):
-    # label '__' as null value
+    Returns:
+        pl.DataFrame: Cleaned events table.
+    """
+    # label '__' or "." or "<" or "ERROR" as null value
     # also converts to 2 d.p. floats
     events = events.with_columns(
-        value=pl.when(pl.col("value").str.contains("_"))
+        value=pl.when(pl.col("value") == ".").then(None).otherwise(pl.col("value"))
+    )
+    events = events.with_columns(
+        value=pl.when(pl.col("value").str.contains("_|<|ERROR"))
         .then(None)
         .otherwise(pl.col("value"))
         .cast(pl.Float64)
@@ -104,11 +237,21 @@ def clean_events(events):
     return events
 
 
-def add_time_elapsed_to_events(events, remove_charttime=False):
+def add_time_elapsed_to_events(
+    events: pl.DataFrame, starttime: pl.Datetime, remove_charttime: bool = False
+) -> pl.DataFrame:
+    """Adds column 'elapsed' which considers time elapsed since starttime.
+
+    Args:
+        events (pl.DataFrame): Events table.
+        starttime (pl.Datetime): Reference start time.
+        remove_charttime (bool, optional): Whether to remove charttime column. Defaults to False.
+
+    Returns:
+        pl.DataFrame: Updated events table.
+    """
     events = events.with_columns(
-        elapsed=(
-            (pl.col("charttime") - pl.col("charttime").first()) / pl.duration(hours=1)
-        ).round(1)
+        elapsed=((pl.col("charttime") - starttime) / pl.duration(hours=1)).round(1)
     )
 
     # reorder columns
@@ -118,59 +261,37 @@ def add_time_elapsed_to_events(events, remove_charttime=False):
     return events
 
 
-def convert_events_to_timeseries(events):
+def convert_events_to_timeseries(events: pl.DataFrame) -> pl.DataFrame:
+    """Converts long-form events to wide-form time-series.
+
+    Args:
+        events (pl.DataFrame): Long-form events.
+
+    Returns:
+        pl.DataFrame: Wide-form time-series of shape (timestamp, features)
+    """
+
+    metadata = (
+        events.select(["charttime", "label", "value", "linksto"])
+        .sort(by=["charttime", "label", "value"])
+        .unique(subset=["charttime"], keep="last")
+        .sort(by="charttime")
+    )
+
+    # get unique label, values and charttimes
     timeseries = (
         events.select(["charttime", "label", "value"])
         .sort(by=["charttime", "label", "value"])
         .unique(subset=["charttime", "label"], keep="last")
     )
+
+    # pivot into wide-form format
     timeseries = timeseries.pivot(
         index="charttime", columns="label", values="value"
     ).sort(by="charttime")
+
+    # join any metadata remaining
+    timeseries = timeseries.join(
+        metadata.select(["charttime", "linksto"]), on="charttime", how="inner"
+    )
     return timeseries
-
-
-def get_events_in_period(events, stay_id, hadm_id, starttime=None, endtime=None):
-    if starttime is not None and endtime is not None:
-        # also filter so events must fall within start and end time
-        events = events.filter(pl.col("charttime").is_between(starttime, endtime))
-
-    # get events linked to ED stay or hosp admission
-    events = events.filter(
-        (pl.col("stay_id") == stay_id) | (pl.col("hadm_id") == hadm_id)
-    )
-
-    events = events.drop(["stay_id", "hadm_id", "linksto"])
-    return events
-
-
-def get_first_valid_from_timeseries(timeseries, variable):
-    if variable in timeseries:
-        idx = timeseries[variable].notnull()
-        if idx.any():
-            loc = np.where(idx)[0][0]
-            return timeseries[variable].iloc[loc]
-    return np.nan
-
-
-def impute_from_df(
-    impute_to,
-    impute_from,
-    use_col: str = None,
-    key_col: str = None,
-):
-    dict_map = (
-        impute_from.select([key_col, use_col])
-        .collect()
-        .rows_by_key(key=use_col, unique=True)
-    )
-
-    impute_to = impute_to.with_columns(new=pl.col(use_col).replace(dict_map))
-    impute_to = impute_to.with_columns(
-        pl.when(pl.col("hadm_id").is_null())
-        .then(pl.col("new"))
-        .otherwise(pl.col("hadm_id"))
-        .alias(key_col)
-    ).drop("new")
-
-    return impute_to

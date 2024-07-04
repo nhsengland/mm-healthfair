@@ -1,14 +1,21 @@
 import os
 
-import icdmappings
 import numpy as np
 import polars as pl
-from tqdm import tqdm
-
-ICD9 = 9
 
 
-def read_patients_table(mimic4_path, use_lazy=False):
+def read_patients_table(
+    mimic4_path: str, use_lazy: bool = False
+) -> pl.LazyFrame | pl.DataFrame:
+    """Reads in patients.csv.gz table and formats column types.
+
+    Args:
+        mimic4_path (str): Path to directory containing downloaded MIMIC-IV hosp module files.
+        use_lazy (bool, optional): Whether to return a Polars LazyFrame or DataFrame. Defaults to False.
+
+    Returns:
+        pl.LazyFrame | pl.DataFrame: Patients table.
+    """
     pats = pl.read_csv(
         os.path.join(mimic4_path, "patients.csv.gz"),
         columns=["subject_id", "gender", "anchor_age", "anchor_year", "dod"],
@@ -17,7 +24,19 @@ def read_patients_table(mimic4_path, use_lazy=False):
     return pats.lazy() if use_lazy else pats
 
 
-def read_omr_table(mimic4_path, use_lazy=False):
+def read_omr_table(
+    mimic4_path: str, use_lazy: bool = False
+) -> pl.LazyFrame | pl.DataFrame:
+    """Reads in omr.csv.gz table and formats column types.
+    Adds 'los' column based on hospital stay duration.
+
+    Args:
+        mimic4_path (str): Path to directory containing downloaded MIMIC-IV hosp module files.
+        use_lazy (bool, optional): Whether to return a Polars LazyFrame or DataFrame. Defaults to False.
+
+    Returns:
+        pl.LazyFrame | pl.DataFrame: Omr table.
+    """
     omr = pl.read_csv(
         os.path.join(mimic4_path, "omr.csv.gz"),
         dtypes=[pl.Int64, pl.Datetime, pl.Int64, pl.String, pl.String],
@@ -25,7 +44,18 @@ def read_omr_table(mimic4_path, use_lazy=False):
     return omr.lazy() if use_lazy else omr
 
 
-def read_admissions_table(mimic4_path, use_lazy=False):
+def read_admissions_table(
+    mimic4_path: str, use_lazy: bool = False
+) -> pl.LazyFrame | pl.DataFrame:
+    """Reads in admissions.csv.gz table and formats column types.
+
+    Args:
+        mimic4_path (str): Path to directory containing downloaded MIMIC-IV hosp module files.
+        use_lazy (bool, optional): Whether to return a Polars LazyFrame or DataFrame. Defaults to False.
+
+    Returns:
+        pl.LazyFrame | pl.DataFrame: Admissions table.
+    """
     admits = pl.read_csv(
         os.path.join(mimic4_path, "admissions.csv.gz"),
         columns=[
@@ -57,7 +87,19 @@ def read_admissions_table(mimic4_path, use_lazy=False):
     return admits.lazy() if use_lazy else admits
 
 
-def read_stays_table(mimic4_ed_path, use_lazy=False):
+def read_stays_table(
+    mimic4_ed_path: str, use_lazy: bool = False
+) -> pl.LazyFrame | pl.DataFrame:
+    """Reads in stays.csv.gz table and formats column types.
+    Adds 'los_ed' column based on emergency department stay duration.
+
+    Args:
+        mimic4_ed_path (str): Path to directory containing downloaded MIMIC-IV hosp module files.
+        use_lazy (bool, optional): Whether to return a Polars LazyFrame or DataFrame. Defaults to False.
+
+    Returns:
+        pl.LazyFrame | pl.DataFrame: Admissions table.
+    """
     stays = pl.read_csv(
         os.path.join(mimic4_ed_path, "edstays.csv.gz"),
         columns=[
@@ -76,54 +118,39 @@ def read_stays_table(mimic4_ed_path, use_lazy=False):
     return stays.lazy() if use_lazy else stays
 
 
-def read_icd_diagnoses_table(mimic4_path, use_lazy=False):
-    codes = pl.read_csv(os.path.join(mimic4_path, "d_icd_diagnoses.csv.gz"))
-    diagnoses = pl.read_csv(
-        os.path.join(mimic4_path, "diagnoses_icd.csv.gz"),
-        dtypes=[pl.Int64, pl.Int64, pl.Int64, pl.String, pl.String],
-    )
-    diagnoses = diagnoses.merge(
-        codes,
-        how="inner",
-        on=["icd_code", "icd_version"],
-    )
-    return diagnoses.lazy() if use_lazy else diagnoses
-
-
-def read_ed_icd_diagnoses_table(mimic4_ed_path, use_lazy=False):
-    diagnoses = pl.read_csv(
-        os.path.join(mimic4_ed_path, "diagnosis.csv.gz"),
-        dtypes=[pl.Int64, pl.Int64, pl.Int64, pl.String, pl.Int64, pl.String],
-    ).lazy()
-    return diagnoses.lazy() if use_lazy else diagnoses
-
-
 def read_events_table(
-    table,
-    mimic4_dir,
-    include_items=None,
-    include_subjects=None,
-):
+    table: str, mimic4_path: str, include_items: list = None
+) -> pl.LazyFrame:
+    """Reads in ?events.csv.gz tables from MIMIC-IV and formats column types.
+
+    Args:
+        table (str): Name of the events table. Currently supports 'vitalsign' or 'labevents'
+        mimic4_path (str): Path to directory containing events
+        include_items (list, optional): List of itemid values to filter. Defaults to None.
+
+    Returns:
+        pl.LazyFrame : Long-format events table.
+    """
     #  Load in csv using polars lazy API (requires table to be in csv format)
     table_df = pl.scan_csv(
-        os.path.join(mimic4_dir, f"{table}.csv"), try_parse_dates=True
+        os.path.join(mimic4_path, f"{table}.csv"), try_parse_dates=True
     )
 
     # add column for linksto
     table_df = table_df.with_columns(linksto=pl.lit(table))
 
     if "stay_id" not in table_df.columns:
-        # add column for stay_id
+        # add column for stay_id if missing
         table_df = table_df.with_columns(stay_id=pl.lit(None, dtype=pl.Int64))
 
     if "hadm_id" not in table_df.columns:
-        # add column for stay_id
+        # add column for hadm_id if missing
         table_df = table_df.with_columns(hadm_id=pl.lit(None, dtype=pl.Int64))
 
     # labevents only
     if table == "labevents":
         d_items = (
-            pl.read_csv(os.path.join(mimic4_dir, "d_labitems.csv.gz"))
+            pl.read_csv(os.path.join(mimic4_path, "d_labitems.csv.gz"))
             .lazy()
             .select(["itemid", "label"])
         )
@@ -167,11 +194,14 @@ def read_events_table(
             variable_name="label",
         ).sort(by="charttime")
 
-        # create empty itemid and manually add valueuom
-        table_df = table_df.with_columns(itemid=pl.lit(None))
+        # manually add valueuom
         table_df = table_df.with_columns(
             valueuom=pl.col("label").replace(vitalsign_uom_map)
         )
+
+    else:
+        print(f"{table} not yet implemented.")
+        raise NotImplementedError
 
     # select relevant columns
     table_df = table_df.select(
@@ -185,73 +215,66 @@ def read_events_table(
             "label",
             "linksto",
         ]
+    ).cast(
+        {
+            "subject_id": pl.Int64,
+            "hadm_id": pl.Int64,
+            "stay_id": pl.Int64,
+            "charttime": pl.Datetime,
+            "value": pl.String,
+            "valueuom": pl.String,
+            "label": pl.String,
+            "linksto": pl.String,
+        }
     )
 
-    # Filter by subjects
-    if include_subjects is not None:
-        table_df = table_df.filter(pl.col("subject_id").is_in(include_subjects))
-
-    return table_df.collect(streaming=True)
+    return table_df
 
 
-def convert_icd9_to_icd10(diagnoses_df, keep_original=True):
-    print("Converting ICD9 codes to ICD10...".upper())
-    mapper = icdmappings.Mapper()
+def read_notes(mimic4_path: str, use_lazy: bool = False) -> pl.LazyFrame | pl.DataFrame:
+    """Read in discharge summary notes.
 
-    if keep_original:
-        # keep original codes
-        diagnoses_df = diagnoses_df.assign(icd_code_orig=diagnoses_df["icd_code"])
-        diagnoses_df = diagnoses_df.assign(icd_version_orig=diagnoses_df["icd_version"])
+    Args:
+        mimic4_path (str): _description_
+        use_lazy (bool): Whether to return a Polars LazyFrame or DataFrame. Defaults to False.
 
-    # update 'icd_code' and 'icd_version' to ICD10
-    idx = diagnoses_df["icd_version"] == ICD9
-    diagnoses_df.loc[idx, "icd_code"] = mapper.map(
-        diagnoses_df.loc[idx, "icd_code"], source="icd9", target="icd10"
-    )
+    Returns:
+        pl.LazyFrame | pl.DataFrame: _description_
+    """
+    notes = pl.read_csv(
+        os.path.join(mimic4_path, "discharge.csv.gz"),
+        dtypes=[
+            pl.String,
+            pl.Int64,
+            pl.Int64,
+            pl.String,
+            pl.Int64,
+            pl.Datetime,
+            pl.Datetime,
+            pl.String,
+        ],
+    ).select(["subject_id", "hadm_id", "charttime", "storetime", "text"])
 
-    diagnoses_df = diagnoses_df.assign(icd_version=10)
-    return diagnoses_df
-
-
-def count_icd_codes(diagnoses, output_path=None):
-    codes = diagnoses[["icd_code", "icd_version", "long_title"]]
-
-    codes = codes.drop_duplicates().set_index("icd_code")
-
-    codes["count"] = diagnoses.groupby("icd_code")["stay_id"].count()
-    codes["count"] = codes["count"].fillna(0).astype(int)
-    codes = codes[codes["count"] > 0]
-    if output_path:
-        codes.to_csv(output_path, index_label="icd_code")
-    return codes.sort_values("count", ascending=False).reset_index()
+    return notes.lazy() if use_lazy else notes
 
 
-def remove_stays_without_admission(stays):
-    return (
-        stays.filter(pl.col("disposition") == "ADMITTED")
-        .drop_nulls(subset="hadm_id")
-        .drop("disposition")
-    )
+def add_omr_variable_to_stays(
+    stays: pl.LazyFrame | pl.DataFrame,
+    omr: pl.LazyFrame | pl.DataFrame,
+    variable: str,
+    tolerance: int = None,
+) -> pl.LazyFrame | pl.DataFrame:
+    """Adds variables from omr table to stays table.
 
+    Args:
+        stays (pl.LazyFrame | pl.DataFrame): Stays table.
+        omr (pl.LazyFrame | pl.DataFrame): OMR table.
+        variable (str): Variable to extract from omr table.
+        tolerance (int, optional): Window (days) around admission date to search for data in omr. Defaults to None.
 
-def merge_on_subject(table1, table2):
-    return table1.join(table2, how="inner", on="subject_id")
-
-
-def merge_on_subject_admission(table1, table2):
-    return table1.join(table2, how="inner", on=["subject_id", "hadm_id"])
-
-
-def merge_on_subject_stay_admission(table1, table2, suffixes=("_x", "_y")):
-    return table1.join(
-        table2,
-        how="inner",
-        on=["subject_id", "hadm_id", "stay_id"],
-        suffixes=suffixes,
-    )
-
-
-def add_omr_variable_to_stays(stays, omr, variable, tolerance=None):
+    Returns:
+        pl.LazyFrame | pl.DataFrame: Stays table with new variable column.
+    """
     # get value of variable on stay/admission date using omr record's date
     # use tolerance to allow elapsed time between dates
     omr = omr.drop("seq_num")
@@ -311,10 +334,22 @@ def add_omr_variable_to_stays(stays, omr, variable, tolerance=None):
     return stays
 
 
-def add_inhospital_mortality_to_stays(stays):
+def add_inhospital_mortality_to_stays(
+    stays: pl.LazyFrame | pl.DataFrame,
+) -> pl.LazyFrame | pl.DataFrame:
+    """Adds mortality column (binary) to indicate in-hospital mortality.
+
+    Args:
+        stays (pl.LazyFrame | pl.DataFrame): Stays table.
+
+    Returns:
+        pl.LazyFrame | pl.DataFrame: Stays table with 'mortality' column.
+    """
+    # If stays table has this column then do not need to manually calculate whether death in hospital has occured.
     if "hospital_expire_flag" in stays.columns:
         stays = stays.rename({"hospital_expire_flag": "mortality"})
     else:
+        # Uses dod (date of death), deathtime and admission/discharge time to determine whether in-hospital mortality has occurred.
         stays = stays.with_columns(
             (
                 pl.col("dod").is_not_null()
@@ -336,7 +371,18 @@ def add_inhospital_mortality_to_stays(stays):
     return stays
 
 
-def get_hadm_id_from_admits(events, admits):
+def get_hadm_id_from_admits(
+    events: pl.LazyFrame | pl.DataFrame, admits: pl.LazyFrame | pl.DataFrame
+) -> pl.LazyFrame | pl.DataFrame:
+    """Uses admissions table to extract hadm_id based on events charttime.
+
+    Args:
+        events (pl.LazyFrame | pl.DataFrame): Events table.
+        admits (pl.LazyFrame | pl.DataFrame): Admissions table.
+
+    Returns:
+        pl.LazyFrame | pl.DataFrame: Events table with filled hadm_id values where possible.
+    """
     # get the hadm_id and admission/discharge time window
     admits = admits.select(["subject_id", "hadm_id", "admittime", "dischtime"])
 
@@ -366,7 +412,19 @@ def get_hadm_id_from_admits(events, admits):
     return events
 
 
-def filter_admissions_on_nb_stays(stays, min_nb_stays=1, max_nb_stays=1):
+def filter_on_nb_stays(
+    stays: pl.LazyFrame | pl.DataFrame, min_nb_stays: int = 1, max_nb_stays: int = 1
+) -> pl.LazyFrame | pl.DataFrame:
+    """Filters stays to ensure certain number of emergency department stays per hospital admission (typically 1).
+
+    Args:
+        stays (pl.LazyFrame | pl.DataFrame): Stays table.
+        min_nb_stays (int, optional): Minimum number of stays per admission. Defaults to 1.
+        max_nb_stays (int, optional): Maximum number of stays per admission. Defaults to 1.
+
+    Returns:
+        pl.LazyFrame | pl.DataFrame: Filtered stays table.
+    """
     # Only keep hospital admissions that are associated with a certain number of ED stays (within min and max)
     to_keep = stays.group_by("hadm_id").agg(pl.col("stay_id").count())
     to_keep = to_keep.filter(
@@ -376,59 +434,21 @@ def filter_admissions_on_nb_stays(stays, min_nb_stays=1, max_nb_stays=1):
     return stays
 
 
-def filter_stays_on_age(stays, min_age=18, max_age=np.inf):
+def filter_stays_on_age(
+    stays: pl.LazyFrame | pl.DataFrame, min_age=18, max_age=np.inf
+) -> pl.LazyFrame | pl.DataFrame:
+    """Filter stays based on patient age.
+
+    Args:
+        stays (pl.LazyFrame | pl.DataFrame): Stays table.
+        min_age (int, optional): Minimum patient age. Defaults to 18.
+        max_age (_type_, optional): Maximum patient age. Defaults to np.inf.
+
+    Returns:
+        pl.LazyFrame | pl.DataFrame: Filtered stays table.
+    """
     # must have already added age to stays table
     stays = stays.filter(
         (pl.col("anchor_age") >= min_age) & (pl.col("anchor_age") <= max_age)
     )
     return stays
-
-
-def filter_diagnoses_on_stays(diagnoses, stays, by_col="stay_id"):
-    return diagnoses.join(
-        stays.select(["subject_id", "hadm_id", "stay_id"]).unique(),
-        how="inner",
-        on=["subject_id", by_col],
-    )
-
-
-def break_up_stays_by_subject(stays, output_path, subjects=None):
-    subjects = (
-        stays.unique(subset="subject_id").get_column("subject_id").to_list()
-        if subjects is None
-        else subjects
-    )
-    nb_subjects = len(subjects)
-    for subject_id in tqdm(
-        subjects, total=nb_subjects, desc="Breaking up stays by subjects"
-    ):
-        dn = os.path.join(output_path, str(subject_id))
-        try:
-            os.makedirs(dn)
-        except Exception:
-            pass
-
-        stays.filter(pl.col("subject_id") == subject_id).sort(by="intime").write_csv(
-            os.path.join(dn, "stays.csv")
-        )
-
-
-def break_up_diagnoses_by_subject(diagnoses, output_path, subjects=None):
-    subjects = (
-        diagnoses.unique(subset="subject_id").get_column("subject_id").to_list()
-        if subjects is None
-        else subjects
-    )
-    nb_subjects = len(subjects)
-    for subject_id in tqdm(
-        subjects, total=nb_subjects, desc="Breaking up diagnoses by subjects"
-    ):
-        dn = os.path.join(output_path, str(subject_id))
-        try:
-            os.makedirs(dn)
-        except Exception:
-            pass
-
-        diagnoses.filter(pl.col("subject_id" == subject_id)).sort(
-            by=["stay_id", "seq_num"]
-        ).write_csv(os.path.join(dn, "diagnoses.csv"))
