@@ -31,10 +31,22 @@ if __name__ == "__main__":
         "--cpu", action="store_true", help="Whether to use cpu. Defaults to gpu"
     )
     parser.add_argument(
-        "--train", nargs="?", default=None, help="List of ids to use for training."
+        "--train",
+        nargs="?",
+        default=None,
+        help="Path to text file containing hadm_ids to use for training.",
     )
     parser.add_argument(
-        "--val", nargs="?", default=None, help="List of ids to use for validation."
+        "--val",
+        nargs="?",
+        default=None,
+        help="Path to text file containing hadm_ids to use for validation.",
+    )
+    parser.add_argument(
+        "--project",
+        type=str,
+        default="nhs-mm-healthfair",
+        help="Name of project, used for wandb logging.",
     )
 
     parser.add_argument(
@@ -53,9 +65,11 @@ if __name__ == "__main__":
     lr = config["train"]["learning_rate"]
     num_workers = config["data"]["num_workers"]
     los_threshold = config["model"]["threshold"]
-    fusion_method = (
-        config["model"]["fusion_method"] if config["model"]["fusion_method"] else None
-    )
+    fusion_method = config["model"]["fusion_method"]
+
+    # overrides to True if not using mag fusion method
+    st_first = config["model"]["st_first"] if fusion_method == "mag" else True
+
     modalities = config["data"]["modalities"]
     static_only = True if (len(modalities) == 1) and ("static" in modalities) else False
     with_notes = True if "notes" in modalities else False
@@ -119,13 +133,14 @@ if __name__ == "__main__":
         with_packed_sequences=True if not static_only else False,
         fusion_method=fusion_method,
         with_notes=with_notes,
+        st_first=st_first,
     )
 
     # trainer
     if use_wandb:
         logger = WandbLogger(
             log_model=True,
-            project="nhs-mm-healthfair",
+            project=args.project,
             save_dir="logs",
         )
         # store config args
