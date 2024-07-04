@@ -2,10 +2,12 @@
 task = 'los'
 threshold = 2
 fusion_method = 'concat'
+st_first = true
 
 [data]
 batch_size = 16
 num_workers = 1
+modalities = ['static', 'dynamic']
 
 [train]
 epochs = 10
