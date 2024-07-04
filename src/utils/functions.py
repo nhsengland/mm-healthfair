@@ -1,6 +1,21 @@
 import pickle
+from typing import Any
 
 import polars as pl
+
+
+def load_pickle(filepath: str) -> Any:
+    """Load a pickled object.
+
+    Args:
+        filepath (str): Path to pickle (.pkl) file.
+
+    Returns:
+        Any: Loaded object.
+    """
+    with open(filepath, "rb") as f:
+        data = pickle.load(f)
+    return data
 
 
 def impute_from_df(
@@ -92,14 +107,13 @@ def scale_numeric_features(
     return table.select(pl.col("*").exclude(numeric_cols)).hstack(scaled)
 
 
-def preview_data(path_to_pkl: str) -> None:
+def preview_data(filepath: str) -> None:
     """Prints a single example from data dictionary.
 
     Args:
-        path_to_pkl (str): Path to .pkl file containing data dictionary.
+        filepath (str): Path to .pkl file containing data dictionary.
     """
-    with open(path_to_pkl, "rb") as f:
-        data_dict = pickle.load(f)
+    data_dict = load_pickle(filepath)
     example_id = list(data_dict.keys())[-1]
     print(f"Example data:{data_dict[example_id]}")
 

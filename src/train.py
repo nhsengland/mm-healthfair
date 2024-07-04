@@ -72,6 +72,7 @@ if __name__ == "__main__":
         ids=train_ids,
         los_thresh=los_threshold,
         static_only=static_only,
+        with_notes=with_notes,
     )
 
     training_set.print_label_dist()
@@ -102,6 +103,7 @@ if __name__ == "__main__":
         ids=val_ids,
         los_thresh=los_threshold,
         static_only=static_only,
+        with_notes=with_notes,
     )
     val_dataloader = DataLoader(
         validation_set,
@@ -116,6 +118,7 @@ if __name__ == "__main__":
         ts_input_dim=n_dynamic_features,
         with_packed_sequences=True if not static_only else False,
         fusion_method=fusion_method,
+        with_notes=with_notes,
     )
 
     # trainer
@@ -130,7 +133,7 @@ if __name__ == "__main__":
     else:
         logger = CSVLogger("logs")
 
-    early_stop = EarlyStopping(monitor="val_loss", mode="min", patience=10)
+    early_stop = EarlyStopping(monitor="val_loss", mode="min", patience=3)
     checkpoint = ModelCheckpoint(
         monitor="val_loss",
         mode="min",
