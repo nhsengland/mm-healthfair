@@ -450,6 +450,15 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#running-the-scripts" class="md-nav__link">
+    <span class="md-ellipsis">
+      Running the scripts
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#data-curation" class="md-nav__link">
     <span class="md-ellipsis">
       Data Curation
@@ -534,9 +543,9 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#general-tips" class="md-nav__link">
+  <a href="#general-usage-tips" class="md-nav__link">
     <span class="md-ellipsis">
-      General Tips
+      General Usage Tips
     </span>
   </a>
   
@@ -698,9 +707,23 @@
 
 
 <h1 id="getting-started">Getting Started</h1>
-<p>To get started, you will need to install the repository, download the data and run the <code>extract_data</code> and <code>prepare_data</code> scripts to allow for model training and evaluation.</p>
+<p>To get started, you will need to install the repository, download the data and run the <code>extract_data</code> and <code>prepare_data</code> scripts for model training and evaluation.</p>
 <h2 id="installation">Installation</h2>
 <p>Refer to <a href="https://github.com/nhsengland/mm-healthfair/tree/main">README</a> for installation instructions. Recommended to use <code>poetry</code> to avoid compatibility issues.</p>
+<h2 id="running-the-scripts">Running the scripts</h2>
+<p>All scripts are best executed via the command-line in order to specify the required and optional arguments.</p>
+<ul>
+<li>If you have created your own virtual environment with dependencies specified by <code>requirements.txt</code> then you should run scripts with:</li>
+</ul>
+<div class="language-sh highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nb">source</span><span class="w"> </span>activate<span class="w"> </span>venv
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>python3<span class="w"> </span>src/any_script.py<span class="w"> </span><span class="o">[</span>required<span class="w"> </span>args<span class="o">]</span><span class="w"> </span>--<span class="o">[</span>optional<span class="w"> </span>args<span class="o">]</span>
+</span></code></pre></div>
+<ul>
+<li>If using <code>poetry</code> (recommended):
+<div class="language-sh highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="nb">cd</span><span class="w"> </span>mm-healthfair
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>poetry<span class="w"> </span>run<span class="w"> </span>python3<span class="w"> </span>src/any_script.py<span class="w"> </span><span class="o">[</span>required<span class="w"> </span>args<span class="o">]</span><span class="w"> </span>--<span class="o">[</span>optional<span class="w"> </span>args<span class="o">]</span>
+</span></code></pre></div></li>
+</ul>
 <h2 id="data-curation">Data Curation</h2>
 <h3 id="0-downloading-the-data">0. Downloading the data</h3>
 <p>The MIMIC-IV dataset (v2.2) can be downloaded from <a href="https://physionet.org">PhysioNet</a>. This project made use of three modules:</p>
@@ -720,9 +743,9 @@
 </ol>
 <h3 id="1-extracting-the-data">1. Extracting the data</h3>
 <p><code>extract_data.py</code> reads from the downloaded MIMIC-IV files and generates a filtered list of hospital stays (<code>stays.csv</code>), time-series events (<code>events.csv</code>) and optionally discharge summary notes (<code>notes.csv</code>). These entries are filtered and matched according to the hospital admission identifier <code>hadm_id</code>, corresponding to a single transfer from the emergency department to the hospital.</p>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>extract_data.py [-h] --output_path OUTPUT_PATH [--event_tables EVENT_TABLES [EVENT_TABLES ...]]
-</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>                    [--include_notes] [--labitems LABITEMS] [--verbose] [--sample SAMPLE]
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>                    [--lazy] mimic4_path
+<div class="language-sh highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>extract_data.py<span class="w"> </span><span class="o">[</span>-h<span class="o">]</span><span class="w"> </span>--output_path<span class="w"> </span>OUTPUT_PATH<span class="w"> </span><span class="o">[</span>--event_tables<span class="w"> </span>EVENT_TABLES<span class="w"> </span><span class="o">[</span>EVENT_TABLES<span class="w"> </span>...<span class="o">]]</span>
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="w">                    </span><span class="o">[</span>--include_notes<span class="o">]</span><span class="w"> </span><span class="o">[</span>--labitems<span class="w"> </span>LABITEMS<span class="o">]</span><span class="w"> </span><span class="o">[</span>--verbose<span class="o">]</span><span class="w"> </span><span class="o">[</span>--sample<span class="w"> </span>SAMPLE<span class="o">]</span>
+</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="w">                    </span><span class="o">[</span>--lazy<span class="o">]</span><span class="w"> </span>mimic4_path
 </span></code></pre></div>
 <ul>
 <li><code>mimic4_path</code>: [Required] Path to root directory containing downloaded <code>mimiciv/</code> and <code>mimic-iv-ed/</code> subfolders.</li>
@@ -735,15 +758,15 @@
 <li><code>--lazy</code>: Whether to run in lazy mode where possible to minimise RAM. Refer to the <a href="https://docs.pola.rs/py-polars/html/reference/lazyframe/index.html">Polars</a> documentation for more information on lazy mode.</li>
 </ul>
 <p>Example:</p>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>extract_data.py /path/to/data/  -o /data/extracted_data --event_tables labevents vitalsign --sample 1000 --lazy --labitems labitems.txt
+<div class="language-sh highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>extract_data.py<span class="w"> </span>/path/to/data/<span class="w">  </span>-o<span class="w"> </span>/data/extracted_data<span class="w"> </span>--event_tables<span class="w"> </span>labevents<span class="w"> </span>vitalsign<span class="w"> </span>--sample<span class="w"> </span><span class="m">1000</span><span class="w"> </span>--lazy<span class="w"> </span>--labitems<span class="w"> </span>labitems.txt
 </span></code></pre></div>
 <p>This command will read from the <code>/data/mimic</code> directory and extract relevant events from the MIMIC-IV hosp/labevents.csv and ed/vitalsign.csv for 1000 stays. Output files will be saved under the <code>/data/extracted_data</code> folder.</p>
 <h3 id="2-preparing-the-data">2. Preparing the data</h3>
 <p>Once these core files have been downloaded, run <code>prepare_data.py</code> to create a dictionary (key = hadm_id, values = dataframes of preprocessed data) for model training and evaluation. The resulting file will be called <strong><code>processed_data.pkl</code></strong> and is required for downstream analysis scripts.</p>
 <p>Usage:
-<div class="language-text highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>prepare_data.py [-h] [--output_dir OUTPUT_DIR] [--min_events MIN_EVENTS] [--max_events MAX_EVENTS]
-</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>                     [--impute IMPUTE] [--no_scale] [--no_resample][--include_dyn_mean]
-</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>                     [--max_elapsed MAX_ELAPSED] [--include_notes] [--verbose] data_dir
+<div class="language-sh highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>prepare_data.py<span class="w"> </span><span class="o">[</span>-h<span class="o">]</span><span class="w"> </span><span class="o">[</span>--output_dir<span class="w"> </span>OUTPUT_DIR<span class="o">]</span><span class="w"> </span><span class="o">[</span>--min_events<span class="w"> </span>MIN_EVENTS<span class="o">]</span><span class="w"> </span><span class="o">[</span>--max_events<span class="w"> </span>MAX_EVENTS<span class="o">]</span>
+</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="w">                     </span><span class="o">[</span>--impute<span class="w"> </span>IMPUTE<span class="o">]</span><span class="w"> </span><span class="o">[</span>--no_scale<span class="o">]</span><span class="w"> </span><span class="o">[</span>--no_resample<span class="o">][</span>--include_dyn_mean<span class="o">]</span>
+</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="w">                     </span><span class="o">[</span>--max_elapsed<span class="w"> </span>MAX_ELAPSED<span class="o">]</span><span class="w"> </span><span class="o">[</span>--include_notes<span class="o">]</span><span class="w"> </span><span class="o">[</span>--verbose<span class="o">]</span><span class="w"> </span>data_dir
 </span></code></pre></div></p>
 <ul>
 <li><code>data_dir</code>: [Required] Path to folder containing extracted data.</li>
@@ -759,14 +782,14 @@
 <li><code>--verbose</code> or <code>-v</code>: Controls verbosity.</li>
 </ul>
 <p>Example:</p>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>prepare_data.py /data/extracted_data --min_events 5 --impute value --max_elapsed 24 --include_notes
+<div class="language-sh highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>prepare_data.py<span class="w"> </span>/data/extracted_data<span class="w"> </span>--min_events<span class="w"> </span><span class="m">5</span><span class="w"> </span>--impute<span class="w"> </span>value<span class="w"> </span>--max_elapsed<span class="w"> </span><span class="m">24</span><span class="w"> </span>--include_notes
 </span></code></pre></div>
 <p>This will process the filtered stays, events and notes csv files in <code>/data/extracted_data/</code> and output a single .pkl file at <code>/data/extracted_data/processed_data.pkl</code>. This will be a dictionary with <code>hadm_id</code> keys and three dataframes as values for each: <code>static</code>, <code>dynamic</code>and <code>notes</code>. This is the file that will be parsed to model training and evaluation scripts.</p>
 <h2 id="model-development">Model Development</h2>
 <h3 id="1-create-data-splits">1. Create data splits</h3>
 <p>To avoid data leakage, it is good practice to split up the data into training, validation and test at the start of experimentation. This ensures that the test set can be held-out until all model development and exploration has been finalised so that fully trained models can be fairly compared. <code>create_train_test.py</code> takes in a <code>processed_data.pkl</code> file and generates .txt files containing <code>hadm_id</code>'s for trainining (70%), validation (10%) and testing (20%). Optionally, stratification can be applied to balance the splits based on the length-of-stay label.</p>
 <p>Usage:
-<div class="language-text highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>create_train_test.py [-h] [--output_dir OUTPUT_DIR] [--suffix SUFFIX] [--stratify] [--thresh THRESH] [--seed SEED] data_dir
+<div class="language-sh highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>create_train_test.py<span class="w"> </span><span class="o">[</span>-h<span class="o">]</span><span class="w"> </span><span class="o">[</span>--output_dir<span class="w"> </span>OUTPUT_DIR<span class="o">]</span><span class="w"> </span><span class="o">[</span>--suffix<span class="w"> </span>SUFFIX<span class="o">]</span><span class="w"> </span><span class="o">[</span>--stratify<span class="o">]</span><span class="w"> </span><span class="o">[</span>--thresh<span class="w"> </span>THRESH<span class="o">]</span><span class="w"> </span><span class="o">[</span>--seed<span class="w"> </span>SEED<span class="o">]</span><span class="w"> </span>data_dir
 </span></code></pre></div>
 - <code>data_dir</code>: [Required] Path to folder containing processed .pkl file.
 - <code>--output_dir</code>: Path to save generated .txt files.
@@ -774,9 +797,51 @@
 - <code>--stratify</code>: Flag to turn on stratification.
 - <code>--thresh</code>: Threshold to use for stratification based on length-of-stay label (days). Defaults to 2.
 - <code>--seed</code>: Seed to use for reproducibility during application of random sample.</p>
+<p>Example:</p>
+<div class="language-sh highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>create_train_test.py<span class="w"> </span>/data/extracted_data/<span class="w"> </span>--stratify<span class="w"> </span>--suffix<span class="w"> </span>_stratified<span class="w"> </span>--thresh<span class="w"> </span><span class="m">2</span>
+</span></code></pre></div>
 <h3 id="2-training-a-model">2. Training a model</h3>
+<p>To train a model use either <code>train.py</code> or <code>train_rf.py</code> for fusion/deep models and Random Forest training respectively.</p>
+<p>Usage:</p>
+<div class="language-sh highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>train.py<span class="w"> </span><span class="o">[</span>-h<span class="o">]</span><span class="w"> </span><span class="o">[</span>--config<span class="w"> </span>CONFIG<span class="o">]</span><span class="w"> </span><span class="o">[</span>--cpu<span class="o">]</span><span class="w"> </span><span class="o">[</span>--train<span class="w"> </span><span class="o">[</span>TRAIN<span class="o">]]</span><span class="w"> </span><span class="o">[</span>--val<span class="w"> </span><span class="o">[</span>VAL<span class="o">]]</span><span class="w"> </span><span class="o">[</span>--project<span class="w"> </span>PROJECT<span class="o">]</span><span class="w"> </span><span class="o">[</span>--wandb<span class="o">]</span><span class="w"> </span>data_path
+</span></code></pre></div>
+<ul>
+<li><code>data_path</code>: [Required] Path to the processed data .pkl file.</li>
+<li><code>--config</code>: Path to a .toml file containing settings. Refer to <code>example_config.toml</code> for available settings.</li>
+<li><code>--cpu</code>: Whether to use cpu for training. Defaults to gpu.</li>
+<li><code>--train</code>: Path to a text file containing <code>hadm_ids</code> to use for training.</li>
+<li><code>--val</code>: Path to a text file containing <code>hadm_ids</code> to use for validation.</li>
+<li><code>--project</code>: Name of project to save runs on wandb. Defaults to 'nhs-mm-healthfair'.</li>
+<li><code>--wandb</code>: Flag to enable wandb logging to project.</li>
+</ul>
+<p><strong>Note</strong>: If <code>--wandb</code> is set, then you will need to login on the first run. Refer to the <a href="https://docs.wandb.ai/guides/integrations/lightning#sign-up-and-log-in-to-wandb">wandb + lightning docs</a> for more details.</p>
+<p>Example:</p>
+<div class="language-sh highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>train.py<span class="w"> </span>/data/extracted_data/processed_data.pkl<span class="w"> </span>--train<span class="w"> </span>/data/extracted_data/training_ids.txt<span class="w"> </span>--val<span class="w"> </span>/data/extracted/val_ids.txt<span class="w"> </span>--project<span class="w"> </span>my_project<span class="w"> </span>--wandb
+</span></code></pre></div>
+<p>Saved model checkpoints (or for Random Forest .pkl files) will be logged to <code>logs/</code> folder and online via Weights &amp; Biases if <code>--wandb</code> is set (deep models only).</p>
+<p>For running experiments on different models and datasets, you can create different processed data files by running <code>prepare_data.py</code> with a variety of command-line arguments. For example, you may wish to explore different imputation methods with <code>--impute</code> or remove the resampling of time-series data to only use the exact frequency of events <code>--no_resample</code>.</p>
+<p>Currently two fusion strategies are implemented: <code>mag</code> and <code>concat</code> which can be specified in the <code>config.tml</code> file. Model architectures are defined in <code>models.py</code> and built with Pytorch and <a href="https://lightning.ai">Pytorch Lightning</a> as <code>LightingModule</code>'s for simplified training and evaluation loops, callbacks and logging. Refer to their docs for more information on the <code>LightningModule</code> object. You can easily create new architectures or fusion strategies by editing parameters or adding new model classes to the <code>models.py</code> file.</p>
+<p>Examples:</p>
+<ul>
+<li>To test a model with time-series as the primary modality using the <code>mag</code> fusion method, you should set <code>st_first=False</code> in the <code>config.toml</code> file (otherwise uses default value of True).</li>
+<li>To implement a new fusion method, create another <code>LightningModule</code> subclass in <code>models.py</code> and edit <code>train.py</code> to use your new model.</li>
+</ul>
 <h3 id="3-evaluating-a-model">3. Evaluating a model</h3>
-<h2 id="general-tips">General Tips</h2>
+<p>Once you have trained and saved a model you can run inference on a set of test cases, evaluate the model's fairness and/or produce explanations using the <code>evaluate.py</code> script.</p>
+<p>Usage:
+<div class="language-sh highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="w"> </span>evaluate.py<span class="w"> </span><span class="o">[</span>-h<span class="o">]</span><span class="w"> </span><span class="o">[</span>--config<span class="w"> </span>CONFIG<span class="o">]</span><span class="w"> </span><span class="o">[</span>--metadata<span class="w"> </span>METADATA<span class="o">]</span><span class="w"> </span><span class="o">[</span>--test<span class="w"> </span>TEST<span class="o">]</span><span class="w"> </span><span class="o">[</span>--explain<span class="o">]</span><span class="w"> </span><span class="o">[</span>--fairness<span class="o">]</span><span class="w"> </span>data_dir<span class="w"> </span>model_path
+</span></code></pre></div></p>
+<ul>
+<li><code>data_dir</code>: [Required]</li>
+<li><code>model_path</code>: [Required] Path to a .pkl (Random Forest) or .ckpt file.</li>
+<li><code>--metadata</code>: Path to the <code>stays.csv</code> file outputted by <code>extract_data.py</code>. Only required if not under the <code>data_dir</code> directory.</li>
+<li><code>--test</code>: Path to text file containing <code>hadm_id</code>'s for testing.</li>
+<li><code>--explain</code>: Flag to enable use of <strong>SHAP</strong> for model explanations.</li>
+<li><code>--fairness</code>: Flag to enable use of <strong>FairLearn</strong> to compute fairness metrics and visualise plots.</li>
+</ul>
+<p><strong>Model explanations</strong>: The <a href="https://shap.readthedocs.io/en/latest/">SHAP</a> package has been used.</p>
+<p><strong>Model fairness</strong>: The <a href="https://fairlearn.org">FairLearn</a> package has been used to compute fairness metrics across sensitivie/protected attributes. For example, in the MIMIC-IV dataset these include: sex, ethnicity, marital status and insurance type.</p>
+<h2 id="general-usage-tips">General Usage Tips</h2>
 
 
 

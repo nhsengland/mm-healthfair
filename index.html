@@ -402,15 +402,6 @@
   
 </li>
       
-        <li class="md-nav__item">
-  <a href="#running-experiments" class="md-nav__link">
-    <span class="md-ellipsis">
-      Running experiments
-    </span>
-  </a>
-  
-</li>
-      
     </ul>
   
 </nav>
@@ -654,9 +645,6 @@ This project aims to explore fairness and explainability in the context of multi
 <li><code>evaluate.py</code>: Evaluate a trained model's performance. Generates explainations with <code>--explain</code> and/or fairness metrics and plots with <code>--fairness</code>.</li>
 <li><code>postprocess.py</code>: Run Fairlearn's <a href="https://fairlearn.org/v0.10/user_guide/mitigation/postprocessing.html">Threshold Optimizer</a> to mitigate bias for a sensitive attribute.</li>
 </ol>
-<h2 id="running-experiments">Running experiments</h2>
-<p>For running experiments on different models and datasets, you can create different processed data files by running <code>prepare_data.py</code> with a variety of command-line arguments. For example, you may wish to explore different imputation methods with <code>--impute</code> or remove the resampling of time-series data to only use the exact frequency of events <code>--no_resample</code>.</p>
-<p>Currently two fusion strategies are implemented: <code>mag</code> and <code>concat</code> which can be specified in the config file.</p>
 
 
 
