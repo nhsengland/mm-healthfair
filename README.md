@@ -48,6 +48,8 @@ To create a suitable environment:
 - Create environment from poetry lock file: `poetry install`
 - Run scripts using `poetry run python3 xxx.py`
 
+Note: There are known issues when installing the scispacy package for Python versions >3.10 or Apple M1 chips. Project dependencies strictly require py3.10 to avoid this, however OSX users may need to manually install nmslib with `CFLAGS="-mavx -DWARN(a)=(a)" pip install nmslib` to circumvent this issue (see open issue https://github.com/nmslib/nmslib/issues/476).
+
 ### Usage
 This repository contains code used to extract and preprocess demographic, time-series and clinical notes from MIMIC-IV v2.2. Additionally, it includes the model architectures and training scripts used to train multimodal models on different modalities and generate the results described in the report.
 
@@ -64,7 +66,7 @@ The MIMIC-IV dataset (v2.2) can be downloaded from [PhysioNet.org](https://physi
 - ED: data from the emergency department
 - Notes: deidentified free-text clinical notes
 
-Further information can be found in the dataset [documentation](https://mimic.mit.edu/) pages.
+Further information can be found in PhysioNet's [documentation](https://mimic.mit.edu/).
 
 ### Roadmap
 

@@ -248,6 +248,12 @@ if __name__ == "__main__":
             )
 
         # Write all notes
+
+        # if lazy then collect since write_csv is a DataFrame function
+        if type(notes) == pl.LazyFrame:
+            print("Collecting...")
+            notes = notes.collect(streaming=True)
+
         notes.write_csv(os.path.join(args.output_path, "notes.csv"))
 
     print("Data extracted.")

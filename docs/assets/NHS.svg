@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+
+<svg
+   xmlns:dc="http://purl.org/dc/elements/1.1/"
+   xmlns:cc="http://creativecommons.org/ns#"
+   xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+   xmlns:svg="http://www.w3.org/2000/svg"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   width="502.00003"
+   height="203.34843"
+   viewBox="0 0 132.82084 53.802609"
+   version="1.1"
+   id="svg37"
+   inkscape:version="0.92.4 (5da689c313, 2019-01-14)"
+   sodipodi:docname="National Health Service (England) logo.svg">
+  <defs
+     id="defs31" />
+  <sodipodi:namedview
+     id="base"
+     pagecolor="#ffffff"
+     bordercolor="#666666"
+     borderopacity="1.0"
+     inkscape:pageopacity="0.0"
+     inkscape:pageshadow="2"
+     inkscape:zoom="1.979899"
+     inkscape:cx="212.84151"
+     inkscape:cy="61.505566"
+     inkscape:document-units="mm"
+     inkscape:current-layer="layer1"
+     showgrid="false"
+     fit-margin-top="1"
+     fit-margin-right="1"
+     fit-margin-bottom="1"
+     fit-margin-left="1"
+     units="px"
+     inkscape:window-width="1920"
+     inkscape:window-height="1001"
+     inkscape:window-x="-9"
+     inkscape:window-y="-9"
+     inkscape:window-maximized="1" />
+  <metadata
+     id="metadata34">
+    <rdf:RDF>
+      <cc:Work
+         rdf:about="">
+        <dc:format>image/svg+xml</dc:format>
+        <dc:type
+           rdf:resource="http://purl.org/dc/dcmitype/StillImage" />
+        <dc:title></dc:title>
+      </cc:Work>
+    </rdf:RDF>
+  </metadata>
+  <g
+     inkscape:label="Layer 1"
+     inkscape:groupmode="layer"
+     id="layer1"
+     transform="translate(-60.778577,-84.890363)">
+    <g
+       id="g4557"
+       transform="translate(188.9881,50.270833)">
+      <rect
+         y="34.884113"
+         x="-127.94494"
+         height="53.273438"
+         width="132.29167"
+         id="rect4553"
+         style="fill:#ffffff;fill-opacity:1;stroke-width:0.26458332" />
+      <path
+         style="fill:#005eb8;fill-opacity:1;fill-rule:nonzero;stroke:none;stroke-width:1.87928891"
+         d="M 4.3467331,88.157552 V 34.884113 H -127.94494 V 88.157552 Z M -74.759589,40.022794 -83.891756,82.901419 h -14.32958 l -9.007374,-29.672215 h -0.1248 l -5.99024,29.672215 h -10.87198 l 9.20558,-42.878625 h 14.38097 l 8.831189,29.738281 h 0.124804 l 6.04896,-29.738281 z m 40.991992,0 -8.955985,42.878625 h -11.540011 l 3.831989,-18.367116 h -13.654211 l -3.824642,18.367116 h -11.540012 l 8.955988,-42.878625 h 11.540011 l -3.391533,16.407075 h 13.639528 l 3.398869,-16.407075 z m 33.15917009,1.167215 -2.78222999,8.537552 c -2.22431,-1.035077 -5.24879,-1.960041 -9.5065501,-1.960041 -4.56609,0 -8.27328,0.66803 -8.27328,4.118286 0,6.078325 16.7300801,3.809965 16.7300801,16.832851 0,11.84833 -11.0555101,14.924198 -21.0539101,14.924198 -4.44129,0 -9.57263,-1.049761 -13.33121,-2.216975 l 2.71616,-8.721077 c 2.2757,1.475539 6.85647,2.459228 10.61505,2.459228 3.58239,0 9.19823,-0.67537 9.19823,-5.101976 0,-6.878492 -16.73007,-4.30181 -16.73007,-16.392393 0,-11.062846 9.75615,-14.380966 19.20399,-14.380966 5.3148601,0 10.3067301,0.557914 13.21374009,1.901313"
+         id="path10"
+         inkscape:connector-curvature="0" />
+    </g>
+  </g>
+</svg>

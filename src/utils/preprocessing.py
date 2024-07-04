@@ -1,4 +1,8 @@
+import numpy as np
 import polars as pl
+import spacy
+from tqdm import tqdm
+from transformers import AutoModel, AutoTokenizer
 
 ###############################
 # Static data preprocessing
@@ -126,6 +130,75 @@ def encode_categorical_features(stays: pl.DataFrame) -> pl.DataFrame:
     )
 
     return stays
+
+
+###############################
+# Notes preprocessing
+###############################
+
+
+def clean_notes(notes: pl.DataFrame | pl.LazyFrame) -> pl.DataFrame | pl.LazyFrame:
+    # Remove __
+    notes = notes.with_columns(
+        subtext=pl.col("subtext").str.replace_all(r"\s___\s", " ")
+    )
+
+    return notes
+
+
+def process_text_to_embeddings(notes: pl.DataFrame) -> dict:
+    """Generates dictionary containing embeddings from Bio+Discharge ClinicalBERT (mean vector).
+    https://huggingface.co/emilyalsentzer/Bio_Discharge_Summary_BERT
+
+    Args:
+        notes (pl.DataFrame): Dataframe containing notes data.
+
+    Returns:
+        dict: Dictionary containing hadm_id as keys and average wode embeddings as values.
+    """
+    embeddings_dict = {}
+
+    nlp = spacy.load("en_core_sci_md")
+    tokenizer = AutoTokenizer.from_pretrained(
+        "emilyalsentzer/Bio_Discharge_Summary_BERT"
+    )
+    model = AutoModel.from_pretrained("emilyalsentzer/Bio_Discharge_Summary_BERT")
+
+    for row in tqdm(
+        notes.iter_rows(named=True),
+        desc="Generating notes embeddings with ClinicalBERT...",
+        total=notes.height,
+    ):
+        hadm_id = row["hadm_id"]
+        text = row["subtext"]
+
+        # Turn text into sentences
+        doc = nlp(text)
+        sentences = [sent.text for sent in doc.sents]
+
+        # Generate embeddings for each sentence
+        sentence_embeddings = []
+        for sentence in sentences:
+            inputs = tokenizer(
+                sentence,
+                return_tensors="pt",
+                truncation=True,
+                padding=True,
+                max_length=128,
+            )
+            outputs = model(**inputs)
+            sentence_embeddings.append(
+                outputs.last_hidden_state.mean(dim=1).detach().numpy()
+            )
+
+        if sentence_embeddings:
+            embeddings = np.mean(sentence_embeddings, axis=0)
+        else:
+            embeddings = np.zeros((1, 768))  # Handle case with no sentences
+
+        embeddings_dict[hadm_id] = embeddings
+
+    return embeddings_dict
 
 
 ###############################

@@ -94,7 +94,7 @@ def read_stays_table(
     Adds 'los_ed' column based on emergency department stay duration.
 
     Args:
-        mimic4_path (str): Path to directory containing downloaded MIMIC-IV hosp module files.
+        mimic4_ed_path (str): Path to directory containing downloaded MIMIC-IV hosp module files.
         use_lazy (bool, optional): Whether to return a Polars LazyFrame or DataFrame. Defaults to False.
 
     Returns:
