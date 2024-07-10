@@ -1,7 +1,7 @@
 # *MM-HealthFair*: Understanding Fairness and Explainability in Multimodal Approaches within Healthcare
 
 A crucial component to facilitating the adoption of AI in healthcare lies in the ability to justify, interpret, and effectively communicate the decisions of the system.
-This project aims to explore fairness and explainability in the context of multimodal AI for healthcare. We investigate a the combination of modalities and evaluate approaches to multimodal modelling in terms of predictive accuracy, explainability and fairness. Specifically we address the following research questions:
+This project aims to explore fairness and explainability in the context of multimodal AI for healthcare (see project description [here](https://nhsx.github.io/nhsx-internship-projects/advances-modalities-explainability/)). We investigate a the combination of modalities and evaluate approaches to multimodal modelling in terms of predictive accuracy, explainability and fairness. Specifically we address the following research questions:
 
 1. How does the incorporation of time-dependant information impact the model?
 2. What is the impact of fusion strategies on explainability and fairness?
