@@ -2,6 +2,7 @@ import argparse
 import os
 
 import polars as pl
+
 from utils.functions import load_pickle
 
 parser = argparse.ArgumentParser(description="Create train/val/test split.")
