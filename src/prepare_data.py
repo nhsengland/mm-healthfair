@@ -6,6 +6,7 @@ import sys
 
 import polars as pl
 from tqdm import tqdm
+
 from utils.functions import scale_numeric_features
 from utils.preprocessing import (
     add_time_elapsed_to_events,

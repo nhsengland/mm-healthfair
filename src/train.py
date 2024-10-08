@@ -2,15 +2,16 @@ import argparse
 
 import lightning as L
 import toml
-from datasets import CollateFn, CollateTimeSeries, MIMIC4Dataset
 from lightning.pytorch.callbacks import (
     EarlyStopping,
     LearningRateMonitor,
     ModelCheckpoint,
 )
 from lightning.pytorch.loggers import CSVLogger, WandbLogger
-from models import MMModel
 from torch.utils.data import DataLoader
+
+from datasets import CollateFn, CollateTimeSeries, MIMIC4Dataset
+from models import MMModel
 from utils.functions import read_from_txt
 
 if __name__ == "__main__":
