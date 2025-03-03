@@ -5,13 +5,14 @@ import pickle
 import numpy as np
 import polars as pl
 import toml
-from datasets import MIMIC4Dataset
 from fairlearn.postprocessing import ThresholdOptimizer, plot_threshold_optimizer
 from sklearn.metrics import (
     accuracy_score,
     balanced_accuracy_score,
     confusion_matrix,
 )
+
+from datasets import MIMIC4Dataset
 from utils.functions import load_pickle, read_from_txt
 
 if __name__ == "__main__":
