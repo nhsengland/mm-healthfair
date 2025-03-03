@@ -4,7 +4,6 @@ import pickle
 
 import numpy as np
 import toml
-from datasets import MIMIC4Dataset
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import (
     accuracy_score,
@@ -13,6 +12,8 @@ from sklearn.metrics import (
     roc_auc_score,
 )
 from sklearn.model_selection import GridSearchCV
+
+from datasets import MIMIC4Dataset
 from utils.functions import read_from_txt
 
 if __name__ == "__main__":

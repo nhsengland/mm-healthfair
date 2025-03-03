@@ -7,7 +7,6 @@ import numpy as np
 import polars as pl
 import shap
 import toml
-from datasets import CollateTimeSeries, MIMIC4Dataset
 from fairlearn.metrics import (
     MetricFrame,
     count,
@@ -19,7 +18,6 @@ from fairlearn.metrics import (
     selection_rate,
 )
 from lightning.pytorch import Trainer
-from models import MMModel
 from sklearn.metrics import (
     accuracy_score,
     average_precision_score,
@@ -28,6 +26,9 @@ from sklearn.metrics import (
 )
 from torch import concat
 from torch.utils.data import DataLoader
+
+from datasets import CollateTimeSeries, MIMIC4Dataset
+from models import MMModel
 from utils.functions import load_pickle, read_from_txt
 from utils.preprocessing import transform_race
 

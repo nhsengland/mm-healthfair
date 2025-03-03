@@ -2,6 +2,7 @@ import argparse
 import os
 
 import polars as pl
+
 from utils.functions import load_pickle
 
 parser = argparse.ArgumentParser(description="Create train/val/test split.")
@@ -134,7 +135,7 @@ train_ids = processed_stays.filter(
 ).get_column("hadm_id")
 
 print(
-    f"STAYS: {len(dev_ids)+len(test_ids)}\n\tTraining stays: {len(train_ids)}\n\tVal stays: {len(val_ids)}\n\tTest stays: {len(test_ids)}.\nSUBJECTS: {len(subjects)}\n\tTraining subjects: {len(dev_subjects)-len(val_subjects)}.\n\tVal subjects: {len(val_subjects)}\n\tTest subjects: {len(subjects)-len(dev_subjects)}."
+    f"STAYS: {len(dev_ids) + len(test_ids)}\n\tTraining stays: {len(train_ids)}\n\tVal stays: {len(val_ids)}\n\tTest stays: {len(test_ids)}.\nSUBJECTS: {len(subjects)}\n\tTraining subjects: {len(dev_subjects) - len(val_subjects)}.\n\tVal subjects: {len(val_subjects)}\n\tTest subjects: {len(subjects) - len(dev_subjects)}."
 )
 
 train_ids = train_ids.cast(pl.String).to_list()
