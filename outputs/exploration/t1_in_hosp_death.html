@@ -1,0 +1,799 @@
+<table border="1" class="dataframe">
+  <thead>
+    <tr>
+      <th></th>
+      <th></th>
+      <th colspan="6" halign="left">Grouped by In-hospital Death</th>
+    </tr>
+    <tr>
+      <th></th>
+      <th></th>
+      <th>Missing</th>
+      <th>Overall</th>
+      <th>No</th>
+      <th>Yes</th>
+      <th>P-Value (adjusted)</th>
+      <th>Test</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>n</th>
+      <th></th>
+      <td></td>
+      <td>30182</td>
+      <td>27578</td>
+      <td>2604</td>
+      <td></td>
+      <td></td>
+    </tr>
+    <tr>
+      <th>Age, median [Q1,Q3]</th>
+      <th></th>
+      <td>0</td>
+      <td>64 [50,77]</td>
+      <td>63 [49,76]</td>
+      <td>71 [60,81]</td>
+      <td>&lt;0.001</td>
+      <td>Kruskal-Wallis</td>
+    </tr>
+    <tr>
+      <th rowspan="2" valign="top">Sex, n (%)</th>
+      <th>F</th>
+      <td></td>
+      <td>15554 (52)</td>
+      <td>14294 (52)</td>
+      <td>1260 (48)</td>
+      <td>0.033</td>
+      <td>Chi-squared</td>
+    </tr>
+    <tr>
+      <th>M</th>
+      <td></td>
+      <td>14628 (48)</td>
+      <td>13284 (48)</td>
+      <td>1344 (52)</td>
+      <td></td>
+      <td></td>
+    </tr>
+    <tr>
+      <th rowspan="5" valign="top">Ethnicity, n (%)</th>
+      <th>Asian</th>
+      <td></td>
+      <td>1064 (4)</td>
+      <td>925 (3)</td>
+      <td>139 (5)</td>
+      <td>&lt;0.001</td>
+      <td>Chi-squared</td>
+    </tr>
+    <tr>
+      <th>Black</th>
+      <td></td>
+      <td>5073 (17)</td>
+      <td>4604 (17)</td>
+      <td>469 (18)</td>
+      <td></td>
+      <td></td>
+    </tr>
+    <tr>
+      <th>Hispanic/Latino</th>
+      <td></td>
+      <td>1798 (6)</td>
+      <td>1668 (6)</td>
+      <td>130 (5)</td>
+      <td></td>
+      <td></td>
+    </tr>
+    <tr>
+      <th>Unknown/Other</th>
+      <td></td>
+      <td>1059 (4)</td>
+      <td>975 (4)</td>
+      <td>84 (3)</td>
+      <td></td>
+      <td></td>
+    </tr>
+    <tr>
+      <th>White</th>
+      <td></td>
+      <td>21188 (70)</td>
+      <td>19406 (70)</td>
+      <td>1782 (68)</td>
+      <td></td>
+      <td></td>
+    </tr>
+    <tr>
+      <th rowspan="4" valign="top">Marital Status, n (%)</th>
+      <th>Divorced</th>
+      <td></td>
+      <td>2537 (8)</td>
+      <td>2342 (8)</td>
+      <td>195 (7)</td>
+      <td>&lt;0.001</td>
+      <td>Chi-squared</td>
+    </tr>
+    <tr>
+      <th>Married</th>
+      <td></td>
+      <td>12294 (41)</td>
+      <td>11153 (40)</td>
+      <td>1141 (44)</td>
+      <td></td>
+      <td></td>
+    </tr>
+    <tr>
+      <th>Single</th>
+      <td></td>
+      <td>10320 (34)</td>
+      <td>9614 (35)</td>
+      <td>706 (27)</td>
+      <td></td>
+      <td></td>
+    </tr>
+    <tr>
+      <th>Widowed</th>
+      <td></td>
+      <td>5031 (17)</td>
+      <td>4469 (16)</td>
+      <td>562 (22)</td>
+      <td></td>
+      <td></td>
+    </tr>
+    <tr>
+      <th rowspan="4" valign="top">Insurance, n (%)</th>
+      <th>Medicaid</th>
+      <td></td>
+      <td>5209 (17)</td>
+      <td>4904 (18)</td>
+      <td>305 (12)</td>
+      <td>&lt;0.001</td>
+      <td>Chi-squared</td>
+    </tr>
+    <tr>
+      <th>Medicare</th>
+      <td></td>
+      <td>17862 (59)</td>
+      <td>15958 (58)</td>
+      <td>1904 (73)</td>
+      <td></td>
+      <td></td>
+    </tr>
+    <tr>
+      <th>Other</th>
+      <td></td>
+      <td>562 (2)</td>
+      <td>523 (2)</td>
+      <td>39 (1)</td>
+      <td></td>
+      <td></td>
+    </tr>
+    <tr>
+      <th>Private</th>
+      <td></td>
+      <td>6549 (22)</td>
+      <td>6193 (22)</td>
+      <td>356 (14)</td>
+      <td></td>
+      <td></td>
+    </tr>
+    <tr>
+      <th rowspan="2" valign="top">Multimorbidity (&gt;=2 conditions), n (%)</th>
+      <th>No</th>
+      <td></td>
+      <td>5390 (18)</td>
+      <td>5221 (19)</td>
+      <td>169 (6)</td>
+      <td>&lt;0.001</td>
+      <td>Chi-squared</td>
+    </tr>
+    <tr>
+      <th>Yes</th>
+      <td></td>
+      <td>24792 (82)</td>
+      <td>22357 (81)</td>
+      <td>2435 (94)</td>
+      <td></td>
+      <td></td>
+    </tr>
+    <tr>
+      <th rowspan="2" valign="top">High-count Multimorbidity (&gt;=4 conditions), n (%)</th>
+      <th>No</th>
+      <td></td>
+      <td>15492 (51)</td>
+      <td>14670 (53)</td>
+      <td>822 (32)</td>
+      <td>&lt;0.001</td>
+      <td>Chi-squared</td>
+    </tr>
+    <tr>
+      <th>Yes</th>
+      <td></td>
+      <td>14690 (49)</td>
+      <td>12908 (47)</td>
+      <td>1782 (68)</td>
+      <td></td>
+      <td></td>
+    </tr>
+    <tr>
+      <th rowspan="2" valign="top">Physical/Mental Multimorbidity, n (%)</th>
+      <th>No</th>
+      <td></td>
+      <td>18280 (61)</td>
+      <td>16795 (61)</td>
+      <td>1485 (57)</td>
+      <td>0.005</td>
+      <td>Chi-squared</td>
+    </tr>
+    <tr>
+      <th>Yes</th>
+      <td></td>
+      <td>11902 (39)</td>
+      <td>10783 (39)</td>
+      <td>1119 (43)</td>
+      <td></td>
+      <td></td>
+    </tr>
+    <tr>
+      <th rowspan="2" valign="top">Active Cancer, n (%)</th>
+      <th>No</th>
+      <td></td>
+      <td>22393 (74)</td>
+      <td>20886 (76)</td>
+      <td>1507 (58)</td>
+      <td>&lt;0.001</td>
+      <td>Chi-squared</td>
+    </tr>
+    <tr>
+      <th>Yes</th>
+      <td></td>
+      <td>7789 (26)</td>
+      <td>6692 (24)</td>
+      <td>1097 (42)</td>
+      <td></td>
+      <td></td>
+    </tr>
+    <tr>
+      <th rowspan="2" valign="top">Ischaemic Heart Disease, n (%)</th>
+      <th>No</th>
+      <td></td>
+      <td>21103 (70)</td>
+      <td>19592 (71)</td>
+      <td>1511 (58)</td>
+      <td>&lt;0.001</td>
+      <td>Chi-squared</td>
+    </tr>
+    <tr>
+      <th>Yes</th>
+      <td></td>
+      <td>9079 (30)</td>
+      <td>7986 (29)</td>
+      <td>1093 (42)</td>
+      <td></td>
+      <td></td>
+    </tr>
+    <tr>
+      <th rowspan="2" valign="top">Hypertension, n (%)</th>
+      <th>No</th>
+      <td></td>
+      <td>13817 (46)</td>
+      <td>12725 (46)</td>
+      <td>1092 (42)</td>
+      <td>0.002</td>
+      <td>Chi-squared</td>
+    </tr>
+    <tr>
+      <th>Yes</th>
+      <td></td>
+      <td>16365 (54)</td>
+      <td>14853 (54)</td>
+      <td>1512 (58)</td>
+      <td></td>
+      <td></td>
+    </tr>
+    <tr>
+      <th rowspan="2" valign="top">Diabetes, n (%)</th>
+      <th>No</th>
+      <td></td>
+      <td>20705 (69)</td>
+      <td>19119 (69)</td>
+      <td>1586 (61)</td>
+      <td>&lt;0.001</td>
+      <td>Chi-squared</td>
+    </tr>
+    <tr>
+      <th>Yes</th>
+      <td></td>
+      <td>9477 (31)</td>
+      <td>8459 (31)</td>
+      <td>1018 (39)</td>
+      <td></td>
+      <td></td>
+    </tr>
+    <tr>
+      <th rowspan="2" valign="top">Asthma, n (%)</th>
+      <th>No</th>
+      <td></td>
+      <td>25860 (86)</td>
+      <td>23653 (86)</td>
+      <td>2207 (85)</td>
+      <td>1.000</td>
+      <td>Chi-squared</td>
+    </tr>
+    <tr>
+      <th>Yes</th>
+      <td></td>
+      <td>4322 (14)</td>
+      <td>3925 (14)</td>
+      <td>397 (15)</td>
+      <td></td>
+      <td></td>
+    </tr>
+    <tr>
+      <th rowspan="2" valign="top">COPD, n (%)</th>
+      <th>No</th>
+      <td></td>
+      <td>26200 (87)</td>
+      <td>24090 (87)</td>
+      <td>2110 (81)</td>
+      <td>&lt;0.001</td>
+      <td>Chi-squared</td>
+    </tr>
+    <tr>
+      <th>Yes</th>
+      <td></td>
+      <td>3982 (13)</td>
+      <td>3488 (13)</td>
+      <td>494 (19)</td>
+      <td></td>
+      <td></td>
+    </tr>
+    <tr>
+      <th rowspan="2" valign="top">Chronic Kidney Disease, n (%)</th>
+      <th>No</th>
+      <td></td>
+      <td>22319 (74)</td>
+      <td>20819 (75)</td>
+      <td>1500 (58)</td>
+      <td>&lt;0.001</td>
+      <td>Chi-squared</td>
+    </tr>
+    <tr>
+      <th>Yes</th>
+      <td></td>
+      <td>7863 (26)</td>
+      <td>6759 (25)</td>
+      <td>1104 (42)</td>
+      <td></td>
+      <td></td>
+    </tr>
+    <tr>
+      <th rowspan="2" valign="top">Heart Failure, n (%)</th>
+      <th>No</th>
+      <td></td>
+      <td>22444 (74)</td>
+      <td>20963 (76)</td>
+      <td>1481 (57)</td>
+      <td>&lt;0.001</td>
+      <td>Chi-squared</td>
+    </tr>
+    <tr>
+      <th>Yes</th>
+      <td></td>
+      <td>7738 (26)</td>
+      <td>6615 (24)</td>
+      <td>1123 (43)</td>
+      <td></td>
+      <td></td>
+    </tr>
+    <tr>
+      <th rowspan="2" valign="top">Stroke, n (%)</th>
+      <th>No</th>
+      <td></td>
+      <td>28738 (95)</td>
+      <td>26292 (95)</td>
+      <td>2446 (94)</td>
+      <td>0.061</td>
+      <td>Chi-squared</td>
+    </tr>
+    <tr>
+      <th>Yes</th>
+      <td></td>
+      <td>1444 (5)</td>
+      <td>1286 (5)</td>
+      <td>158 (6)</td>
+      <td></td>
+      <td></td>
+    </tr>
+    <tr>
+      <th rowspan="2" valign="top">Abdominal Aortic Aneurysm, n (%)</th>
+      <th>No</th>
+      <td></td>
+      <td>29993 (99)</td>
+      <td>27407 (99)</td>
+      <td>2586 (99)</td>
+      <td>1.000</td>
+      <td>Chi-squared</td>
+    </tr>
+    <tr>
+      <th>Yes</th>
+      <td></td>
+      <td>189 (1)</td>
+      <td>171 (1)</td>
+      <td>18 (1)</td>
+      <td></td>
+      <td></td>
+    </tr>
+    <tr>
+      <th rowspan="2" valign="top">Atrial Fibrillation, n (%)</th>
+      <th>No</th>
+      <td></td>
+      <td>27333 (91)</td>
+      <td>25094 (91)</td>
+      <td>2239 (86)</td>
+      <td>&lt;0.001</td>
+      <td>Chi-squared</td>
+    </tr>
+    <tr>
+      <th>Yes</th>
+      <td></td>
+      <td>2849 (9)</td>
+      <td>2484 (9)</td>
+      <td>365 (14)</td>
+      <td></td>
+      <td></td>
+    </tr>
+    <tr>
+      <th rowspan="2" valign="top">Osteoporosis, n (%)</th>
+      <th>No</th>
+      <td></td>
+      <td>26146 (87)</td>
+      <td>24031 (87)</td>
+      <td>2115 (81)</td>
+      <td>&lt;0.001</td>
+      <td>Chi-squared</td>
+    </tr>
+    <tr>
+      <th>Yes</th>
+      <td></td>
+      <td>4036 (13)</td>
+      <td>3547 (13)</td>
+      <td>489 (19)</td>
+      <td></td>
+      <td></td>
+    </tr>
+    <tr>
+      <th rowspan="2" valign="top">Peripheral Arterial Disease, n (%)</th>
+      <th>No</th>
+      <td></td>
+      <td>27362 (91)</td>
+      <td>25154 (91)</td>
+      <td>2208 (85)</td>
+      <td>&lt;0.001</td>
+      <td>Chi-squared</td>
+    </tr>
+    <tr>
+      <th>Yes</th>
+      <td></td>
+      <td>2820 (9)</td>
+      <td>2424 (9)</td>
+      <td>396 (15)</td>
+      <td></td>
+      <td></td>
+    </tr>
+    <tr>
+      <th rowspan="2" valign="top">Inflammatory Bowel Disease, n (%)</th>
+      <th>No</th>
+      <td></td>
+      <td>29135 (97)</td>
+      <td>26594 (96)</td>
+      <td>2541 (98)</td>
+      <td>0.103</td>
+      <td>Chi-squared</td>
+    </tr>
+    <tr>
+      <th>Yes</th>
+      <td></td>
+      <td>1047 (3)</td>
+      <td>984 (4)</td>
+      <td>63 (2)</td>
+      <td></td>
+      <td></td>
+    </tr>
+    <tr>
+      <th rowspan="2" valign="top">Liver Disease, n (%)</th>
+      <th>No</th>
+      <td></td>
+      <td>26941 (89)</td>
+      <td>24785 (90)</td>
+      <td>2156 (83)</td>
+      <td>&lt;0.001</td>
+      <td>Chi-squared</td>
+    </tr>
+    <tr>
+      <th>Yes</th>
+      <td></td>
+      <td>3241 (11)</td>
+      <td>2793 (10)</td>
+      <td>448 (17)</td>
+      <td></td>
+      <td></td>
+    </tr>
+    <tr>
+      <th rowspan="2" valign="top">Arthritis, n (%)</th>
+      <th>No</th>
+      <td></td>
+      <td>23484 (78)</td>
+      <td>21628 (78)</td>
+      <td>1856 (71)</td>
+      <td>&lt;0.001</td>
+      <td>Chi-squared</td>
+    </tr>
+    <tr>
+      <th>Yes</th>
+      <td></td>
+      <td>6698 (22)</td>
+      <td>5950 (22)</td>
+      <td>748 (29)</td>
+      <td></td>
+      <td></td>
+    </tr>
+    <tr>
+      <th rowspan="2" valign="top">Hip Fracture, n (%)</th>
+      <th>No</th>
+      <td></td>
+      <td>29345 (97)</td>
+      <td>26854 (97)</td>
+      <td>2491 (96)</td>
+      <td>&lt;0.001</td>
+      <td>Chi-squared</td>
+    </tr>
+    <tr>
+      <th>Yes</th>
+      <td></td>
+      <td>837 (3)</td>
+      <td>724 (3)</td>
+      <td>113 (4)</td>
+      <td></td>
+      <td></td>
+    </tr>
+    <tr>
+      <th rowspan="2" valign="top">Progressive Neurological Disease (incl. dementia), n (%)</th>
+      <th>No</th>
+      <td></td>
+      <td>28214 (93)</td>
+      <td>25843 (94)</td>
+      <td>2371 (91)</td>
+      <td>&lt;0.001</td>
+      <td>Chi-squared</td>
+    </tr>
+    <tr>
+      <th>Yes</th>
+      <td></td>
+      <td>1968 (7)</td>
+      <td>1735 (6)</td>
+      <td>233 (9)</td>
+      <td></td>
+      <td></td>
+    </tr>
+    <tr>
+      <th rowspan="2" valign="top">Pulmonary Fibrosis, n (%)</th>
+      <th>No</th>
+      <td></td>
+      <td>29699 (98)</td>
+      <td>27177 (99)</td>
+      <td>2522 (97)</td>
+      <td>&lt;0.001</td>
+      <td>Chi-squared</td>
+    </tr>
+    <tr>
+      <th>Yes</th>
+      <td></td>
+      <td>483 (2)</td>
+      <td>401 (1)</td>
+      <td>82 (3)</td>
+      <td></td>
+      <td></td>
+    </tr>
+    <tr>
+      <th rowspan="2" valign="top">Bronchiectasis, n (%)</th>
+      <th>No</th>
+      <td></td>
+      <td>29831 (99)</td>
+      <td>27274 (99)</td>
+      <td>2557 (98)</td>
+      <td>0.075</td>
+      <td>Chi-squared</td>
+    </tr>
+    <tr>
+      <th>Yes</th>
+      <td></td>
+      <td>351 (1)</td>
+      <td>304 (1)</td>
+      <td>47 (2)</td>
+      <td></td>
+      <td></td>
+    </tr>
+    <tr>
+      <th rowspan="2" valign="top">Epilepsy, n (%)</th>
+      <th>No</th>
+      <td></td>
+      <td>29315 (97)</td>
+      <td>26786 (97)</td>
+      <td>2529 (97)</td>
+      <td>1.000</td>
+      <td>Chi-squared</td>
+    </tr>
+    <tr>
+      <th>Yes</th>
+      <td></td>
+      <td>867 (3)</td>
+      <td>792 (3)</td>
+      <td>75 (3)</td>
+      <td></td>
+      <td></td>
+    </tr>
+    <tr>
+      <th rowspan="2" valign="top">Obesity, n (%)</th>
+      <th>No</th>
+      <td></td>
+      <td>24962 (83)</td>
+      <td>22850 (83)</td>
+      <td>2112 (81)</td>
+      <td>1.000</td>
+      <td>Chi-squared</td>
+    </tr>
+    <tr>
+      <th>Yes</th>
+      <td></td>
+      <td>5220 (17)</td>
+      <td>4728 (17)</td>
+      <td>492 (19)</td>
+      <td></td>
+      <td></td>
+    </tr>
+    <tr>
+      <th rowspan="2" valign="top">Alcohol/Substance Misuse, n (%)</th>
+      <th>No</th>
+      <td></td>
+      <td>22855 (76)</td>
+      <td>20883 (76)</td>
+      <td>1972 (76)</td>
+      <td>1.000</td>
+      <td>Chi-squared</td>
+    </tr>
+    <tr>
+      <th>Yes</th>
+      <td></td>
+      <td>7327 (24)</td>
+      <td>6695 (24)</td>
+      <td>632 (24)</td>
+      <td></td>
+      <td></td>
+    </tr>
+    <tr>
+      <th rowspan="2" valign="top">Psychiatric Disorders, n (%)</th>
+      <th>No</th>
+      <td></td>
+      <td>27982 (93)</td>
+      <td>25480 (92)</td>
+      <td>2502 (96)</td>
+      <td>&lt;0.001</td>
+      <td>Chi-squared</td>
+    </tr>
+    <tr>
+      <th>Yes</th>
+      <td></td>
+      <td>2200 (7)</td>
+      <td>2098 (8)</td>
+      <td>102 (4)</td>
+      <td></td>
+      <td></td>
+    </tr>
+    <tr>
+      <th rowspan="2" valign="top">Depression, n (%)</th>
+      <th>No</th>
+      <td></td>
+      <td>22277 (74)</td>
+      <td>20368 (74)</td>
+      <td>1909 (73)</td>
+      <td>1.000</td>
+      <td>Chi-squared</td>
+    </tr>
+    <tr>
+      <th>Yes</th>
+      <td></td>
+      <td>7905 (26)</td>
+      <td>7210 (26)</td>
+      <td>695 (27)</td>
+      <td></td>
+      <td></td>
+    </tr>
+    <tr>
+      <th rowspan="2" valign="top">Extended Hospital Stay, n (%)</th>
+      <th>No</th>
+      <td></td>
+      <td>22227 (74)</td>
+      <td>20889 (76)</td>
+      <td>1338 (51)</td>
+      <td>&lt;0.001</td>
+      <td>Chi-squared</td>
+    </tr>
+    <tr>
+      <th>Yes</th>
+      <td></td>
+      <td>7955 (26)</td>
+      <td>6689 (24)</td>
+      <td>1266 (49)</td>
+      <td></td>
+      <td></td>
+    </tr>
+    <tr>
+      <th rowspan="2" valign="top">Non-home Discharge, n (%)</th>
+      <th>No</th>
+      <td></td>
+      <td>21427 (71)</td>
+      <td>18823 (68)</td>
+      <td>2604 (100)</td>
+      <td>&lt;0.001</td>
+      <td>Chi-squared</td>
+    </tr>
+    <tr>
+      <th>Yes</th>
+      <td></td>
+      <td>8755 (29)</td>
+      <td>8755 (32)</td>
+      <td></td>
+      <td></td>
+      <td></td>
+    </tr>
+    <tr>
+      <th rowspan="2" valign="top">ICU Admission, n (%)</th>
+      <th>No</th>
+      <td></td>
+      <td>25656 (85)</td>
+      <td>23649 (86)</td>
+      <td>2007 (77)</td>
+      <td>&lt;0.001</td>
+      <td>Chi-squared</td>
+    </tr>
+    <tr>
+      <th>Yes</th>
+      <td></td>
+      <td>4526 (15)</td>
+      <td>3929 (14)</td>
+      <td>597 (23)</td>
+      <td></td>
+      <td></td>
+    </tr>
+    <tr>
+      <th># historical discharge notes, median [Q1,Q3]</th>
+      <th></th>
+      <td>0</td>
+      <td>2 [1,3]</td>
+      <td>1 [1,3]</td>
+      <td>2 [1,4]</td>
+      <td>&lt;0.001</td>
+      <td>Kruskal-Wallis</td>
+    </tr>
+    <tr>
+      <th># Raw Input Tokens, median [Q1,Q3]</th>
+      <th></th>
+      <td>0</td>
+      <td>3730 [2235,7516]</td>
+      <td>3565 [2190,7138]</td>
+      <td>5894 [3091,11820]</td>
+      <td>&lt;0.001</td>
+      <td>Kruskal-Wallis</td>
+    </tr>
+    <tr>
+      <th># Processed Input Tokens, median [Q1,Q3]</th>
+      <th></th>
+      <td>0</td>
+      <td>921 [473,1946]</td>
+      <td>883 [454,1842]</td>
+      <td>1533 [778,3237]</td>
+      <td>&lt;0.001</td>
+      <td>Kruskal-Wallis</td>
+    </tr>
+  </tbody>
+</table>
