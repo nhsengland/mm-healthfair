@@ -2,12 +2,12 @@
 name = "mm-healthfair"
 version = "0.1.0"
 description = ""
-authors = ["Sophie Martin <s.martin.20@ucl.ac.uk>"]
+authors = ["Sophie Martin <s.martin.20@ucl.ac.uk>", "Konstantin Georgiev <k.s.georgiev@sms.ed.ac.uk"]
 readme = "README.md"
 package-mode = false
 
 [tool.poetry.dependencies]
-python = ">=3.10,<3.11"
+python = ">=3.10,<3.12"
 numpy = "^1.26.4"
 matplotlib = "^3.8.3"
 scikit-learn = "^1.5.0"
@@ -18,16 +18,16 @@ tqdm = "^4.66.3"
 toml = "^0.10.2"
 ruff = "^0.3.5"
 polars = "^0.20.23"
-lightning = "^2.2.4"
 wandb = "^0.17.0"
-torch = "2.3.0"
-torchvision = "^0.18.0"
 shap = "^0.45.1"
 fairlearn = "^0.10.0"
-nmslib = "2.1.1"
-scispacy = "^0.5.4"
+transformers = "^4.42.1"
 en-core-sci-md = {url = "https://s3-us-west-2.amazonaws.com/ai2-s2-scispacy/releases/v0.5.4/en_core_sci_md-0.5.4.tar.gz"}
-transformers = "^4.41.2"
+spacy = "3.7.5"
+# Remove source for CPU support
+torch = {version = "^2.5.1", source = "pytorch-gpu"}
+torchvision = {version = "^0.20.1", source = "pytorch-gpu"}
+lightning = "^2.5.0.post0"
 
 [tool.poetry.group.dev.dependencies]
 deptry = "^0.16.1"
@@ -39,6 +39,12 @@ pymdown-extensions = "^10.8.1"
 mkdocs-gen-files = "^0.5.0"
 mkdocs-autorefs = "^1.0.1"
 mkdocstrings = {extras = ["python"], version = "^0.25.1"}
+
+# Remove source for CPU-only support for PyTorch
+[[tool.poetry.source]]
+name = "pytorch-gpu"
+url = "https://download.pytorch.org/whl/cu121"
+priority = "explicit"
 
 [tool.ruff]
 target-version = "py310"
