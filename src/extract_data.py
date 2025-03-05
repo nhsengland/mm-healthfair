@@ -28,7 +28,7 @@ if __name__ == "__main__":
         type=str,
         nargs="+",
         help="Tables from which to read events. Can be any combination of: labevents, vitalsign",
-        default=["vitalsign"],
+        default=["labevents", "vitalsign"],
     )
 
     parser.add_argument("--include_notes", "-n", action="store_true")
