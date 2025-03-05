@@ -24,6 +24,13 @@
 .direnv
 .envrc
 
+### Conda libraries
+Library/
+share/
+Scripts/
+Include/
+Lib/
+
 ### Django ###
 *.log
 *.pot
