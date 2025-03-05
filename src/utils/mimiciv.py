@@ -121,7 +121,7 @@ def read_stays_table(
 def read_events_table(
     table: str, mimic4_path: str, include_items: list = None
 ) -> pl.LazyFrame:
-    """Reads in ?events.csv.gz tables from MIMIC-IV and formats column types.
+    """Reads in events.csv.gz tables from MIMIC-IV and formats column types.
 
     Args:
         table (str): Name of the events table. Currently supports 'vitalsign' or 'labevents'

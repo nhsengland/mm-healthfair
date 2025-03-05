@@ -66,6 +66,7 @@ if __name__ == "__main__":
     num_workers = config["data"]["num_workers"]
     los_threshold = config["model"]["threshold"]
     fusion_method = config["model"]["fusion_method"]
+    with_ts = config["model"]["with_ts"]
 
     # overrides to True if not using mag fusion method
     st_first = config["model"]["st_first"] if fusion_method == "mag" else True
@@ -133,6 +134,7 @@ if __name__ == "__main__":
         with_packed_sequences=True if not static_only else False,
         fusion_method=fusion_method,
         with_notes=with_notes,
+        with_ts=with_ts,
         st_first=st_first,
     )
 
@@ -148,7 +150,7 @@ if __name__ == "__main__":
     else:
         logger = CSVLogger("logs")
 
-    early_stop = EarlyStopping(monitor="val_loss", mode="min", patience=3)
+    early_stop = EarlyStopping(monitor="val_loss", mode="min", patience=5)
     checkpoint = ModelCheckpoint(
         monitor="val_loss",
         mode="min",

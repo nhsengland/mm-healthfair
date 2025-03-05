@@ -68,7 +68,7 @@ class MMModel(L.LightningModule):
         lr=0.1,
         fusion_method="concat",
         st_first=True,
-        with_ts=True,
+        with_ts=False,
         with_notes=False,
         with_packed_sequences=False,
     ):
@@ -108,6 +108,7 @@ class MMModel(L.LightningModule):
             nt_embed_dim = 0
 
         if self.fusion_method == "mag":
+            #print('Using MAG layer.')
             if self.st_first:
                 self.fuse = Gate(
                     st_embed_dim, *([ts_embed_dim] * self.num_ts), dropout=dropout
@@ -122,6 +123,7 @@ class MMModel(L.LightningModule):
 
         elif self.fusion_method == "concat":
             # embeddings must be same dim
+            #print('Using Concat layer.')
             assert st_embed_dim == ts_embed_dim
             if self.with_notes:
                 assert nt_embed_dim == st_embed_dim
@@ -129,7 +131,7 @@ class MMModel(L.LightningModule):
                 st_embed_dim + (self.num_ts * ts_embed_dim) + nt_embed_dim, target_size
             )
 
-        elif self.fusion_method is None:
+        elif self.fusion_method == "None":
             self.fc = nn.Linear(st_embed_dim, target_size)
 
         self.criterion = torch.nn.BCEWithLogitsLoss()
@@ -151,7 +153,8 @@ class MMModel(L.LightningModule):
             if self.with_packed_sequences:
                 lengths = batch[3]
 
-        if self.fusion_method is not None:
+        if self.fusion_method != "None":
+            #print('Packing padded sequences.')
             ts_embed = []
             for i in range(self.num_ts):
                 if self.with_packed_sequences:
@@ -185,7 +188,8 @@ class MMModel(L.LightningModule):
             else:
                 out = self.fuse(*ts_embed, st_embed)
 
-        elif self.fusion_method is None:
+        elif self.fusion_method == "None":
+            #print('No fusion method specified. Using static data only.')
             out = st_embed.squeeze()
 
         # Parse through FC
@@ -268,7 +272,7 @@ class MMModel(L.LightningModule):
 
     def configure_optimizers(self):
         optimizer = torch.optim.SGD(self.parameters(), lr=self.lr)
-        scheduler = ReduceLROnPlateau(optimizer, mode="min", patience=10)
+        scheduler = ReduceLROnPlateau(optimizer, mode="min", patience=20)
         return [optimizer], [
             {"scheduler": scheduler, "monitor": "val_loss", "interval": "epoch"}
         ]

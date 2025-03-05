@@ -81,25 +81,25 @@ if __name__ == "__main__":
     if with_hp:
         params = [
             {
-                "n_estimators": [10, 50, 100],
+                "n_estimators": [10, 100, 1000, 5000],
                 "criterion": ["gini", "entropy"],
-                "max_depth": [None, 10],
+                "max_depth": [2, 3, 5, 10]
             }
         ]
 
         model = GridSearchCV(
             estimator=RandomForestClassifier(random_state=0, class_weight="balanced"),
             param_grid=params,
-            scoring=["balanced_accuracy", "roc_auc", "accuracy"],
-            refit="balanced_accuracy",
+            scoring=["balanced_accuracy", "roc_auc"],
+            refit="roc_auc",
             cv=3,
         )
         print("Training via Grid Search..")
 
     else:
         print("Training a single RF model...")
-        model = RandomForestClassifier(
-            random_state=0, class_weight="balanced", criterion="entropy"
+        model = RandomForestClassifier(n_estimators=20000, max_depth=5,
+            random_state=0, class_weight="balanced", criterion="log_loss"
         )
 
     model.fit(x_train, y_train)

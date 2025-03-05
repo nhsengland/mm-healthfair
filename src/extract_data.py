@@ -11,7 +11,7 @@ import utils.mimiciv as m4c
 from utils.functions import get_n_unique_values, impute_from_df, read_from_txt
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Extract data from MIMIC-IV v2.2.")
+    parser = argparse.ArgumentParser(description="Extract data from MIMIC-IV v3.1.")
     parser.add_argument(
         "mimic4_path", type=str, help="Directory containing downloaded MIMIC-IV data."
     )
@@ -60,9 +60,9 @@ if __name__ == "__main__":
     )
 
     args, _ = parser.parse_known_args()
-    mimic4_path = os.path.join(args.mimic4_path, "mimiciv", "2.2", "hosp")
-    mimic4_ed_path = os.path.join(args.mimic4_path, "mimic-iv-ed", "2.2", "ed")
-    mimic4_note_path = os.path.join(args.mimic4_path, "mimic-iv-note", "2.2", "note")
+    mimic4_path = os.path.join(args.mimic4_path, "mimiciv", "3.1", "hosp")
+    mimic4_ed_path = os.path.join(args.mimic4_path, "mimic-iv-ed", "3.1", "ed")
+    mimic4_note_path = os.path.join(args.mimic4_path, "mimic-iv-note", "3.1", "note")
 
     if os.path.exists(args.output_path):
         response = input("Will need to overwrite existing directory... continue? (y/n)")
@@ -233,8 +233,12 @@ if __name__ == "__main__":
         notes = m4c.read_notes(mimic4_note_path, use_lazy=args.lazy)
 
         if args.verbose:
+            if type(notes) == pl.LazyFrame:
+                notes_height = notes.collect(streaming=True).height
+            else:
+                notes_height = notes.height
             print(
-                f"NOTES:\n\tHADM_IDs: {get_n_unique_values(notes, 'hadm_id')}\n\tTOTAL NOTES: {notes.collect(streaming=True).height}\n\tSUBJECT_IDs: {get_n_unique_values(notes)}"
+                f"NOTES:\n\tHADM_IDs: {get_n_unique_values(notes, 'hadm_id')}\n\tTOTAL NOTES: {notes_height}\n\tSUBJECT_IDs: {get_n_unique_values(notes)}"
             )
 
         # Filter notes by hadm_id in stays table
@@ -243,8 +247,12 @@ if __name__ == "__main__":
         )
 
         if args.verbose:
+            if type(notes) == pl.LazyFrame:
+                notes_height = notes.collect(streaming=True).height
+            else:
+                notes_height = notes.height
             print(
-                f"FILTER BY STAY HADM_IDs:\n\tHADM_IDs: {get_n_unique_values(notes, 'hadm_id')}\n\tTOTAL NOTES: {notes.collect(streaming=True).height}\n\tSUBJECT_IDs: {get_n_unique_values(notes)}"
+                f"FILTER BY STAY HADM_IDs:\n\tHADM_IDs: {get_n_unique_values(notes, 'hadm_id')}\n\tTOTAL NOTES: {notes_height}\n\tSUBJECT_IDs: {get_n_unique_values(notes)}"
             )
 
         # Write all notes
