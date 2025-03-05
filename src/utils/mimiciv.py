@@ -3,9 +3,74 @@ import os
 import numpy as np
 import polars as pl
 
+def read_admissions_table(
+    mimic4_path: str, use_lazy: bool = False
+) -> pl.LazyFrame | pl.DataFrame:
+    """Reads in admissions.csv.gz table and formats column types.
+
+    Args:
+        mimic4_path (str): Path to directory containing downloaded MIMIC-IV hosp module files.
+        use_lazy (bool, optional): Whether to return a Polars LazyFrame or DataFrame. Defaults to False.
+
+    Returns:
+        pl.LazyFrame | pl.DataFrame: Admissions table.
+    """
+    admits = pl.read_csv(
+        os.path.join(mimic4_path, "admissions.csv.gz"),
+        columns=[
+            "subject_id",
+            "hadm_id",
+            "admittime",
+            "dischtime",
+            "deathtime",
+            "edregtime",
+            "edouttime",
+            "insurance",
+            "marital_status",
+            "race",
+            "admission_location",
+            "discharge_location"
+        ],
+        dtypes=[
+            pl.Int64,
+            pl.Int64,
+            pl.Datetime,
+            pl.Datetime,
+            pl.Datetime,
+            pl.Datetime,
+            pl.Datetime,
+            pl.String,
+            pl.String,
+            pl.String,
+            pl.String,
+            pl.String
+        ],
+    )
+    ### Get eligible admissions with ED attendance and complete sensitive data
+    admits = admits.with_columns(
+        [
+            pl.col("edregtime").is_not_null() & pl.col("edouttime").is_not_null(),
+            pl.col("marital_status").is_not_null() & pl.col("race").is_not_null() & pl.col("insurance").is_not_null(),
+        ]
+    ).filter(
+        pl.col("edregtime") < pl.col("admittime")
+    ).filter(
+        (pl.col("edregtime") < pl.col("dischtime")) & (pl.col("edouttime") < pl.col("dischtime"))
+    ).filter(
+        (pl.col("edouttime") > pl.col("edregtime")) & (pl.col("admittime") < pl.col("dischtime"))
+    ).with_columns(
+        (pl.col("dischtime") - pl.col("admittime")).dt.seconds() / (24 * 60 * 60).alias("los_days"),
+        (pl.col("los_days") > 7).cast(pl.Int8).alias("ext_stay_7")
+    )
+    #admits = admits.with_columns(
+        #((pl.col("dischtime") - pl.col("admittime")) / pl.duration(days=1)).alias("los")
+    #)
+    print('Collected admissions table and linked ED attendances..')
+    return admits.lazy() if use_lazy else admits
 
 def read_patients_table(
-    mimic4_path: str, use_lazy: bool = False
+    mimic4_path: str, admissions_data: pl.DataFrame | pl.LazyFrame, 
+    use_lazy: bool = False
 ) -> pl.LazyFrame | pl.DataFrame:
     """Reads in patients.csv.gz table and formats column types.
 
@@ -21,6 +86,21 @@ def read_patients_table(
         columns=["subject_id", "gender", "anchor_age", "anchor_year", "dod"],
         dtypes=[pl.Int64, pl.String, pl.Int64, pl.Int64, pl.Datetime],
     )
+    
+    if isinstance(admissions_data, pl.LazyFrame):
+        admissions_data = admissions_data.collect()
+    
+    pats = pats.filter(pl.col("subject_id").is_in(admissions_data.select("subject_id").to_series()))
+    pats = pats.select(["subject_id", "gender", "dod", "anchor_age", "anchor_year"])
+    pats = pats.with_columns(
+        (pl.col("anchor_year") - pl.col("anchor_age")).alias("yob")
+    ).drop("anchor_year")
+    pats = pats.join(admissions_data, on="subject_id", how="left")
+    pats = pats.with_columns(
+        ((pl.col("dod") < pl.col("dischtime")) & (pl.col("dod") > pl.col("admittime"))).cast(pl.Int8).alias("in_hosp_death"),
+        ((~pl.col("discharge_location").str.contains("HOME|DIED|AGAINST ADVICE", literal=True, case=False, na=True)) & (pl.col("in_hosp_death") == 0)).cast(pl.Int8).alias("non_home_discharge")
+    )
+    print('Collected patients table linked to ED attendances..')
     return pats.lazy() if use_lazy else pats
 
 
@@ -42,49 +122,6 @@ def read_omr_table(
         dtypes=[pl.Int64, pl.Datetime, pl.Int64, pl.String, pl.String],
     )
     return omr.lazy() if use_lazy else omr
-
-
-def read_admissions_table(
-    mimic4_path: str, use_lazy: bool = False
-) -> pl.LazyFrame | pl.DataFrame:
-    """Reads in admissions.csv.gz table and formats column types.
-
-    Args:
-        mimic4_path (str): Path to directory containing downloaded MIMIC-IV hosp module files.
-        use_lazy (bool, optional): Whether to return a Polars LazyFrame or DataFrame. Defaults to False.
-
-    Returns:
-        pl.LazyFrame | pl.DataFrame: Admissions table.
-    """
-    admits = pl.read_csv(
-        os.path.join(mimic4_path, "admissions.csv.gz"),
-        columns=[
-            "subject_id",
-            "hadm_id",
-            "admittime",
-            "dischtime",
-            "deathtime",
-            "insurance",
-            "marital_status",
-            "race",
-            "hospital_expire_flag",
-        ],
-        dtypes=[
-            pl.Int64,
-            pl.Int64,
-            pl.Datetime,
-            pl.Datetime,
-            pl.Datetime,
-            pl.String,
-            pl.String,
-            pl.String,
-            pl.Int64,
-        ],
-    )
-    admits = admits.with_columns(
-        ((pl.col("dischtime") - pl.col("admittime")) / pl.duration(days=1)).alias("los")
-    )
-    return admits.lazy() if use_lazy else admits
 
 
 def read_stays_table(

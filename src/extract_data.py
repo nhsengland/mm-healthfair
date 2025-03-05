@@ -51,7 +51,7 @@ if __name__ == "__main__":
         "--sample",
         "-s",
         type=int,
-        help="Number of stays to sample (random).",
+        help="Extract smaller patient sample (random).",
     )
     parser.add_argument(
         "--lazy",
