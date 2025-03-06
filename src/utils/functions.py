@@ -53,6 +53,21 @@ def impute_from_df(
 
     return impute_to
 
+def get_final_episodes(stays: pl.DataFrame | pl.LazyFrame) -> pl.DataFrame:
+    """Extracts the final ED episode with hospitalisation for creating a unique patient cohort.
+
+    Args:
+        stays (pl.DataFrame): Stays data.
+
+    Returns:
+        pl.DataFrame: Patient-level data.
+    """
+    if isinstance(stays, pl.LazyFrame):
+        stays = stays.collect()
+
+    ### Sort values and get final ED episode
+    stays = stays.sort(["subject_id", "edregtime"]).unique(subset=["subject_id"], keep="last")
+    return stays
 
 def get_n_unique_values(
     table: pl.DataFrame | pl.LazyFrame, use_col: str = "subject_id"
@@ -106,6 +121,27 @@ def scale_numeric_features(
     scaled = scaled.with_columns(pl.all().round(2))
     return table.select(pl.col("*").exclude(numeric_cols)).hstack(scaled)
 
+def read_icd_mapping(map_path: str) -> pl.DataFrame:
+    """
+    Reads ICD-9 to ICD-10 mapping file for chronic conditions.
+    """
+    mapping = pl.read_csv(map_path, separator='\t', encoding='iso-8859-1')
+    mapping = mapping.with_columns(pl.col("diagnosis_description").str.to_lowercase())
+    return mapping
+
+def contains_both_ltc_types(ltc_set: pl.Series) -> bool:
+    """
+    Helper util function for physical-mental multimorbidity detection.
+
+    Args:
+        ltc_set (pl.Series): Series containing LTC codes.
+
+    Returns:
+        bool: True if both physical and mental LTC types are present, False otherwise.
+    """
+    physltc_present = ltc_set.str.starts_with("physltc_").any()
+    menltc_present = ltc_set.str.starts_with("menltc_").any()
+    return physltc_present and menltc_present
 
 def preview_data(filepath: str) -> None:
     """Prints a single example from data dictionary.
@@ -117,6 +153,29 @@ def preview_data(filepath: str) -> None:
     example_id = list(data_dict.keys())[-1]
     print(f"Example data:{data_dict[example_id]}")
 
+def get_demographics_summary(ed_pts: pl.DataFrame) -> None:
+    """
+    Summarises sensitive attributes and outcome prevalence.
+    Args:
+        demographics (pl.DataFrame): Demographics data.
+
+    Returns:
+        pl.DataFrame: Summary table.
+    """
+    print('Demographics summary')
+    print('Unique patients:', ed_pts.subject_id.nunique())
+    print('Age distribution:', ed_pts.anchor_age.describe())
+    print('Gender distribution:', ed_pts.gender.value_counts())
+    print('-------------------------------')
+    print('Health outcomes')
+    print(ed_pts.in_hosp_death.value_counts(normalize=True))
+    print(ed_pts.ext_stay_7.value_counts(normalize=True))
+    print(ed_pts.non_home_discharge.value_counts(normalize=True))
+    print(ed_pts.icu_admission.value_counts(normalize=True))
+    print('-------------------------------')
+    print('Comorbidity history')
+    print(ed_pts.is_multimorbid.value_counts(normalize=True))
+    print(ed_pts.is_complex_multimorbid.value_counts(normalize=True))
 
 def read_from_txt(filepath: str, as_type="str") -> list:
     """Read from line-seperated txt file.

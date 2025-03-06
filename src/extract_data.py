@@ -8,7 +8,8 @@ import polars as pl
 from tqdm import tqdm
 
 import utils.mimiciv as m4c
-from utils.functions import get_n_unique_values, impute_from_df, read_from_txt
+from utils.preprocessing import preproc_icd_module, get_ltc_features
+from utils.functions import get_n_unique_values, impute_from_df, read_from_txt, get_final_episodes
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Extract data from MIMIC-IV v3.1.")
@@ -32,12 +33,23 @@ if __name__ == "__main__":
     )
 
     parser.add_argument("--include_notes", "-n", action="store_true")
+    parser.add_argument("--include_events", "-t", action="store_true")
 
     parser.add_argument(
         "--labitems",
         "-i",
         type=str,
         help="Text file containing list of ITEMIDs to use from labevents.",
+    )
+    parser.add_argument(
+        "--icd9_to_icd10",
+        type=str,
+        help="Text file containing ICD 9-10 mapping.",
+    )
+    parser.add_argument(
+        "--ltc_mapping",
+        type=str,
+        help="JSON file containing mapping for long-term conditions in ICD-10 format.",
     )
     parser.add_argument(
         "--verbose",
@@ -62,6 +74,7 @@ if __name__ == "__main__":
     args, _ = parser.parse_known_args()
     mimic4_path = os.path.join(args.mimic4_path, "mimiciv", "3.1", "hosp")
     mimic4_ed_path = os.path.join(args.mimic4_path, "mimic-iv-ed", "3.1", "ed")
+    mimic4_icu_path = os.path.join(args.mimic4_path, "mimic-iv-ed", "3.1", "icu")
     mimic4_note_path = os.path.join(args.mimic4_path, "mimic-iv-note", "3.1", "note")
 
     if os.path.exists(args.output_path):
@@ -81,52 +94,49 @@ if __name__ == "__main__":
         os.makedirs(args.output_path)
 
     # Read in csv files
-    patients = m4c.read_patients_table(mimic4_path, use_lazy=args.lazy)
     admits = m4c.read_admissions_table(mimic4_path, use_lazy=args.lazy)
-    stays = m4c.read_stays_table(mimic4_ed_path, use_lazy=args.lazy)
-    omr = m4c.read_omr_table(mimic4_path, use_lazy=args.lazy)
-
     if args.verbose:
         print(
-            f"START:\n\tED STAY_IDs: {get_n_unique_values(stays, 'stay_id')}\n\tHADM_IDs: {get_n_unique_values(stays, 'hadm_id')}\n\tSUBJECT_IDs: {get_n_unique_values(stays)}"
+            f"START:\n\tInitial stays with ED attendance: {get_n_unique_values(admits, 'hadm_id')}\n\tSUBJECT_IDs: {get_n_unique_values(admits)}"
         )
-
-    # Remove emergency department stays that do not result in a hospital admission.
-    stays.filter(pl.col("disposition") == "ADMITTED").drop_nulls(subset="hadm_id").drop(
-        "disposition"
-    )
-
+    patients = m4c.read_patients_table(mimic4_path, use_lazy=args.lazy)
     if args.verbose:
         print(
-            f"REMOVE ED STAYS WITHOUT ADMISSION:\n\tSTAY_IDs: {get_n_unique_values(stays, 'stay_id')}\n\tHADM_IDs: {get_n_unique_values(stays, 'hadm_id')}\n\tSUBJECT_IDs: {get_n_unique_values(stays)}"
+            f"\n\tValidated stays at age>=18: {get_n_unique_values(patients, 'hadm_id')}\n\tSUBJECT_IDs: {get_n_unique_values(patients)}"
         )
-
-    # order matters here ad stays has hadm_id as floats so merge with hadm_id instead
-    stays = admits.join(stays, how="inner", on=["subject_id", "hadm_id"])
-
-    # add patient info to admissions data
-    stays = stays.join(patients, how="inner", on="subject_id")
-
-    # ensure one ed stay per hospital admission
-    stays = m4c.filter_on_nb_stays(stays)
-
+        print("Creating patient-level dataset based on final episodes...")
+    # Get final ED episode with hospitalisation to reduce processing time
+    admits_last = get_final_episodes(admits)
+    admits_last = m4c.read_icu_table(mimic4_icu_path, admits, use_lazy=args.lazy)
+    # Process long-term conditions
+    diagnoses = m4c.read_diagnoses_table(mimic4_path, admits, use_lazy=args.lazy)
     if args.verbose:
         print(
-            f"REMOVE MULTIPLE ED STAYS PER ADMIT:\n\tSTAY_IDs: {get_n_unique_values(stays, 'stay_id')}\n\tHADM_IDs: {get_n_unique_values(stays, 'hadm_id')}\n\tSUBJECT_IDs: {get_n_unique_values(stays)}"
+            f"DIAGNOSES:\n\tUnique ICD-10 conditions across stays: {get_n_unique_values(diagnoses, 'hadm_id')}\n\tSUBJECT_IDs: {get_n_unique_values(diagnoses)}"
         )
+    diagnoses = preproc_icd_module(diagnoses, icd_map_path=args.icd9_to_icd10, 
+                                   ltc_dict_path=args.ltc_mapping, verbose=args.verbose,
+                                   use_lazy=args.lazy)
+    admits_last = get_ltc_features(admits_last, diagnoses, ltc_dict_path=args.ltc_mapping,
+                                   use_lazy=args.lazy)
+    if args.include_notes:
+        notes = m4c.read_notes(admits, admits_last, mimic4_note_path, 
+                               verbose=args.verbose, use_lazy=args.lazy)
+        admits_last, notes = m4c.get_notes_population(notes, admits_last, verbose=args.verbose,
+                                            use_lazy=args.lazy)
+        if args.verbose:
+            print(
+                f"NOTES:\n\tUnique patients with notes history: {get_n_unique_values(admits_last)} with median {notes['num_summaries'].median()} notes per patient (IQR: {notes['num_summaries'].quantile(0.25)} - {notes['num_summaries'].quantile(0.75)})."
+            )
+    
+    if args.include_events:
+        print('Getting time-series data from OMR table..')
+        omr = m4c.read_omr_table(mimic4_path, verbose=args.verbose, use_lazy=args.lazy)
 
-    # remove any subjects with anchor_age < 18
-    stays = m4c.filter_stays_on_age(stays)
-    if args.verbose:
-        print(
-            f"REMOVE PATIENTS AGE < 18:\n\tSTAY_IDs: {get_n_unique_values(stays, 'stay_id')}\n\tHADM_IDs: {get_n_unique_values(stays, 'hadm_id')}\n\tSUBJECT_IDs: {get_n_unique_values(stays)}"
-        )
-
-    stays = m4c.add_inhospital_mortality_to_stays(stays)
     # add height/weight data using omr table: https://mimic.mit.edu/docs/iv/modules/hosp/omr/
     # use tolerance to find closest value within a year of admission
-    stays = m4c.add_omr_variable_to_stays(stays, omr, "height", tolerance=365)
-    stays = m4c.add_omr_variable_to_stays(stays, omr, "weight", tolerance=365)
+    #stays = m4c.add_omr_variable_to_stays(stays, omr, "height", tolerance=365)
+    #stays = m4c.add_omr_variable_to_stays(stays, omr, "weight", tolerance=365)
 
     ### IF LAZY COLLECT HERE SINCE .SAMPLE IS A DATAFRAME FUNCTION
     if type(stays) == pl.LazyFrame:
