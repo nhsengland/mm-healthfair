@@ -9,7 +9,7 @@ from tqdm import tqdm
 
 import utils.mimiciv as m4c
 from utils.preprocessing import preproc_icd_module, get_ltc_features
-from utils.functions import get_n_unique_values, impute_from_df, read_from_txt, get_final_episodes
+from utils.functions import get_n_unique_values, impute_from_df, get_final_episodes, get_demographics_summary
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Extract data from MIMIC-IV v3.1.")
@@ -34,6 +34,7 @@ if __name__ == "__main__":
 
     parser.add_argument("--include_notes", "-n", action="store_true")
     parser.add_argument("--include_events", "-t", action="store_true")
+    parser.add_argument("--include_addon_ehr_data", '-a', action="store_true")
 
     parser.add_argument(
         "--labitems",
@@ -64,6 +65,11 @@ if __name__ == "__main__":
         "-s",
         type=int,
         help="Extract smaller patient sample (random).",
+    )
+    parser.add_argument(
+        "--top_n_medications",
+        type=int,
+        help="Number of drug-level features to extract (if using add-on EHR data).",
     )
     parser.add_argument(
         "--lazy",
@@ -108,6 +114,7 @@ if __name__ == "__main__":
     # Get final ED episode with hospitalisation to reduce processing time
     admits_last = get_final_episodes(admits)
     admits_last = m4c.read_icu_table(mimic4_icu_path, admits, use_lazy=args.lazy)
+
     # Process long-term conditions
     diagnoses = m4c.read_diagnoses_table(mimic4_path, admits, use_lazy=args.lazy)
     if args.verbose:
@@ -119,6 +126,24 @@ if __name__ == "__main__":
                                    use_lazy=args.lazy)
     admits_last = get_ltc_features(admits_last, diagnoses, ltc_dict_path=args.ltc_mapping,
                                    use_lazy=args.lazy)
+    if args.verbose:
+        print("Printing characteristics in full patient sample.")
+        get_demographics_summary(admits_last)
+    
+    ### Optional random sampling to understample subjects
+    # sample n subjects (can be used to test/speed up processing)
+    if args.sample is not None:
+        if args.verbose:
+            print(
+                f"SELECTING RANDOM SAMPLE OF {args.sample} 'PATIENTS WITH ED ATTENDANCE'."
+            )
+        # set the seed for reproducibility
+        rng = np.random.default_rng(0)
+        admits_last = admits_last.sample(n=args.sample, seed=0)
+        if args.verbose:
+            print("Printing characteristics in random sample.")
+            get_demographics_summary(admits_last)
+
     if args.include_notes:
         notes = m4c.read_notes(admits, admits_last, mimic4_note_path, 
                                verbose=args.verbose, use_lazy=args.lazy)
@@ -131,147 +156,51 @@ if __name__ == "__main__":
     
     if args.include_events:
         print('Getting time-series data from OMR table..')
-        omr = m4c.read_omr_table(mimic4_path, verbose=args.verbose, use_lazy=args.lazy)
-
-    # add height/weight data using omr table: https://mimic.mit.edu/docs/iv/modules/hosp/omr/
-    # use tolerance to find closest value within a year of admission
-    #stays = m4c.add_omr_variable_to_stays(stays, omr, "height", tolerance=365)
-    #stays = m4c.add_omr_variable_to_stays(stays, omr, "weight", tolerance=365)
-
-    ### IF LAZY COLLECT HERE SINCE .SAMPLE IS A DATAFRAME FUNCTION
-    if type(stays) == pl.LazyFrame:
-        print("Collecting...")
-        stays = stays.collect(streaming=True)
-
-    # sample n subjects (can be used to test/speed up processing)
-    if args.sample is not None:
-        # set the seed for reproducibility
-        rng = np.random.default_rng(0)
-        stays = stays.sample(n=args.sample, seed=0)
-
-        if args.verbose:
-            print(
-                f"SELECTING RANDOM SAMPLE OF {args.sample} 'STAYS':\n\tSTAY_IDs: {get_n_unique_values(stays, 'stay_id')}\n\tHADM_IDs: {get_n_unique_values(stays, 'hadm_id')}\n\tSUBJECT_IDs: {get_n_unique_values(stays)}"
-            )
-
-    # Write all stays
-    stays.write_csv(os.path.join(args.output_path, "stays.csv"))
-
-    items = (
-        set(read_from_txt(args.labitems, as_type="int"))
-        if args.labitems
-        # see README.md for info on these preselected labevent items
-        else [51221, 50912, 51301, 51265, 50971, 50983, 50931, 50893, 50960]
-    )
-
-    for table in tqdm(
-        args.event_tables, desc="Reading events tables...", total=len(args.event_tables)
-    ):
-        mimic_dir = mimic4_path if table == "labevents" else mimic4_ed_path
-
+        omr = m4c.read_omr_table(mimic4_path, admits_last, use_lazy=args.lazy)
+        print('Getting time-series data from ED vital signs table..')
+        ed_vitals = m4c.read_vitals_table(mimic4_ed_path, admits_last, use_lazy=args.lazy)
+        print('Getting lab test measures..')
+        
         # read compressed and write to file since lazy polars API can only scan uncompressed csv's
-        if not os.path.exists(os.path.join(mimic_dir, f"{table}.csv")):
-            print(f"Uncompressing {table} data... (required)")
-            with gzip.open(os.path.join(mimic_dir, f"{table}.csv.gz"), "rb") as f_in:
-                with open(os.path.join(mimic_dir, f"{table}.csv"), "wb") as f_out:
+        if not os.path.exists(os.path.join(mimic4_path, f"labevents.csv")):
+            print(f"Uncompressing labevents data... (required)")
+            with gzip.open(os.path.join(mimic4_path, f"labevents.csv.gz"), "rb") as f_in:
+                with open(os.path.join(mimic4_path, f"labevents.csv"), "wb") as f_out:
                     shutil.copyfileobj(f_in, f_out)
 
-        events = m4c.read_events_table(
-            table,
-            mimic_dir,
-            include_items=items,
-        )
-
-        if table == "labevents":
-            print(
-                "Trying to impute missing hadm_ids using join: see https://mimic.mit.edu/docs/iv/modules/hosp/labevents/"
-            )
-            # use admissions table to impute missing hadm_ids based on charttime
-            if not args.lazy:
-                admits = admits.lazy()
-            events = m4c.get_hadm_id_from_admits(events, admits)
-
-        elif table == "vitalsign":
-            # fill in missing hadm_id using stay_id based on stays
-            events = impute_from_df(events, stays, "stay_id", "hadm_id")
-
-        if args.verbose:
-            print(
-                f"{table.upper()}:\n\tHADM_IDs: {get_n_unique_values(events, 'hadm_id')}\n\tTOTAL EVENTS: {events.collect(streaming=True).height}\n\tSUBJECT_IDs: {get_n_unique_values(events)}"
+        labs = m4c.read_labevents_table(mimic4_path, admits_last, include_items=args.labitems)
+        print('Merging OMR, ED and Lab test measurements..')
+        events = m4c.merge_events_table(ed_vitals, labs, omr, use_lazy=args.lazy)
+        print('Filtering population with ED attendance, discharge summary and measurements history..')
+        admits_last = m4c.get_population_with_measures(events, admits_last, use_lazy=args.lazy)
+        print(
+                f"TIME-SERIES:\n\tUnique patients with recorded measurements: {get_n_unique_values(admits_last)} with median {admits_last['num_measures'].median()} measurements per patient (IQR: {admits_last['num_summaries'].quantile(0.25)} - {admits_last['num_summaries'].quantile(0.75)})."
             )
 
-        # Filter by subject_id from stays of interest
-        events = events.filter(
-            pl.col("subject_id").is_in(
-                stays.unique(subset="subject_id").get_column("subject_id").to_list()
+    if args.include_addon_ehr_data:
+        print('Parsing additional medication and specialty data from the EHR..')
+        admits_last = m4c.read_medications_table(mimic4_path, admits_last, use_lazy=args.lazy,
+                                                 top_n=args.top_n_medications)
+        print(
+                f"MEDICATIONS (EHR):\n\tParsed medication history with median {admits_last['total_n_presc'].median()} administered drugs per patient (IQR: {admits_last['total_n_presc'].quantile(0.25)} - {admits_last['total_n_presc'].quantile(0.75)})."
             )
-        )
-
-        if args.verbose:
-            print(
-                f"FILTER BY SUBJECT ID:\n\tHADM_IDs: {get_n_unique_values(events, 'hadm_id')}\n\tTOTAL EVENTS: {events.collect(streaming=True).height}\n\tSUBJECT_IDs: {get_n_unique_values(events)}"
+        print('Getting specialty data..')
+        admits_last = m4c.read_specialty_table(mimic4_path, admits_last, use_lazy=args.lazy)
+        print(
+                f"SPECIALTIES (EHR):\n\tParsed order history with median {admits_last['total_proc_count'].median()} administered drugs per patient (IQR: {admits_last['total_proc_count'].quantile(0.25)} - {admits_last['total_proc_count'].quantile(0.75)})."
             )
-
-        # if hadm_id can't be found then drop since data cannot be assigned
-        events = events.drop_nulls(subset="hadm_id")
-
-        if args.verbose:
-            print(
-                f"REMOVE EVENTS WITH MISSING HADM_ID:\n\tHADM_IDs: {get_n_unique_values(events, 'hadm_id')}\n\tTOTAL EVENTS: {events.collect(streaming=True).height}\n\tSUBJECT_IDs: {get_n_unique_values(events)}"
-            )
-
-        # Filter events by hadm_id in stays table (only include relevant events)
-        events = events.filter(
-            pl.col("hadm_id").is_in(stays.get_column("hadm_id").to_list())
-        )
-
-        if args.verbose:
-            print(
-                f"FILTER BY STAY HADM_IDs:\n\tHADM_IDs: {get_n_unique_values(events, 'hadm_id')}\n\tTOTAL EVENTS: {events.collect(streaming=True).height}\n\tSUBJECT_IDs: {get_n_unique_values(events)}"
-            )
-        # Collect events
-        events = events.collect(streaming=True)
-
-        # Save to disk
-        if os.path.exists(os.path.join(args.output_path, "events.csv")):
-            with open(os.path.join(args.output_path, "events.csv"), mode="ab") as f:
-                events.write_csv(f, include_header=False)
+        
+    if args.verbose:
+        print("Completed data extraction.")
+        print("Writing data to disk..")
+        if args.include_events and args.include_notes:
+            m4c.save_multimodal_dataset(admits_last, notes, events, output_path=args.output_path)
+        elif args.include_events:
+            m4c.save_multimodal_dataset(admits_last, admits_last, events, use_notes=False, output_path=args.output_path)
+        elif args.include_notes:
+            m4c.save_multimodal_dataset(admits_last, notes, admits_last, use_events=False, output_path=args.output_path)
         else:
-            events.write_csv(os.path.join(args.output_path, "events.csv"))
+            m4c.save_multimodal_dataset(admits_last, admits_last, admits_last, use_events=False, use_notes=False, output_path=args.output_path)
+        print(f"Exported extracted MIMIC-IV data to CSV files to {args.output_path}.")
 
-    if args.include_notes:
-        notes = m4c.read_notes(mimic4_note_path, use_lazy=args.lazy)
-
-        if args.verbose:
-            if type(notes) == pl.LazyFrame:
-                notes_height = notes.collect(streaming=True).height
-            else:
-                notes_height = notes.height
-            print(
-                f"NOTES:\n\tHADM_IDs: {get_n_unique_values(notes, 'hadm_id')}\n\tTOTAL NOTES: {notes_height}\n\tSUBJECT_IDs: {get_n_unique_values(notes)}"
-            )
-
-        # Filter notes by hadm_id in stays table
-        notes = notes.filter(
-            pl.col("hadm_id").is_in(stays.get_column("hadm_id").to_list())
-        )
-
-        if args.verbose:
-            if type(notes) == pl.LazyFrame:
-                notes_height = notes.collect(streaming=True).height
-            else:
-                notes_height = notes.height
-            print(
-                f"FILTER BY STAY HADM_IDs:\n\tHADM_IDs: {get_n_unique_values(notes, 'hadm_id')}\n\tTOTAL NOTES: {notes_height}\n\tSUBJECT_IDs: {get_n_unique_values(notes)}"
-            )
-
-        # Write all notes
-
-        # if lazy then collect since write_csv is a DataFrame function
-        if type(notes) == pl.LazyFrame:
-            print("Collecting...")
-            notes = notes.collect(streaming=True)
-
-        notes.write_csv(os.path.join(args.output_path, "notes.csv"))
-
-    print("Data extracted.")
+    print("Data extraction complete.")

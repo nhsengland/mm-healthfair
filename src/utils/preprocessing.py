@@ -4,7 +4,7 @@ import spacy
 import json
 from tqdm import tqdm
 from transformers import AutoModel, AutoTokenizer
-from functions import read_icd_mapping, contains_both_ltc_types
+from functions import read_icd_mapping, contains_both_ltc_types, rename_fields
 
 ###############################
 # Static data preprocessing
@@ -173,6 +173,90 @@ def encode_categorical_features(stays: pl.DataFrame) -> pl.DataFrame:
 
     return stays
 
+def prepare_medication_features(medications: pl.DataFrame | pl.LazyFrame,
+                                admits_last: pl.DataFrame | pl.LazyFrame,
+                                top_n: int = 50,
+                                use_lazy: bool = False) -> pl.DataFrame:
+    """Generates count features for drug-level medication history."""
+    if isinstance(medications, pl.LazyFrame):
+        medications = medications.collect()
+    if isinstance(admits_last, pl.LazyFrame):
+        admits_last = admits_last.collect()
+
+    ### Clean and prepare medication text
+    medications = medications.with_columns(
+        pl.col('medication').str.to_lowercase().str.strip().str.replace(' ', '_')
+    )
+    
+    ### Get top_n (most commonly found) medications
+    top_meds = medications.select(pl.col('medication').value_counts()).head(top_n)['medication'].to_list()
+    
+    #### Filter most common medications
+    medications = medications.filter(pl.col('medication').is_in(top_meds))
+    
+    ### Clean some of the top medication fields
+    medications = medications.with_columns([
+        pl.when(pl.col('medication').str.contains('vancomycin')).then('vancomycin').otherwise(pl.col('medication')).alias('medication'),
+        pl.when(pl.col('medication').str.contains('acetaminophen')).then('acetaminophen').otherwise(pl.col('medication')).alias('medication')
+    ])
+    
+    ### Get days since first and last medication
+    medications = medications.with_columns([
+        pl.col('charttime').cast(pl.Datetime),
+        pl.col('edregtime').cast(pl.Datetime)
+    ])
+    
+    meds_min = medications.groupby(['subject_id', 'medication', 'edregtime']).agg(
+        pl.col('charttime').min().alias('first_date')
+    )
+    
+    meds_max = medications.groupby(['subject_id', 'medication', 'edregtime']).agg(
+        pl.col('charttime').max().alias('last_date')
+    )
+    
+    meds_min = meds_min.with_columns(
+        (pl.col('edregtime') - pl.col('first_date')).dt.days().alias('dsf')
+    )
+    
+    meds_max = meds_max.with_columns(
+        (pl.col('edregtime') - pl.col('last_date')).dt.days().alias('dsl')
+    )
+    
+    meds_ids = medications.groupby(['subject_id', 'medication', 'edregtime']).agg(
+        pl.count().alias('n_presc')
+    )
+    
+    meds_ids = meds_ids.join(meds_min.select(['subject_id', 'medication', 'dsf']), on=['subject_id', 'medication'], how='left')
+    meds_ids = meds_ids.join(meds_max.select(['subject_id', 'medication', 'dsl']), on=['subject_id', 'medication'], how='left')
+    
+    #### Pivot table and create drug-specific features
+    meds_piv = meds_ids.pivot(index='subject_id', columns='medication', values=['n_presc', 'dsf', 'dsl'])
+    meds_piv.columns = [rename_fields(col) for col in meds_piv.columns]
+    
+    meds_piv_total = meds_ids.groupby('subject_id').agg(
+        pl.col('medication').n_unique().alias('total_n_presc')
+    )
+    
+    admits_last = admits_last.join(meds_piv_total, on='subject_id', how='left')
+    admits_last = admits_last.join(meds_piv, on='subject_id', how='left')
+    
+    ### Fill missing values
+    days_cols = [col for col in admits_last.columns if 'dsf' in col or 'dsl' in col]
+    admits_last = admits_last.with_columns([
+        pl.col(col).fill_null(9999).cast(pl.Int16) for col in days_cols
+    ])
+    
+    nums_cols = [col for col in admits_last.columns if 'n_presc' in col]
+    admits_last = admits_last.with_columns([
+        pl.col(col).fill_null(0).cast(pl.Int16) for col in nums_cols
+    ])
+    
+    admits_last = admits_last.with_columns(
+        pl.col('total_n_presc').fill_null(0).cast(pl.Int8)
+    )
+    return admits_last.lazy() if use_lazy else admits_last
+    
+
 
 ###############################
 # Notes preprocessing
@@ -248,7 +332,7 @@ def process_text_to_embeddings(notes: pl.DataFrame) -> dict:
 ###############################
 
 
-def clean_events(events: pl.DataFrame) -> pl.DataFrame:
+def clean_labevents(labs_data: pl.LazyFrame) -> pl.LazyFrame:
     """Maps non-integer values to None and removes outliers.
 
     Args:
@@ -257,26 +341,30 @@ def clean_events(events: pl.DataFrame) -> pl.DataFrame:
     Returns:
         pl.DataFrame: Cleaned events table.
     """
-    # label '__' or "." or "<" or "ERROR" as null value
-    # also converts to 2 d.p. floats
-    events = events.with_columns(
-        value=pl.when(pl.col("value") == ".").then(None).otherwise(pl.col("value"))
+    labs_data = labs_data.with_columns(
+        pl.col("label").str.to_lowercase().str.replace(" ", "_").str.replace(",", "").str.replace('"', "").str.replace(" ", "_"),
+        pl.col("charttime").str.replace("T", " ").str.strip_chars()
     )
-    events = events.with_columns(
+    lab_events = labs_data.with_columns(
+            value=pl.when(pl.col("value") == ".").then(None).otherwise(pl.col("value"))
+    )
+    lab_events = lab_events.with_columns(
         value=pl.when(pl.col("value").str.contains("_|<|ERROR"))
         .then(None)
         .otherwise(pl.col("value"))
-        .cast(pl.Float64)
+        .cast(pl.Float64, strict=False)  # Attempt to cast to Float64, set invalid values to None
     )
+    labs_data = labs_data.drop_nulls()
 
     # Remove outliers using 2 std from mean
-    events = events.with_columns(mean=pl.col("value").mean().over(pl.count("label")))
-    events = events.with_columns(std=pl.col("value").std().over(pl.count("label")))
-    events = events.filter(
+    lab_events = lab_events.with_columns(mean=pl.col("value").mean().over(pl.count("label")))
+    lab_events = lab_events.with_columns(std=pl.col("value").std().over(pl.count("label")))
+    lab_events = lab_events.filter(
         (pl.col("value") < pl.col("mean") + pl.col("std") * 2)
         & (pl.col("value") > pl.col("mean") - pl.col("std") * 2)
     ).drop(["mean", "std"])
-    return events
+
+    return lab_events
 
 
 def add_time_elapsed_to_events(

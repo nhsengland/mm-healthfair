@@ -173,9 +173,16 @@ def get_demographics_summary(ed_pts: pl.DataFrame) -> None:
     print(ed_pts.non_home_discharge.value_counts(normalize=True))
     print(ed_pts.icu_admission.value_counts(normalize=True))
     print('-------------------------------')
-    print('Comorbidity history')
+    print('Multimorbidity')
     print(ed_pts.is_multimorbid.value_counts(normalize=True))
     print(ed_pts.is_complex_multimorbid.value_counts(normalize=True))
+    print('-------------------------------')
+
+def rename_fields(col):
+    """Helper rename function for drug and specialty feature names."""
+    if isinstance(col, tuple):
+        col = '_'.join(str(c) for c in col)
+    return col
 
 def read_from_txt(filepath: str, as_type="str") -> list:
     """Read from line-seperated txt file.
