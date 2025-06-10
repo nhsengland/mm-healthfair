@@ -459,6 +459,15 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#data-access" class="md-nav__link">
+    <span class="md-ellipsis">
+      Data Access
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#installation" class="md-nav__link">
     <span class="md-ellipsis">
       Installation
@@ -505,9 +514,18 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#2-preparing-the-data" class="md-nav__link">
+  <a href="#15-data-exploration" class="md-nav__link">
     <span class="md-ellipsis">
-      2. Preparing the data
+      1.5. Data Exploration
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2-data-preprocessing" class="md-nav__link">
+    <span class="md-ellipsis">
+      2. Data Preprocessing
     </span>
   </a>
   
@@ -519,37 +537,46 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#model-development" class="md-nav__link">
+  <a href="#model-development-and-evaluation" class="md-nav__link">
     <span class="md-ellipsis">
-      Model Development
+      Model Development and Evaluation
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="Model Development">
+    <nav class="md-nav" aria-label="Model Development and Evaluation">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#1-create-data-splits" class="md-nav__link">
+  <a href="#multimodal-learning" class="md-nav__link">
     <span class="md-ellipsis">
-      1. Create data splits
+      Multimodal Learning
     </span>
   </a>
   
 </li>
         
           <li class="md-nav__item">
-  <a href="#2-training-a-model" class="md-nav__link">
+  <a href="#multimodal-evaluation" class="md-nav__link">
     <span class="md-ellipsis">
-      2. Training a model
+      Multimodal Evaluation
     </span>
   </a>
   
 </li>
         
           <li class="md-nav__item">
-  <a href="#3-evaluating-a-model" class="md-nav__link">
+  <a href="#fairness-evaluation" class="md-nav__link">
     <span class="md-ellipsis">
-      3. Evaluating a model
+      Fairness evaluation
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#explainability-analysis" class="md-nav__link">
+    <span class="md-ellipsis">
+      Explainability analysis
     </span>
   </a>
   
@@ -735,31 +762,43 @@
 
 
 <h1 id="getting-started">Getting Started</h1>
-<p>To get started, you will need to install the repository, download the data and run the <code>extract_data</code> and <code>prepare_data</code> scripts for model training and evaluation.</p>
+<h2 id="data-access">Data Access</h2>
+<p>This project makes use of four main modules linked to the MIMIC-IV dataset:</p>
+<ul>
+<li><em>hosp</em>: measurements recorded during hospital stay for training, including demographics, lab tests, prescriptions, diagnoses and care provider orders</li>
+<li><em>ed</em>: records metadata during ED attendance in an externally linked database</li>
+<li><em>icu</em>: records individuals with associated ICU admission during the episode with additional metadata (used mainly for measuring the ICU admission outcome)</li>
+<li><em>note</em>: records deidentified discharge summaries as long form narratives which describe reason for admission and relevant hospital events</li>
+</ul>
+<p>To get started, you will need to install the repository and download the <a href="https://physionet.org/content/mimiciv/3.1/">MIMIC-IV</a> data files from PhysioNet (version 3.1). This also includes the <a href="https://physionet.org/content/mimic-iv-ed/2.2/">MIMIC-IV-ED</a> dataset (<em>ed</em> module, v2.2), the <a href="https://physionet.org/content/mimic-iv-note/2.2/">MIMIC-IV-Note</a> (<em>note</em> module, v2.2) and the linked <a href="https://physionet.org/content/labelled-notes-hospital-course/1.2.0/">MIMIC-IV-Ext-BHC</a> segments that include the Brief Hospital Course summary from the discharge notes (v1.2). The scripts will assume that you have data access to the <em>hosp</em>, <em>icu</em>, <em>ed</em> and <em>note</em> modules. These should be stored using the following folder structure, matching each data source:
+<div class="language-sh highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>MIMIC-IV/
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>├──<span class="w"> </span>mimic-iv-ed/3.1/
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>│<span class="w">   </span>├──<span class="w"> </span>ed/
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>│<span class="w">   </span>├──<span class="w"> </span>icu/
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>├──<span class="w"> </span>mimic-iv/3.1/
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>│<span class="w">   </span>└──<span class="w"> </span>hosp/
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>├──<span class="w"> </span>mimic-iv-note/3.1/
+</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>│<span class="w">   </span>├──<span class="w"> </span>note/
+</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>│<span class="w">   </span>├──<span class="w"> </span>mimic-iv-bhc.csv<span class="w"> </span><span class="c1">### Brief Hospital Course segments</span>
+</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>mm-healthfair/
+</span></code></pre></div></p>
 <h2 id="installation">Installation</h2>
 <p>Refer to <a href="https://github.com/nhsengland/mm-healthfair/tree/main">README</a> for installation instructions. Recommended to use <code>poetry</code> to avoid compatibility issues.</p>
 <h2 id="running-the-scripts">Running the scripts</h2>
-<p>All scripts are best executed via the command-line in order to specify the required and optional arguments.</p>
-<ul>
-<li>If you have created your own virtual environment with dependencies specified by <code>requirements.txt</code> then you should run scripts with:</li>
-</ul>
-<div class="language-sh highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nb">source</span><span class="w"> </span>activate<span class="w"> </span>venv
-</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>python3<span class="w"> </span>src/any_script.py<span class="w"> </span><span class="o">[</span>required<span class="w"> </span>args<span class="o">]</span><span class="w"> </span>--<span class="o">[</span>optional<span class="w"> </span>args<span class="o">]</span>
+<p>All scripts are best executed via the command-line in order to specify the required and optional arguments.
+- If you have created your own virtual environment with dependencies specified by <code>requirements.txt</code> then you should run scripts with:</p>
+<div class="language-sh highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="nb">source</span><span class="w"> </span>activate<span class="w"> </span>venv
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>python3<span class="w"> </span>src/any_script.py<span class="w"> </span><span class="o">[</span>required<span class="w"> </span>args<span class="o">]</span><span class="w"> </span>--<span class="o">[</span>optional<span class="w"> </span>args<span class="o">]</span>
 </span></code></pre></div>
 <ul>
 <li>If using <code>poetry</code> (recommended):
-<div class="language-sh highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="nb">cd</span><span class="w"> </span>mm-healthfair
-</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>poetry<span class="w"> </span>run<span class="w"> </span>python3<span class="w"> </span>src/any_script.py<span class="w"> </span><span class="o">[</span>required<span class="w"> </span>args<span class="o">]</span><span class="w"> </span>--<span class="o">[</span>optional<span class="w"> </span>args<span class="o">]</span>
+<div class="language-sh highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="nb">cd</span><span class="w"> </span>mm-healthfair
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>poetry<span class="w"> </span>run<span class="w"> </span>python3<span class="w"> </span>src/any_script.py<span class="w"> </span><span class="o">[</span>required<span class="w"> </span>args<span class="o">]</span><span class="w"> </span>--<span class="o">[</span>optional<span class="w"> </span>args<span class="o">]</span>
 </span></code></pre></div></li>
 </ul>
 <h2 id="data-curation">Data Curation</h2>
 <h3 id="0-downloading-the-data">0. Downloading the data</h3>
-<p>The MIMIC-IV dataset (v2.2) can be downloaded from <a href="https://physionet.org">PhysioNet</a>. This project made use of three modules:</p>
-<ul>
-<li>Hosp: hospital level data for patients: labs, micro, and electronic medication administration</li>
-<li>ED: data from the emergency department</li>
-<li>Notes: deidentified free-text clinical notes.</li>
-</ul>
+<p>The MIMIC-IV dataset (v3.1) can be downloaded from <a href="https://physionet.org">PhysioNet</a>. </p>
 <p>Steps to download:</p>
 <ol>
 <li>Create an account on <a href="https://physionet.org">PhysioNet</a>.</li>
@@ -770,106 +809,269 @@
 <li>Download the data.</li>
 </ol>
 <h3 id="1-extracting-the-data">1. Extracting the data</h3>
-<p><code>extract_data.py</code> reads from the downloaded MIMIC-IV files and generates a filtered list of hospital stays (<code>stays.csv</code>), time-series events (<code>events.csv</code>) and optionally discharge summary notes (<code>notes.csv</code>). These entries are filtered and matched according to the hospital admission identifier <code>hadm_id</code>, corresponding to a single transfer from the emergency department to the hospital.</p>
-<div class="language-sh highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>extract_data.py<span class="w"> </span><span class="o">[</span>-h<span class="o">]</span><span class="w"> </span>--output_path<span class="w"> </span>OUTPUT_PATH<span class="w"> </span><span class="o">[</span>--event_tables<span class="w"> </span>EVENT_TABLES<span class="w"> </span><span class="o">[</span>EVENT_TABLES<span class="w"> </span>...<span class="o">]]</span>
-</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="w">                    </span><span class="o">[</span>--include_notes<span class="o">]</span><span class="w"> </span><span class="o">[</span>--labitems<span class="w"> </span>LABITEMS<span class="o">]</span><span class="w"> </span><span class="o">[</span>--verbose<span class="o">]</span><span class="w"> </span><span class="o">[</span>--sample<span class="w"> </span>SAMPLE<span class="o">]</span>
-</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="w">                    </span><span class="o">[</span>--lazy<span class="o">]</span><span class="w"> </span>mimic4_path
+<p>The <code>extract_data.py</code> module uses the base <strong>MIMIC-IV</strong> database and the <strong>MIMIC-IV-Ext-BHC</strong> extension as raw data inputs. This feeds into a series of sequential operations for extracting and cleaning the individual data modalities. The data sources used for each modality include:
+- <strong>Tabular (Static EHR) data modality</strong>: demographics, prescriptions, previous diagnoses and provider orders (MIMIC-IV)
+- <strong>Time-series data modality</strong>: ED vital signs, in-hospital lab tests and measurements (MIMIC-IV and MIMIC-IV-ED)
+- <strong>Text modality</strong>: BHC segments from clinical notes (MIMIC-IV-Note and MIMIC-IV-Ext-BHC)</p>
+<p>This script will also access the <code>lab_items.txt</code> (50 most common lab test IDs), <code>icd9to10.txt</code> (ICD-9 to ICD-10 diagnosis mapping table, provided by <a href="https://github.com/healthylaife/MIMIC-IV-Data-Pipeline/tree/main">Gupta</a> et al.) and <code>ltc_mapping.json</code> (ICD-10 coding to long-term condition groups for measuring multimorbidity).</p>
+<div class="language-sh highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>extract_data.py<span class="w"> </span><span class="o">[</span>-h<span class="o">]</span><span class="w"> </span>--output_path<span class="w"> </span>OUTPUT_PATH<span class="w"> </span><span class="o">[</span>--event_tables<span class="w"> </span>EVENT_TABLES<span class="w"> </span><span class="o">[</span>EVENT_TABLES<span class="w"> </span>...<span class="o">]]</span>
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="w">                    </span><span class="o">[</span>--include_notes<span class="o">]</span><span class="w"> </span><span class="o">[</span>--labitems<span class="w"> </span>LABITEMS<span class="o">]</span><span class="w"> </span><span class="o">[</span>--verbose<span class="o">]</span><span class="w"> </span><span class="o">[</span>--sample<span class="w"> </span>SAMPLE<span class="o">]</span>
+</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="w">                    </span><span class="o">[</span>--lazy<span class="o">]</span><span class="w"> </span>mimic4_path
 </span></code></pre></div>
 <ul>
-<li><code>mimic4_path</code>: [Required] Path to root directory containing downloaded <code>mimiciv/</code> and <code>mimic-iv-ed/</code> subfolders.</li>
-<li><code>--output_path</code> or <code>-o</code>: Path to a folder to store filtered csv files.</li>
-<li><code>--event_tables</code> or <code>-e</code>: Which MIMIC-IV event files to read from. Options are one or more from ["labevents", "vitalsign"]</li>
-<li><code>--include_notes</code> or <code>-n</code>: Flag to determine whether to extract relevant notes.</li>
-<li><code>--labitems</code> or <code>-i</code>: Path to a text file containing a list of labitem IDs to speed up and reduce number of events. Highly recommended due to amount of missingness. Refer to MIMIC  <a href="https://mimic.mit.edu/docs/iv/modules/hosp/labevents/">documentation</a> for more information. Note: A list of the 20 most commonly reported labitems was used and is available in the <a href="https://github.com/nhsengland/mm-healthfair/blob/main/src/utils/labitems.txt">project repository</a>.</li>
-<li><code>--verbose</code> or <code>-v</code>: Controls verbosity. Can cause significant overhead when reading from entire directory since it forces all steps to run in eager mode, creating a bottlneck.</li>
-<li><code>--sample</code> or <code>-s</code>: Integer number of samples (stays) to extract. Can be used to testing.</li>
-<li><code>--lazy</code>: Whether to run in lazy mode where possible to minimise RAM. Refer to the <a href="https://docs.pola.rs/py-polars/html/reference/lazyframe/index.html">Polars</a> documentation for more information on lazy mode.</li>
+<li><code>mimic4_path</code>: [Required] Directory containing downloaded MIMIC-IV data.</li>
+<li><code>--output_path</code>: Directory where per-subject data should be written.</li>
+<li><code>--include_notes</code> or <code>-n</code>: Extract free-text modality tables.</li>
+<li><code>--include_events</code> or <code>-t</code>: Extract time-series modality tables.</li>
+<li><code>--include_addon_ehr_data</code> or <code>-a</code>: Extract provider order and prescribing tabular data.</li>
+<li><code>--labitems</code>: Text file containing list of ITEMIDs to use from labevents.</li>
+<li><code>--icd9_to_icd10</code>: Text file containing ICD 9-10 mapping.</li>
+<li><code>--ltc_mapping</code>: JSON file containing mapping for long-term conditions in ICD-10 format.</li>
+<li><code>--verbose</code>: Control verbosity. If true, will make more .collect() calls to compute dataset size.   </li>
+<li><code>--sample</code>: Extract randomized subset of patients for testing.</li>
+<li><code>--top_n_meds</code>: Number of drug-level features to extract (if using add-on EHR data).</li>
+<li><code>--lazy</code>: Whether to use lazy mode for reading in data. Defaults to False (except for event tables - always uses lazymode).</li>
 </ul>
 <p>Example:</p>
-<div class="language-sh highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>extract_data.py<span class="w"> </span>/path/to/data/<span class="w">  </span>-o<span class="w"> </span>/data/extracted_data<span class="w"> </span>--event_tables<span class="w"> </span>labevents<span class="w"> </span>vitalsign<span class="w"> </span>--sample<span class="w"> </span><span class="m">1000</span><span class="w"> </span>--lazy<span class="w"> </span>--labitems<span class="w"> </span>labitems.txt
+<div class="language-sh highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>poetry<span class="w"> </span>run<span class="w"> </span>python<span class="w"> </span>extract_data.py<span class="w"> </span>../../data/MIMIC-IV<span class="w"> </span>-o<span class="w"> </span>../outputs/ext_data<span class="w"> </span>-n<span class="w"> </span>-t<span class="w"> </span>-a<span class="w"> </span>--top_n_meds<span class="w"> </span><span class="m">50</span><span class="w"> </span>-v<span class="w"> </span>--lazy
 </span></code></pre></div>
-<p>This command will read from the <code>/data/mimic</code> directory and extract relevant events from the MIMIC-IV hosp/labevents.csv and ed/vitalsign.csv for 1000 stays. Output files will be saved under the <code>/data/extracted_data</code> folder.</p>
-<h3 id="2-preparing-the-data">2. Preparing the data</h3>
-<p>Once these core files have been downloaded, run <code>prepare_data.py</code> to create a dictionary (key = hadm_id, values = dataframes of preprocessed data) for model training and evaluation. The resulting file will be called <strong><code>processed_data.pkl</code></strong> and is required for downstream analysis scripts.</p>
+<p>This command will read from the <code>../../data/MIMIC-IV</code> directory and extract the relevant measurements across the three data modalities for the complete population with linked ED attendances. The script will also create count features covering the top 50 most common prescriptions. ed/vitalsign.csv for 1000 stays. Three output files describing each data modality (<code>ehr_static.csv</code>, <code>events_ts.csv</code> and <code>notes.csv</code>) will be saved under the <code>../outputs/ext_data</code> folder.</p>
+<h3 id="15-data-exploration">1.5. Data Exploration</h3>
+<p>Optionally, the <code>explore_data.py</code> script then allows the user to run basic data exploration on the three data files, generating a cohort summary describing the patient cohorts by outcome and a series of distribution plots by attribute. This script will access the <code>targets.toml</code> config file for the attribute and outcome names and the <code>feat_name_map.json</code> mapping for looking up the display names for each feature.</p>
 <p>Usage:
-<div class="language-sh highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>prepare_data.py<span class="w"> </span><span class="o">[</span>-h<span class="o">]</span><span class="w"> </span><span class="o">[</span>--output_dir<span class="w"> </span>OUTPUT_DIR<span class="o">]</span><span class="w"> </span><span class="o">[</span>--min_events<span class="w"> </span>MIN_EVENTS<span class="o">]</span><span class="w"> </span><span class="o">[</span>--max_events<span class="w"> </span>MAX_EVENTS<span class="o">]</span>
-</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="w">                     </span><span class="o">[</span>--impute<span class="w"> </span>IMPUTE<span class="o">]</span><span class="w"> </span><span class="o">[</span>--no_scale<span class="o">]</span><span class="w"> </span><span class="o">[</span>--no_resample<span class="o">][</span>--include_dyn_mean<span class="o">]</span>
-</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="w">                     </span><span class="o">[</span>--max_elapsed<span class="w"> </span>MAX_ELAPSED<span class="o">]</span><span class="w"> </span><span class="o">[</span>--include_notes<span class="o">]</span><span class="w"> </span><span class="o">[</span>--verbose<span class="o">]</span><span class="w"> </span>data_dir
+<div class="language-sh highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>usage:<span class="w"> </span>explore_data.py<span class="w"> </span><span class="o">[</span>-h<span class="o">]</span><span class="w"> </span><span class="o">[</span>--config<span class="w"> </span>CONFIG<span class="o">]</span><span class="w"> </span>--output_path<span class="w"> </span>OUTPUT_PATH
+</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="w">                       </span><span class="o">[</span>--display_dict_path<span class="w"> </span>DISPLAY_DICT_PATH<span class="o">]</span><span class="w"> </span><span class="o">[</span>--bhc_fname<span class="w"> </span>BHC_FNAME<span class="o">]</span>
+</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="w">                       </span><span class="o">[</span>--pval_adjust<span class="w"> </span>PVAL_ADJUST<span class="o">]</span><span class="w"> </span><span class="o">[</span>--pval_test<span class="w"> </span>PVAL_TEST<span class="o">]</span><span class="w"> </span><span class="o">[</span>--max_i<span class="w"> </span>MAX_I<span class="o">]</span><span class="w"> </span><span class="o">[</span>--max_j<span class="w"> </span>MAX_J<span class="o">]</span><span class="w">     </span>
+</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="w">                       </span><span class="o">[</span>--rot<span class="w"> </span>ROT<span class="o">]</span><span class="w"> </span><span class="o">[</span>--lazy<span class="o">]</span><span class="w"> </span><span class="o">[</span>--verbose<span class="o">]</span>
+</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="w">                       </span>ehr_path
+</span></code></pre></div>
+- <code>ehr_path</code>: [Required] Path to folder containing extracted data.
+- <code>--config</code>: Path to targets.toml file containing lookup fields for grouping.
+- <code>--output_path</code>: Directory where summary tables and plots should be written.
+- <code>--display_dict_path</code>: Path to dictionary for display names of features.
+- <code>--bhc_fname</code>: Output file name for Brief Hospital Course distribution plot.
+- <code>--pval_adjust</code>: Method for p-value adjustment in summary tables and distribution plots. Defaults to 'bonferroni'.
+- <code>--pval_test</code>: Statistical test type for comparing distribution of BHC token lengths. Defaults to 't-test welch'.
+- <code>--max_i</code>: Number of rows argument for plotting function. Defaults to 2.
+- <code>--max_j</code>: Number of columns argument for plotting function. Defaults to 2.
+- <code>--rot</code> or <code>-r</code>: Rotation degrees for ticks in plotting function. Defaults to 0.</p>
+<p>Example:</p>
+<div class="language-sh highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>poetry<span class="w"> </span>run<span class="w"> </span>python<span class="w"> </span>explore_data.py<span class="w"> </span>../outputs/ext_data/<span class="w"> </span>-c<span class="w"> </span>../config/targets.toml<span class="w"> </span>-o<span class="w"> </span>../outputs/exp_data<span class="w"> </span>--lazy<span class="w"> </span>-v<span class="w"> </span>-r<span class="w"> </span><span class="m">35</span><span class="w"> </span>
+</span></code></pre></div>
+<p>This will read the extracted MIMIC-IV files from <code>../outputs/ext_data/</code> and the outcome/attribute configurations <code>../config/targets.toml</code> and generate the following tables and plots:
+- Tableone style summaries of some of the tabular features grouped by outcome.
+- Barcharts highlighting outcome prevalence.
+- Age group distributions by each sensitive attribute.
+- Violin plots of the log-transformed <strong>Brief Hospital Course</strong> lengths with statistical testing.</p>
+<h3 id="2-data-preprocessing">2. Data Preprocessing</h3>
+<p>Once these core files have been extracted, we run <code>prepare_data.py</code> to create a multimodal feature dictionary for model training and evaluation. The time-series and text modalities can optionally be left out of the dictionary. This will execute a sequence of preprocessing strategies for each data modality in the following order:</p>
+<div class="language-sh highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>├──<span class="w"> </span>Tabular<span class="w"> </span>modality
+</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>│<span class="w">   </span>├──<span class="w"> </span>Encode<span class="w"> </span>categorical<span class="w"> </span>features
+</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a>│<span class="w">   </span>├──<span class="w"> </span>Extract<span class="w"> </span>lookup<span class="w"> </span>date<span class="w"> </span>fields
+</span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a>│<span class="w">   </span>├──<span class="w"> </span>Remove<span class="w"> </span>correlated<span class="w"> </span>features
+</span><span id="__span-7-5"><a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a>├──<span class="w"> </span>Time-series<span class="w"> </span>modality
+</span><span id="__span-7-6"><a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a>│<span class="w">   </span>└──<span class="w"> </span>Generate<span class="w"> </span>measurement<span class="w"> </span>intervals<span class="w"> </span><span class="o">(</span>vitals<span class="w"> </span>and<span class="w"> </span>lab<span class="w"> </span>tests<span class="o">)</span>
+</span><span id="__span-7-7"><a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a>│<span class="w">       </span>├────<span class="w"> </span>Filter<span class="w"> </span>patients<span class="w"> </span>with<span class="w"> </span>valid<span class="w"> </span>measurements
+</span><span id="__span-7-8"><a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a>│<span class="w">       </span>├────<span class="w"> </span>Feature<span class="w"> </span>standardisation
+</span><span id="__span-7-9"><a id="__codelineno-7-9" name="__codelineno-7-9" href="#__codelineno-7-9"></a>│<span class="w">       </span>├────<span class="w"> </span>Set<span class="w"> </span>sampling<span class="w"> </span>frequency<span class="w"> </span><span class="o">(</span>from<span class="w"> </span>targets.toml<span class="o">)</span>
+</span><span id="__span-7-10"><a id="__codelineno-7-10" name="__codelineno-7-10" href="#__codelineno-7-10"></a>│<span class="w">       </span>├────<span class="w"> </span>Data<span class="w"> </span>imputation
+</span><span id="__span-7-11"><a id="__codelineno-7-11" name="__codelineno-7-11" href="#__codelineno-7-11"></a>├──<span class="w"> </span>Text<span class="w"> </span>modality
+</span><span id="__span-7-12"><a id="__codelineno-7-12" name="__codelineno-7-12" href="#__codelineno-7-12"></a>│<span class="w">   </span>├──<span class="w"> </span>Clean<span class="w"> </span>redacted<span class="w"> </span>segments
+</span><span id="__span-7-13"><a id="__codelineno-7-13" name="__codelineno-7-13" href="#__codelineno-7-13"></a>│<span class="w">   </span>├──<span class="w"> </span>Generate<span class="w"> </span>BioBERT<span class="w"> </span>sentence-level<span class="w"> </span>embeddings
+</span><span id="__span-7-14"><a id="__codelineno-7-14" name="__codelineno-7-14" href="#__codelineno-7-14"></a>│<span class="w">   </span>├──<span class="w"> </span>Append<span class="w"> </span>embeddings<span class="w"> </span>to<span class="w"> </span>feature<span class="w"> </span>dictionary
+</span><span id="__span-7-15"><a id="__codelineno-7-15" name="__codelineno-7-15" href="#__codelineno-7-15"></a>├──<span class="w"> </span>Training-Validation-Test<span class="w"> </span>split
+</span><span id="__span-7-16"><a id="__codelineno-7-16" name="__codelineno-7-16" href="#__codelineno-7-16"></a>├──<span class="w"> </span>Export<span class="w"> </span>feature<span class="w"> </span>dictionary
+</span></code></pre></div>
+<p>Usage:
+<div class="language-sh highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>prepare_data.py<span class="w"> </span><span class="o">[</span>-h<span class="o">]</span><span class="w"> </span><span class="o">[</span>--output_dir<span class="w"> </span>OUTPUT_DIR<span class="o">]</span><span class="w"> </span><span class="o">[</span>--output_summary_dir<span class="w"> </span>OUTPUT_SUMMARY_DIR<span class="o">]</span><span class="w">                </span>
+</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="w">                       </span><span class="o">[</span>--output_reference_dir<span class="w"> </span>OUTPUT_REFERENCE_DIR<span class="o">]</span><span class="w"> </span><span class="o">[</span>--pkl_fname<span class="w"> </span>PKL_FNAME<span class="o">]</span>
+</span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="w">                       </span><span class="o">[</span>--col_fname<span class="w"> </span>COL_FNAME<span class="o">]</span><span class="w"> </span><span class="o">[</span>--config<span class="w"> </span>CONFIG<span class="o">]</span><span class="w"> </span><span class="o">[</span>--corr_threshold<span class="w"> </span>CORR_THRESHOLD<span class="o">]</span>
+</span><span id="__span-8-4"><a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="w">                       </span><span class="o">[</span>--corr_method<span class="w"> </span>CORR_METHOD<span class="o">]</span><span class="w"> </span><span class="o">[</span>--min_events<span class="w"> </span>MIN_EVENTS<span class="o">]</span><span class="w"> </span><span class="o">[</span>--max_events<span class="w"> </span>MAX_EVENTS<span class="o">]</span>
+</span><span id="__span-8-5"><a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a><span class="w">                       </span><span class="o">[</span>--impute<span class="w"> </span>IMPUTE<span class="o">]</span><span class="w"> </span><span class="o">[</span>--no_resample<span class="o">]</span><span class="w"> </span><span class="o">[</span>--include_dyn_mean<span class="o">]</span><span class="w"> </span><span class="o">[</span>--standardize<span class="o">]</span>
+</span><span id="__span-8-6"><a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a><span class="w">                       </span><span class="o">[</span>--max_elapsed<span class="w"> </span>MAX_ELAPSED<span class="o">]</span><span class="w"> </span><span class="o">[</span>--include_notes<span class="o">]</span><span class="w"> </span><span class="o">[</span>--train_ratio<span class="w"> </span>TRAIN_RATIO<span class="o">]</span><span class="w"> </span><span class="o">[</span>--stratify<span class="o">]</span><span class="w">  </span>
+</span><span id="__span-8-7"><a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a><span class="w">                       </span><span class="o">[</span>--seed<span class="w"> </span>SEED<span class="o">]</span><span class="w"> </span><span class="o">[</span>--verbose<span class="o">]</span>
+</span><span id="__span-8-8"><a id="__codelineno-8-8" name="__codelineno-8-8" href="#__codelineno-8-8"></a><span class="w">                       </span>data_dir
 </span></code></pre></div></p>
 <ul>
 <li><code>data_dir</code>: [Required] Path to folder containing extracted data.</li>
-<li><code>--output_dir</code>: Path to directory for saving processed data file. If left, will use the same folder as <code>data_dir</code>.</li>
-<li><code>--min_events</code>: Filter stays by minimum number of events in any one timeseries. Ensures enough readings available.</li>
-<li><code>--max_events</code>: Filter stays by a maximum number of events in any one timeseries.</li>
-<li><code>--impute</code>: Method to use to impute missing value. Options are <code>None</code>, <code>value</code> (uses constant value of -1), <code>mask</code> (create new feature columns which are booleans indicating missingness - inspired by <a href="http://proceedings.mlr.press/v56/Lipton16.pdf">Lipton et al. (2016)</a>), <code>forward</code> (fill), <code>backward</code> (fill)</li>
-<li><code>--no_scale</code>: Flag to disable min/max scaling of continuous variables.</li>
-<li><code>--no_resample</code>: Flag to disable resampling of time-series to fixed frequency (underlying assumption of LSTM).</li>
-<li><code>--include_dyn_mean</code>: Flag to include mean value of time-series features as additional static features.</li>
-<li><code>--max_elapsed</code>: Number of hours (int) to filter time-series (after hospital admission time).</li>
-<li><code>--include_notes</code>: Whether to include notes in processed data file. Requires <code>notes.csv</code> to be present in extracted <code>data_dir</code>. See <code>extract_data.py</code>.</li>
-<li><code>--verbose</code> or <code>-v</code>: Controls verbosity.</li>
+<li><code>--output_dir</code>: Directory to save processed training ids and pkl files.</li>
+<li><code>--output_summary_dir</code>: Directory to save summary table file for training/val/test split.</li>
+<li><code>--output_reference_dir</code>: Directory to save lookup table file containing dates and additional fields from EHR data.</li>
+<li><code>--pkl_fname</code>: Name of pickle file to save processed data.</li>
+<li><code>--col_fname</code>: Name of pickle file to save column lookup dictionary.</li>
+<li><code>--config</code>: Path to targets.toml file containing lookup fields for grouping.</li>
+<li><code>--corr_threshold</code>: Threshold for removing correlated features. Features with correlation above this value will be removed.</li>
+<li><code>--corr_method</code>: Method for removing correlated features. Defaults to Pearson correlation.</li>
+<li><code>--min_events</code>: Minimum number of events per patient (time-series modality).</li>
+<li><code>--max_events</code>: Maximum number of events per patient.</li>
+<li><code>--impute</code>: Impute strategy. One of ['forward', 'backward', 'mask', 'value' or None].</li>
+<li><code>--no_resample</code>: Flag to turn off time-series resampling.</li>
+<li><code>--include_dyn_mean</code>: Flag for whether to add mean of dynamic features to static data.</li>
+<li><code>--standardize</code>: Flag for whether to standardize timeseries data with minmax scaling (in the range [0,1]).</li>
+<li><code>--max_elapsed</code>: Max time elapsed from hospital admission (hours). Filters any events that occur after this.</li>
+<li><code>--include_notes</code>: Whether to preprocess notes if available using BioBERT tokenization.</li>
+<li><code>--train_ratio</code>: Ratio of training data to create split.</li>
+<li><code>--stratify</code>: Whether to stratify the split by outcome and sensitive attributes.</li>
+<li><code>--seed</code>: Seed for random sampling. Defaults to 0.</li>
 </ul>
 <p>Example:</p>
-<div class="language-sh highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>prepare_data.py<span class="w"> </span>/data/extracted_data<span class="w"> </span>--min_events<span class="w"> </span><span class="m">5</span><span class="w"> </span>--impute<span class="w"> </span>value<span class="w"> </span>--max_elapsed<span class="w"> </span><span class="m">24</span><span class="w"> </span>--include_notes
+<div class="language-sh highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>poetry<span class="w"> </span>run<span class="w"> </span>python<span class="w"> </span>prepare_data.py<span class="w"> </span>../outputs/ext_data<span class="w"> </span>-o<span class="w"> </span>../outputs/prep_data<span class="w"> </span>--train_ratio<span class="w"> </span><span class="m">0</span>.8<span class="w"> </span>--min_events<span class="w"> </span><span class="m">2</span><span class="w"> </span>--impute<span class="w"> </span>value<span class="w"> </span>--max_elapsed<span class="w"> </span><span class="m">72</span><span class="w"> </span>--stratify<span class="w"> </span>--include_notes<span class="w"> </span>-v
 </span></code></pre></div>
-<p>This will process the filtered stays, events and notes csv files in <code>/data/extracted_data/</code> and output a single .pkl file at <code>/data/extracted_data/processed_data.pkl</code>. This will be a dictionary with <code>hadm_id</code> keys and three dataframes as values for each: <code>static</code>, <code>dynamic</code>and <code>notes</code>. This is the file that will be parsed to model training and evaluation scripts.</p>
-<h2 id="model-development">Model Development</h2>
-<h3 id="1-create-data-splits">1. Create data splits</h3>
-<p>To avoid data leakage, it is good practice to split up the data into training, validation and test at the start of experimentation. This ensures that the test set can be held-out until all model development and exploration has been finalised so that fully trained models can be fairly compared. <code>create_train_test.py</code> takes in a <code>processed_data.pkl</code> file and generates .txt files containing <code>hadm_id</code>'s for trainining (70%), validation (10%) and testing (20%). Optionally, stratification can be applied to balance the splits based on the length-of-stay label.</p>
-<p>Usage:
-<div class="language-sh highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>create_train_test.py<span class="w"> </span><span class="o">[</span>-h<span class="o">]</span><span class="w"> </span><span class="o">[</span>--output_dir<span class="w"> </span>OUTPUT_DIR<span class="o">]</span><span class="w"> </span><span class="o">[</span>--suffix<span class="w"> </span>SUFFIX<span class="o">]</span><span class="w"> </span><span class="o">[</span>--stratify<span class="o">]</span><span class="w"> </span><span class="o">[</span>--thresh<span class="w"> </span>THRESH<span class="o">]</span><span class="w"> </span><span class="o">[</span>--seed<span class="w"> </span>SEED<span class="o">]</span><span class="w"> </span>data_dir
-</span></code></pre></div>
-- <code>data_dir</code>: [Required] Path to folder containing processed .pkl file.
-- <code>--output_dir</code>: Path to save generated .txt files.
-- <code>--suffix</code>: Suffix to append to generated .txt files. Useful for avoiding overwriting or generating multiple sets for repeatibility.
-- <code>--stratify</code>: Flag to turn on stratification.
-- <code>--thresh</code>: Threshold to use for stratification based on length-of-stay label (days). Defaults to 2.
-- <code>--seed</code>: Seed to use for reproducibility during application of random sample.</p>
-<p>Example:</p>
-<div class="language-sh highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>create_train_test.py<span class="w"> </span>/data/extracted_data/<span class="w"> </span>--stratify<span class="w"> </span>--suffix<span class="w"> </span>_stratified<span class="w"> </span>--thresh<span class="w"> </span><span class="m">2</span>
-</span></code></pre></div>
-<h3 id="2-training-a-model">2. Training a model</h3>
-<p>To train a model use either <code>train.py</code> or <code>train_rf.py</code> for fusion/deep models and Random Forest training respectively.</p>
+<p>This will initiate the complete multimodal feature extraction across the three modalities. The target data split will retain 80% of unique patients for training, 10% for validation and 10% for testing, stratified by the target outcome. The patient set will be further restricted to having at least 2 measurements across lab and vital measurements, collected within 72 hours of ED arrival. Data imputation will simply replace the missing time-series measurements with '-1'. The text pipeline will use SpaCy to automatically download the <a href="https://huggingface.co/emilyalsentzer/Bio_Discharge_Summary_BERT">BioBERT</a> pre-trained discharge summary embeddings and execute a PyTorch embedding pipeline to tokenize the data inputs. It's worth noting that this process may take several hours, if running on a local machine. </p>
+<p>The final dictionary will be exported to the specified folder under <code>../outputs/prep_data/&lt;--pkl_fname&gt;.pkl</code>, where each primary key will be a unique patient, and each data modality and target outcome set will be separate sub-keys within each patient sample. The column names for each field will be stored in a separate dictionary with the same data structure in <code>../outputs/prep_data/&lt;--col_fname&gt;.pkl</code>. The training/val/test ids will be stored in separate <code>.csv</code> files inside <code>--output_dir</code>.</p>
+<h2 id="model-development-and-evaluation">Model Development and Evaluation</h2>
+<h3 id="multimodal-learning">Multimodal Learning</h3>
+<p>To train a model, we use <code>train.py</code> to generate a customisable deep fusion model for risk classification. To execute the pipeline, we require the multimodal feature dictionary, the columns dictionary and the train/val/test id files, acquired from the previous step. The pipeline currently supports intermediate fusion across tabular, time-series and free-text modalities. This also includes the ability to perform adversarial mitigation on select attribute groups within the tabular data (gender, ethnicity, marital status and insurance). Each modality is fed through a stand-alone deep learning component and fused at the final hidden layer through concatenation. The deep neural net components are as follows:
+- Static (EHR) modality: MLP classifer (EHR-MLP).
+- Time-series modality: LSTM classifier (TS-LSTM).
+- Text modality: Transformer-encoder classifier (NT-TF-E).
+- Adversarial heads: Deep Multi-unit Adversarial classifier if using debiasing.
+- Tested multimodal combinations: Static+TS (IF-EHR+TS) and Static+TS+Text (IF-EHR+TS+NT).</p>
 <p>Usage:</p>
-<div class="language-sh highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>train.py<span class="w"> </span><span class="o">[</span>-h<span class="o">]</span><span class="w"> </span><span class="o">[</span>--config<span class="w"> </span>CONFIG<span class="o">]</span><span class="w"> </span><span class="o">[</span>--cpu<span class="o">]</span><span class="w"> </span><span class="o">[</span>--train<span class="w"> </span><span class="o">[</span>TRAIN<span class="o">]]</span><span class="w"> </span><span class="o">[</span>--val<span class="w"> </span><span class="o">[</span>VAL<span class="o">]]</span><span class="w"> </span><span class="o">[</span>--project<span class="w"> </span>PROJECT<span class="o">]</span><span class="w"> </span><span class="o">[</span>--wandb<span class="o">]</span><span class="w"> </span>data_path
+<div class="language-sh highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>train.py<span class="w"> </span><span class="o">[</span>-h<span class="o">]</span><span class="w"> </span><span class="o">[</span>--col_path<span class="w"> </span>COL_PATH<span class="o">]</span><span class="w"> </span><span class="o">[</span>--ids_path<span class="w"> </span>IDS_PATH<span class="o">]</span><span class="w"> </span><span class="o">[</span>--outcome<span class="w"> </span>OUTCOME<span class="o">]</span><span class="w"> </span><span class="o">[</span>--config<span class="w"> </span>CONFIG<span class="o">]</span>
+</span><span id="__span-10-2"><a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="w">                </span><span class="o">[</span>--targets<span class="w"> </span>TARGETS<span class="o">]</span><span class="w"> </span><span class="o">[</span>--cpu<span class="o">]</span><span class="w"> </span><span class="o">[</span>--sample<span class="w"> </span>SAMPLE<span class="o">]</span><span class="w"> </span><span class="o">[</span>--use_class_weights<span class="o">]</span><span class="w"> </span><span class="o">[</span>--use_debiasing<span class="o">]</span>
+</span><span id="__span-10-3"><a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a><span class="w">                </span><span class="o">[</span>--project<span class="w"> </span>PROJECT<span class="o">]</span><span class="w"> </span><span class="o">[</span>--wandb<span class="o">]</span>
+</span><span id="__span-10-4"><a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a><span class="w">                </span>data_path
 </span></code></pre></div>
 <ul>
 <li><code>data_path</code>: [Required] Path to the processed data .pkl file.</li>
-<li><code>--config</code>: Path to a .toml file containing settings. Refer to <code>example_config.toml</code> for available settings.</li>
-<li><code>--cpu</code>: Whether to use cpu for training. Defaults to gpu.</li>
-<li><code>--train</code>: Path to a text file containing <code>hadm_ids</code> to use for training.</li>
-<li><code>--val</code>: Path to a text file containing <code>hadm_ids</code> to use for validation.</li>
-<li><code>--project</code>: Name of project to save runs on wandb. Defaults to 'nhs-mm-healthfair'.</li>
-<li><code>--wandb</code>: Flag to enable wandb logging to project.</li>
+<li><code>--col_path</code>: Path to the pickled column dictionary generated from prepare_data.py.</li>
+<li><code>--ids_path</code>: Directory containing train/val/test ids.</li>
+<li><code>--outcome</code>: Binary outcome to use for multimodal learning (one of the labels in targets.toml). Defaults to prediction of in-hospital death.</li>
+<li><code>--config</code>: Path to <code>model.toml</code> file containing model training parameters.</li>
+<li><code>--targets</code>: Path to <code>targets.toml</code> file containing lookup fields and outcomes.</li>
+<li><code>--cpu</code>: Whether to use CPU compute for training. Defaults to gpu.</li>
+<li><code>--sample</code>: Randomly sample subjects for testing. Training set will equal sample, validation set will be 1/5th of sample.</li>
+<li><code>--use_class_weights</code>: Whether to use class weights for imbalanced classification tasks. Defaults to False.</li>
+<li><code>--use_debiasing</code>: Whether to use adversarial debiasing to penalize the model's decisions if influenced by sensitive attributes. Target attribute indices in dictionary can be defined in dbindices within targets.toml. Defaults to False.</li>
+<li><code>--project</code>: Name of project, used for wandb logging.</li>
+<li><code>--wandb</code>: Whether to use wandb for logging. Defaults to False.</li>
 </ul>
-<p><strong>Note</strong>: If <code>--wandb</code> is set, then you will need to login on the first run. Refer to the <a href="https://docs.wandb.ai/guides/integrations/lightning#sign-up-and-log-in-to-wandb">wandb + lightning docs</a> for more details.</p>
+<p><strong>Note</strong>: If <code>--wandb</code> is set, then we use the Weights&amp;Biases service for logging the experiment and storing the model artifacts. You would first need to create a free account and will be prompted to login on the first run and setup and access token. You would also need to set the <code>--project</code> name to match the name of the W&amp;B workspace. Refer to the <a href="https://docs.wandb.ai/guides/integrations/lightning#sign-up-and-log-in-to-wandb">wandb + lightning docs</a> for more details. After finishing the run, you can download the coded model artifact (displayed during execution) and track validation set performance within W&amp;B.</p>
 <p>Example:</p>
-<div class="language-sh highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>train.py<span class="w"> </span>/data/extracted_data/processed_data.pkl<span class="w"> </span>--train<span class="w"> </span>/data/extracted_data/training_ids.txt<span class="w"> </span>--val<span class="w"> </span>/data/extracted/val_ids.txt<span class="w"> </span>--project<span class="w"> </span>my_project<span class="w"> </span>--wandb
+<div class="language-sh highlight"><pre><span></span><code><span id="__span-11-1"><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a>poetry<span class="w"> </span>run<span class="w"> </span>python<span class="w"> </span>train.py<span class="w"> </span>../outputs/prep_data/mmfair_feat.pkl<span class="w"> </span>-p<span class="w"> </span>../outputs/prep_data/mmfair_cols.pkl<span class="w"> </span>-o<span class="w"> </span>ext_stay_7<span class="w"> </span>--project<span class="w"> </span>nhs-mm-healthfair<span class="w"> </span>--wandb<span class="w"> </span>--use_debiasing
 </span></code></pre></div>
-<p>Saved model checkpoints (or for Random Forest .pkl files) will be logged to <code>logs/</code> folder and online via Weights &amp; Biases if <code>--wandb</code> is set (deep models only).</p>
-<p>For running experiments on different models and datasets, you can create different processed data files by running <code>prepare_data.py</code> with a variety of command-line arguments. For example, you may wish to explore different imputation methods with <code>--impute</code> or remove the resampling of time-series data to only use the exact frequency of events <code>--no_resample</code>.</p>
-<p>Currently two fusion strategies are implemented: <code>mag</code> and <code>concat</code> which can be specified in the <code>config.tml</code> file. Model architectures are defined in <code>models.py</code> and built with Pytorch and <a href="https://lightning.ai">Pytorch Lightning</a> as <code>LightingModule</code>'s for simplified training and evaluation loops, callbacks and logging. Refer to their docs for more information on the <code>LightningModule</code> object. You can easily create new architectures or fusion strategies by editing parameters or adding new model classes to the <code>models.py</code> file.</p>
-<p>Examples:</p>
-<ul>
-<li>To test a model with time-series as the primary modality using the <code>mag</code> fusion method, you should set <code>st_first=False</code> in the <code>config.toml</code> file (otherwise uses default value of True).</li>
-<li>To implement a new fusion method, create another <code>LightningModule</code> subclass in <code>models.py</code> and edit <code>train.py</code> to use your new model.</li>
-</ul>
-<h3 id="3-evaluating-a-model">3. Evaluating a model</h3>
-<p>Once you have trained and saved a model you can run inference on a set of test cases, evaluate the model's fairness and/or produce explanations using the <code>evaluate.py</code> script.</p>
+<p>This will run the multimodal training pipeline with enabled logging to W&amp;B for prediction of extended hospital stay (&gt;=7 days). The model hyperparameters are configurable from the <code>models.toml</code> file including the fusion method (<code>None</code>, <code>concat</code> or <code>mag</code>). The target modalities need to be explicitly set within the <code>modalities</code> list in the config file (the values need to be one or more of <code>static</code>, <code>timeseries</code> or <code>notes</code>). Finally, we can also customize the training batch size, early stopping, learning rate and the strength parameter for debiasing.</p>
+<p><strong>Note:</strong> The <code>st_first</code> parameter can be customised to fuse the tabular or the time-series data first if using the <code>mag</code> fusion method (multi-adaptation gates). To test a model with time-series as the primary modality, you should set <code>st_first=False</code> in the <code>model.toml</code> file (otherwise uses default value of True). Note that this has only been tested in the previous project iteration using these two modalities.</p>
+<p>If using debiasing, you can customise the objective for <strong>adversarial mitigation</strong> objective by editing the <code>dbindices</code> list within <code>targets.toml</code>. For each feature index the pipeline will create an adversarial head unit for classification. Then, the adversarial loss function will be fed through a Gradient Reversal Layer to reverse the objective for optimisation (maximising the loss to reduce biases, while minimising the main objective to predict the outcome). The strength of debiasing can be customised using the <code>adv_lambda</code> parameter (tested within the range [0, 5]).</p>
+<h3 id="multimodal-evaluation">Multimodal Evaluation</h3>
+<p>Once you have trained and saved a model you can run inference on the hold-out test set with <code>evaluate.py</code> to display a performance summary with confidence intervals. This also includes the ability to perform risk stratification by binning the output probabilities in equally-sized quantiles. We can then use the <code>--strat_by_attr</code> parameter to generate plots describing the risk quantiles by each sensitive attribute specified in <code>targets.toml</code>. The script supports two separate evaluation modes:
+- <strong>Single mode</strong> (<code>group_models=False</code>): Evaluates a single learner generating independent ROC/PR/Calibration/Loss curves and risk stratification summary that includes ranking the prediction quantiles by attribute.
+- <strong>Group mode</strong> (<code>group_models=True</code>): Group evaluation, where the script will generate grouped ROC and PR curves over a list of saved model files (model names must be specified in the <code>targets.toml</code> paths section.</p>
 <p>Usage:
-<div class="language-sh highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="w"> </span>evaluate.py<span class="w"> </span><span class="o">[</span>-h<span class="o">]</span><span class="w"> </span><span class="o">[</span>--config<span class="w"> </span>CONFIG<span class="o">]</span><span class="w"> </span><span class="o">[</span>--metadata<span class="w"> </span>METADATA<span class="o">]</span><span class="w"> </span><span class="o">[</span>--test<span class="w"> </span>TEST<span class="o">]</span><span class="w"> </span><span class="o">[</span>--explain<span class="o">]</span><span class="w"> </span><span class="o">[</span>--fairness<span class="o">]</span><span class="w"> </span>data_dir<span class="w"> </span>model_path
-</span></code></pre></div></p>
+<div class="language-sh highlight"><pre><span></span><code><span id="__span-12-1"><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="w"> </span>evaluate.py<span class="w"> </span><span class="o">[</span>-h<span class="o">]</span><span class="w"> </span><span class="o">[</span>--col_path<span class="w"> </span>COL_PATH<span class="o">]</span><span class="w"> </span><span class="o">[</span>--ids_path<span class="w"> </span>IDS_PATH<span class="o">]</span><span class="w"> </span><span class="o">[</span>--attr_path<span class="w"> </span>ATTR_PATH<span class="o">]</span><span class="w">                    </span>
+</span><span id="__span-12-2"><a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a><span class="w">                   </span><span class="o">[</span>--eval_path<span class="w"> </span>EVAL_PATH<span class="o">]</span><span class="w"> </span><span class="o">[</span>--outcome<span class="w"> </span>OUTCOME<span class="o">]</span><span class="w"> </span><span class="o">[</span>--model_dir<span class="w"> </span>MODEL_DIR<span class="o">]</span>
+</span><span id="__span-12-3"><a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a><span class="w">                   </span><span class="o">[</span>--model_path<span class="w"> </span>MODEL_PATH<span class="o">]</span><span class="w"> </span><span class="o">[</span>--config<span class="w"> </span>CONFIG<span class="o">]</span><span class="w"> </span><span class="o">[</span>--targets<span class="w"> </span>TARGETS<span class="o">]</span><span class="w"> </span><span class="o">[</span>--n_bins<span class="w"> </span>N_BINS<span class="o">]</span>
+</span><span id="__span-12-4"><a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a><span class="w">                   </span><span class="o">[</span>--strat_by_attr<span class="o">]</span><span class="w"> </span><span class="o">[</span>--group_models<span class="o">]</span><span class="w"> </span><span class="o">[</span>--verbose<span class="o">]</span>
+</span><span id="__span-12-5"><a id="__codelineno-12-5" name="__codelineno-12-5" href="#__codelineno-12-5"></a><span class="w">                   </span>data_path
+</span></code></pre></div>
+- <code>data_path</code>: [Required] Path to the processed data .pkl file.
+- <code>--col_path</code>: Path to the pickled column dictionary generated from <code>prepare_data.py</code>.
+- <code>--ids_path</code>: Directory containing the test set ids.
+- <code>--attr_path</code>: Directory containing attributes metadata (original tabular dataset <code>ehr_static.csv</code>).
+- <code>--eval_path</code> or <code>-e</code>: Directory to store performance plots.
+- <code>--outcome</code> or <code>-o</code>: Binary outcome to use for multimodal learning (one of the labels in <code>targets.toml</code>). Defaults to prediction of in-hospital death.
+- <code>--model_dir</code> or <code>-m</code>: Directory containing the saved model metadata.
+- <code>--model_path</code>: Directory pointing to the saved model checkpoint (must be inside model_dir).
+- <code>--config</code>: Path to <code>model.toml</code> file containing model training parameters.
+- <code>--targets</code>: Path to <code>targets.toml</code> file containing lookup fields and outcomes.
+- <code>--n_bins</code>: Number of bins for quantile analysis and calibration curves.
+- <code>--strat_by_attr</code>: Show stratified quantile analysis for risk stratification grouped by attribute.
+- <code>--group_models</code>: Group evaluation mode. Generate Precision-Recall summary across all models specified in <code>targets.toml</code>.</p>
+<p>To execute the inference we require the multimodal feature dictionary generated from the previous step, as well as the column mapping dictionary and the original tabular data file (for extracting the unprocessed sensitive attributes). The script will print out a performance summary with confidence intervals and save a series of performance plots to <code>eval_path</code>. It will also store a separate dictionary file in <code>&lt;eval_path&gt;/pf_&lt;model_path&gt;.pkl</code> which will contain the metric values and risk quantile mappings per patient. This dictionary is be required in the following explainability analysis.</p>
+<p>Example:</p>
+<p><strong>Single mode</strong>
+<div class="language-sh highlight"><pre><span></span><code><span id="__span-13-1"><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a>poetry<span class="w"> </span>run<span class="w"> </span>python<span class="w"> </span>evaluate.py<span class="w"> </span>../outputs/prep_data/mmfair_feat.pkl<span class="w"> </span>-e<span class="w"> </span>../outputs/evaluation<span class="w"> </span>-o<span class="w"> </span>ext_stay_7<span class="w"> </span>-m<span class="w"> </span>ext_stay_7_concat_static_timeseries_notes<span class="w"> </span>-v<span class="w"> </span>--strat_by_attr
+</span></code></pre></div>
+This runs inference on a multimodal algorithm fusing tabular, timeseries and text modalities for prediction of extended hospital stay. The model checkpoint file must be located in the <code>-m</code> directory. We additionally include the option to risk stratify the predictions and generate stacked barcharts of the attribute distributions across each risk quantile.</p>
+<p><strong>Group mode</strong>
+<div class="language-sh highlight"><pre><span></span><code><span id="__span-14-1"><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a>poetry<span class="w"> </span>run<span class="w"> </span>python<span class="w"> </span>evaluate.py<span class="w"> </span>../outputs/prep_data/mmfair_feat.pkl<span class="w"> </span>-e<span class="w"> </span>../outputs/evaluation<span class="w"> </span>-o<span class="w"> </span>ext_stay_7<span class="w"> </span>--group_models<span class="w"> </span>-v
+</span></code></pre></div>
+This runs inference on a list of multimodal algorithms, with each model directory, display name and color for plotting explicitly set in <code>targets.toml</code> and its <code>paths</code> section.</p>
+<h3 id="fairness-evaluation">Fairness evaluation</h3>
+<p>In similar fashion, we can run <code>fairness.py</code> to evaluate a multimodal algorithm based on fairness metrics (Demographic Parity, Equalised Odds and Equal Opportunity). The script will use BCa bootstrapping to generate 95% CIs across each fairness metrics, over a set number of bootstrap iterations. There are two options for thresholding the output probabilities, selected using the <code>--threshold_method</code>. These are either Youden's J-statistic (default), selecting the best cutoff maximising the distance between TPR and FPR, or Max F1-score, optimised for precision and TPR strictly on the positive class. The <a href="https://fairlearn.org">FairLearn</a> package is used to compute the fairness metrics across the sensitive attributes and perform error analysis. Once again, we can execute the script in two modes:
+- <strong>Single mode</strong> (<code>across_models=False</code>): Evaluates fairness for a single learner generating bootstrapped fairness metrics, error plots and age-stratified fairness plots. This will save a fairness dictionary under <code>&lt;fair_path&gt;/pf_&lt;model_path&gt;.pkl</code> storing the computed fairness values over the set bootstraps. Group mode will then require this dictionary for each target model to generate a grouped fairness summary.
+- <strong>Group mode</strong> (<code>across_models=True</code>): Group evaluation, where the script will generate a grouped barplot with confidence intervals across each model that has been specified in <code>targets.toml</code> and its <code>paths</code> section (same location as in <code>evaluate.py</code>).</p>
+<p>Usage:
+<div class="language-sh highlight"><pre><span></span><code><span id="__span-15-1"><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a><span class="w"> </span>evaluate.py<span class="w"> </span><span class="o">[</span>-h<span class="o">]</span><span class="w"> </span><span class="o">[</span>--col_path<span class="w"> </span>COL_PATH<span class="o">]</span><span class="w"> </span><span class="o">[</span>--ids_path<span class="w"> </span>IDS_PATH<span class="o">]</span><span class="w"> </span><span class="o">[</span>--attr_path<span class="w"> </span>ATTR_PATH<span class="o">]</span><span class="w">                    </span>
+</span><span id="__span-15-2"><a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a><span class="w">                   </span><span class="o">[</span>--eval_path<span class="w"> </span>EVAL_PATH<span class="o">]</span><span class="w"> </span><span class="o">[</span>--outcome<span class="w"> </span>OUTCOME<span class="o">]</span><span class="w"> </span><span class="o">[</span>--model_dir<span class="w"> </span>MODEL_DIR<span class="o">]</span>
+</span><span id="__span-15-3"><a id="__codelineno-15-3" name="__codelineno-15-3" href="#__codelineno-15-3"></a><span class="w">                   </span><span class="o">[</span>--model_path<span class="w"> </span>MODEL_PATH<span class="o">]</span><span class="w"> </span><span class="o">[</span>--config<span class="w"> </span>CONFIG<span class="o">]</span><span class="w"> </span><span class="o">[</span>--targets<span class="w"> </span>TARGETS<span class="o">]</span><span class="w"> </span><span class="o">[</span>--n_bins<span class="w"> </span>N_BINS<span class="o">]</span>
+</span><span id="__span-15-4"><a id="__codelineno-15-4" name="__codelineno-15-4" href="#__codelineno-15-4"></a><span class="w">                   </span><span class="o">[</span>--strat_by_attr<span class="o">]</span><span class="w"> </span><span class="o">[</span>--group_models<span class="o">]</span><span class="w"> </span><span class="o">[</span>--verbose<span class="o">]</span>
+</span><span id="__span-15-5"><a id="__codelineno-15-5" name="__codelineno-15-5" href="#__codelineno-15-5"></a><span class="w">                   </span>data_path
+</span></code></pre></div>
+- <code>data_path</code>: [Required] Path to the processed data .pkl file.
+- <code>--fair_path</code> or <code>-f</code>: Directory to store fairness plots.
+- <code>--model_dir</code>: Directory containing the saved model metadata.
+- <code>--model_path</code>: Directory pointing to the saved model checkpoint (must be inside model_dir).
+- <code>--attr_path</code>: Directory containing attributes metadata (original ehr_static.csv).
+- <code>--outcome</code> or <code>-o</code>: Binary outcome to use for multimodal evaluation (one of the labels in targets.toml). Defaults to prediction of extended hospital stay.
+- <code>--targets</code>: Path to targets.toml file containing lookup fields and outcomes.
+- <code>--group_by_age</code>: If true, will generate a trajectory lineplot of the fairness measures across each age group (as assigned in targets.toml).
+- <code>--plot_errors</code>: If true, will use the Fairlearn API to generate a grouped barplot of error measures over each attribute (as specified in targets.toml).
+- <code>--across_models</code>: If true, will generate a trajectory lineplot of the fairness measures across multiple models (specified in paths within targets.toml).
+- <code>--threshold_method</code>: Method to use for thresholding positive and negative classes under class imbalance. Options are 'yd' (Youden's J statistic) or 'f1' (Maximum achievable F1-score). Defaults to 'yd'.
+- <code>--boot_samples</code> or <code>-b</code>: Number of bootstrap samples to use for calculating confidence intervals.
+- <code>--seed</code>: Seed for bootstrapping reproducibility. Defaults to 42.</p>
+<p>Example:</p>
+<p><strong>Single mode</strong>
+<div class="language-sh highlight"><pre><span></span><code><span id="__span-16-1"><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a>poetry<span class="w"> </span>run<span class="w"> </span>python<span class="w"> </span>fairness.py<span class="w"> </span>../outputs/evaluation<span class="w"> </span>-f<span class="w"> </span>../outputs/fairness<span class="w"> </span>-o<span class="w"> </span>ext_stay_7<span class="w"> </span>-m<span class="w"> </span>ext_stay_7_concat_static_timeseries_notes<span class="w"> </span>-b<span class="w"> </span><span class="m">1000</span><span class="w"> </span>--plot_errors<span class="w"> </span>-v
+</span></code></pre></div>
+This runs inference on a multimodal algorithm fusing tabular, timeseries and text modalities for prediction of extended hospital stay. In this setup, the BCa will estimate the DPR, EQO and EOP metrics over 1000 bootstraps within the testing set. It will then use the Fairlearn API to generate error plots, print out the fairness metrics and store the values in a fairness dictionary within the target folder <code>-f</code>.</p>
+<p><strong>Group mode</strong>
+<div class="language-sh highlight"><pre><span></span><code><span id="__span-17-1"><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a>poetry<span class="w"> </span>run<span class="w"> </span>python<span class="w"> </span>fairness.py<span class="w"> </span>../outputs/evaluation<span class="w"> </span>-f<span class="w"> </span>../outputs/fairness<span class="w"> </span>-o<span class="w"> </span>ext_stay_7<span class="w"> </span>--across_models
+</span></code></pre></div>
+This runs fairness inference on a list of multimodal algorithms, with each model directory, display name and color for plotting explicitly set in <code>targets.toml</code> and its <code>paths</code> section. The output will be a grouped barchart by sensitive attribute showing the global differences in DPR, EQO and EOP.</p>
+<p><strong>Note</strong>: This requires each model specified in <code>targets.toml</code> to have been run in single mode first and have its fairness dictionary stored in their respective fairness output folder.</p>
+<h3 id="explainability-analysis">Explainability analysis</h3>
+<p>Finally, we can run <code>explain.py</code> to measure feature importance and understand the decision boundaries of a multimodal algorithm. Currently the script only supports interpreting a fully-fused model across all three data modalities (IF-EHR+TS+NT). It uses the <a href="https://shap.readthedocs.io/en/latest/">SHAP</a> library for post-model global and local feature importance estimation and borrows ideas from the <a href="https://github.com/Heidelberg-NLP/MM-SHAP/tree/main">MM-SHAP</a> library for aggregating SHAP values across modalities. </p>
+<p>Upon its first run, the script will create a model wrapper using the <strong>DeepSHAP</strong> algorithm to backpropagate across the multimodal framework and estimate the Shapley values across each deep neural net component. Similar to the previous scripts, it will again save a <code>.pkl</code> dictionary file containing the batch-wise Shapley values, mapped by each patient ID in the testing set, and split across each data modality. The time-series modality will include two independent value sets for the vital signs and the lab testing measurements. This process may take ~30 minutes on a local machine. After storing the SHAP values, the dictionary containing the attribution scores will be pre-loaded automatically in future runs. The next step of the script will depend on the selected mode:</p>
 <ul>
-<li><code>data_dir</code>: [Required]</li>
-<li><code>model_path</code>: [Required] Path to a .pkl (Random Forest) or .ckpt file.</li>
-<li><code>--metadata</code>: Path to the <code>stays.csv</code> file outputted by <code>extract_data.py</code>. Only required if not under the <code>data_dir</code> directory.</li>
-<li><code>--test</code>: Path to text file containing <code>hadm_id</code>'s for testing.</li>
-<li><code>--explain</code>: Flag to enable use of <strong>SHAP</strong> for model explanations.</li>
-<li><code>--fairness</code>: Flag to enable use of <strong>FairLearn</strong> to compute fairness metrics and visualise plots.</li>
+<li><strong>Global mode</strong> (<code>exp_mode=global</code>): This will plot grouped SHAP summary plots (or heatmap plots if <code>--use_heatmaps</code> is specified) highlighting feature importances for each modality.</li>
+<li><strong>Local mode</strong> (<code>exp_mode=local</code>): This will plot individual-level SHAP decision plots, including a text highlight plot to highlight important regions within the clinical note segments. The individual can be randomly sampled using <code>--local_risk_group</code> to select the target risk quantile (estimated with <code>evaluate.py</code>) and a target patient profile selecting gender, marital status, insurance and ethnicity attributes in <code>targets.toml</code> within the <code>shap_profile</code> section.</li>
 </ul>
-<p><strong>Model explanations</strong>: The <a href="https://shap.readthedocs.io/en/latest/">SHAP</a> package has been used.</p>
-<p><strong>Model fairness</strong>: The <a href="https://fairlearn.org">FairLearn</a> package has been used to compute fairness metrics across sensitivie/protected attributes. For example, in the MIMIC-IV dataset these include: sex, ethnicity, marital status and insurance type.</p>
+<p>Usage:
+<div class="language-sh highlight"><pre><span></span><code><span id="__span-18-1"><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a><span class="w"> </span>explain.py<span class="w"> </span><span class="o">[</span>-h<span class="o">]</span><span class="w"> </span><span class="o">[</span>--col_path<span class="w"> </span>COL_PATH<span class="o">]</span><span class="w"> </span><span class="o">[</span>--feat_names<span class="w"> </span>FEAT_NAMES<span class="o">]</span><span class="w"> </span><span class="o">[</span>--ids_path<span class="w"> </span>IDS_PATH<span class="o">]</span>
+</span><span id="__span-18-2"><a id="__codelineno-18-2" name="__codelineno-18-2" href="#__codelineno-18-2"></a><span class="w">                  </span><span class="o">[</span>--exp_path<span class="w"> </span>EXP_PATH<span class="o">]</span><span class="w"> </span><span class="o">[</span>--eval_path<span class="w"> </span>EVAL_PATH<span class="o">]</span><span class="w"> </span><span class="o">[</span>--attr_path<span class="w"> </span>ATTR_PATH<span class="o">]</span><span class="w"> </span><span class="o">[</span>--outcome<span class="w"> </span>OUTCOME<span class="o">]</span>
+</span><span id="__span-18-3"><a id="__codelineno-18-3" name="__codelineno-18-3" href="#__codelineno-18-3"></a><span class="w">                  </span><span class="o">[</span>--model_dir<span class="w"> </span>MODEL_DIR<span class="o">]</span><span class="w"> </span><span class="o">[</span>--model_path<span class="w"> </span>MODEL_PATH<span class="o">]</span><span class="w"> </span><span class="o">[</span>--config<span class="w"> </span>CONFIG<span class="o">]</span><span class="w"> </span><span class="o">[</span>--targets<span class="w"> </span>TARGETS<span class="o">]</span>
+</span><span id="__span-18-4"><a id="__codelineno-18-4" name="__codelineno-18-4" href="#__codelineno-18-4"></a><span class="w">                  </span><span class="o">[</span>--exp_mode<span class="w"> </span>EXP_MODE<span class="o">]</span><span class="w"> </span><span class="o">[</span>--use_heatmaps<span class="o">]</span><span class="w"> </span><span class="o">[</span>--global_max_features<span class="w"> </span>GLOBAL_MAX_FEATURES<span class="o">]</span>
+</span><span id="__span-18-5"><a id="__codelineno-18-5" name="__codelineno-18-5" href="#__codelineno-18-5"></a><span class="w">                  </span><span class="o">[</span>--local_risk_group<span class="w"> </span>LOCAL_RISK_GROUP<span class="o">]</span><span class="w"> </span><span class="o">[</span>--notes_offset_ref<span class="o">]</span><span class="w"> </span><span class="o">[</span>--verbose<span class="o">]</span>
+</span><span id="__span-18-6"><a id="__codelineno-18-6" name="__codelineno-18-6" href="#__codelineno-18-6"></a><span class="w">                  </span>data_path
+</span></code></pre></div>
+- <code>data_path</code>: [Required] Path to the processed data .pkl file.
+- <code>col_path</code>: Path to the pickled column dictionary generated from <code>prepare_data.py</code>.
+- <code>--feat_names</code>: Path to a JSON file containing lookup names for each feature.
+- <code>--ids_path</code>: Directory containing test set ids.
+- <code>--exp_path</code> or <code>-x</code>: Directory to store explanation plots.
+- <code>--eval_path</code> or <code>-e</code>: Evaluation path for obtaining risk dictionary as .pkl file.   <br />
+- <code>--attr_path</code>: Directory containing attributes metadata (original <code>ehr_static.csv</code>).
+- <code>--outcome</code> or <code>-o</code>: Binary outcome to use for multimodal learning (one of the labels in <code>targets.toml</code>). Defaults to prediction of in-hospital death.
+- <code>--model_dir</code>: Directory containing the saved model metadata.
+- <code>--model_path</code>: Directory pointing to the saved model checkpoint (must be inside <code>model_dir</code>).
+- <code>--config</code>: Path to <code>model.toml</code> file containing model training parameters.
+- <code>--targets</code>: Path to <code>targets.toml</code> file containing lookup fields and outcomes.
+- <code>--exp_mode</code>: Use global or local explanations. If global, uses DeepExplainer over static and timeseries modalities in the test set. If local, uses DeepExplainer to explain individual predictions over all modalities (requires a fused static-timeseries-text model).
+- <code>--use_heatmaps</code>: Use heatmaps for SHAP summary plots instead of beeswarm plots.
+- <code>--global_max_features</code>: Top N features to plot in global-level explanations.
+- <code>--local_risk_group</code>: Risk quantile to use for local-level explanations (generated in evaluate.py).
+- <code>--notes_offset_ref</code>: Offset SHAP colormap center for local-level text plot using the expected SHAP value (batch-wise mean). Defaults to False (SHAP colormap centered around 0).</p>
+<p>Example:</p>
+<p><strong>Global mode</strong>
+<div class="language-sh highlight"><pre><span></span><code><span id="__span-19-1"><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a>poetry<span class="w"> </span>run<span class="w"> </span>python<span class="w"> </span>explain.py<span class="w"> </span>../outputs/prep_data/mmfair_feat.pkl<span class="w"> </span>-m<span class="w"> </span>ext_stay_7_concat_static_timeseries_notes_db<span class="w"> </span>-o<span class="w"> </span>ext_stay_7<span class="w"> </span>-x<span class="w"> </span>../outputs/explanations<span class="w"> </span>--exp_mode<span class="w"> </span>global<span class="w"> </span>--global_max_features<span class="w"> </span><span class="m">20</span><span class="w"> </span>--use_heatmaps<span class="w"> </span>-v
+</span></code></pre></div>
+This runs explainability inference in global mode on the fully-fused multimodal algorithm for prediction of extended hospital stay. In this setup, the script will aggregate all Shapley values across data batches, per modality. This will be used to generate global summary plots describing the most influential features within each modality. If not using heatmaps, the output will be a series of SHAP density plots highlighting the patient distributions with respect to the computed importance scores. If using heatmaps (<code>--use_heatmaps</code>), the <a href="https://shap.readthedocs.io/en/latest/example_notebooks/api_examples/plots/heatmap.html">SHAP heatmap</a> plot will be used to group examples by their explanation similarity (via hierarchical clustering). This results in samples that have the same model output for the same reason getting grouped together and sorted based on the absolute mean value of the feature-wise SHAP scores. The text modality uses an alternative interface, which is the <a href="https://shap.readthedocs.io/en/latest/example_notebooks/api_examples/plots/bar.html">SHAP barplot</a> showcasing the most influential note segments across all data batches in the test set, regardless of risk direction.</p>
+<p><strong>Local mode</strong>
+<div class="language-sh highlight"><pre><span></span><code><span id="__span-20-1"><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a>poetry<span class="w"> </span>run<span class="w"> </span>python<span class="w"> </span>explain.py<span class="w"> </span>../outputs/prep_data/mmfair_feat.pkl<span class="w"> </span>-m<span class="w"> </span>ext_stay_7_concat_static_timeseries_notes<span class="w"> </span>-o<span class="w"> </span>ext_stay_7<span class="w"> </span>-x<span class="w"> </span>../outputs/explanations<span class="w"> </span>--exp_mode<span class="w"> </span><span class="nb">local</span><span class="w"> </span>-r<span class="w"> </span><span class="m">10</span><span class="w"> </span>-v
+</span></code></pre></div>
+This runs explainability inference in local mode on the fully-fused multimodal algorithm for prediction of extended hospital stay. This means that a randomly sampled individual from risk quantile 10 (highest-risk group) will be selected based on the patient profile specified in <code>targets.toml</code> within <code>[shap_profile]</code>. The script will load in the pre-computed SHAP dictionary from <code>../outputs/explanations/ext_stay_7_concat_static_timeseries_notes</code> and retrieve the batch where the target patient ID is stored. Then, a series of Explanation objects will be created, with assigned background (reference) values equal to the batch mean Shapley values for each modality. These values will be treated as the baseline for observing changes in risk based on feature impact within each modality interface. The final plot contains four interfaces: three decision plots highlighting change in risk direction across the top ranked features within the tabular, time-series (vitals) and time-series (lab tests) modalities and one text plot highlighting important segments within the Brief Hospital Course discharge summaries. The <a href="https://github.com/Heidelberg-NLP/MM-SHAP/tree/main">MM-SHAP</a> scores are also computed to display relative degrees of modality dependence on an individual-level model decision.</p>
+<p><strong>Note</strong>: This requires each model specified in <code>targets.toml</code> to have been run in single mode first and have its fairness dictionary stored in their respective fairness output folder.</p>
 <h2 id="general-usage-tips">General Usage Tips</h2>
+<ul>
+<li>Extending the framework: To implement a new fusion method, create another <code>LightningModule</code> subclass in <code>models.py</code> and edit <code>train.py</code> to use your new model. To implement a custom dataloader for another dataset, you can edit <code>datasets.py</code> to define a custom PyTorch Dataset class.</li>
+<li>Multimodal setup considerations: It is generally recommended to keep to a strict and consistent naming convention for the model/fairness/explanation folders, describing the model run. In this case, the model path and file names should follow the convention:
+`<outcome><em><fusion_method></em><modalities>, e.g. ext_stay_7_concat_static_timeseries_notes, describing the fully-fused multimodal algorithm for prediction of extended hospital stay.</li>
+<li>Other naming conventions: currently supported outcomes are labelled as [<code>in_hosp_death</code>, <code>ext_stay_7</code>, <code>non_home_discharge</code>] and <code>icu_admission</code>; currently supported sensitive data attributes are labelled as ['gender', 'race_group', 'marital_status', 'insurance'].</li>
+<li>Training setup tips: Increase <code>num_workers</code> to enable multithreading and speed up the training process. Adjust <code>learning_rate</code> and <code>early_stopping</code> to improve convergence rate.</li>
+</ul>
 
 
 
