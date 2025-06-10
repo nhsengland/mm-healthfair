@@ -1068,8 +1068,8 @@ This runs explainability inference in local mode on the fully-fused multimodal a
 <ul>
 <li>Extending the framework: To implement a new fusion method, create another <code>LightningModule</code> subclass in <code>models.py</code> and edit <code>train.py</code> to use your new model. To implement a custom dataloader for another dataset, you can edit <code>datasets.py</code> to define a custom PyTorch Dataset class.</li>
 <li>Multimodal setup considerations: It is generally recommended to keep to a strict and consistent naming convention for the model/fairness/explanation folders, describing the model run. In this case, the model path and file names should follow the convention:
-`<outcome><em><fusion_method></em><modalities>, e.g. ext_stay_7_concat_static_timeseries_notes, describing the fully-fused multimodal algorithm for prediction of extended hospital stay.</li>
-<li>Other naming conventions: currently supported outcomes are labelled as [<code>in_hosp_death</code>, <code>ext_stay_7</code>, <code>non_home_discharge</code>] and <code>icu_admission</code>; currently supported sensitive data attributes are labelled as ['gender', 'race_group', 'marital_status', 'insurance'].</li>
+<code>&lt;outcome&gt;_&lt;fusion_method&gt;_&lt;modalities&gt;</code>, e.g. <code>ext_stay_7_concat_static_timeseries_notes</code>, describing the fully-fused multimodal algorithm for prediction of extended hospital stay.</li>
+<li>Other naming conventions: currently supported outcomes are labelled as [<code>in_hosp_death</code>, <code>ext_stay_7</code>, <code>non_home_discharge</code>, <code>icu_admission</code>]; currently supported sensitive data attributes are labelled as [<code>gender</code>, <code>race_group</code>, <code>marital_status</code>, <code>insurance</code>].</li>
 <li>Training setup tips: Increase <code>num_workers</code> to enable multithreading and speed up the training process. Adjust <code>learning_rate</code> and <code>early_stopping</code> to improve convergence rate.</li>
 </ul>
 
