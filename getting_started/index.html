@@ -496,36 +496,36 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#0-downloading-the-data" class="md-nav__link">
+  <a href="#downloading-the-data" class="md-nav__link">
     <span class="md-ellipsis">
-      0. Downloading the data
+      Downloading the data
     </span>
   </a>
   
 </li>
         
           <li class="md-nav__item">
-  <a href="#1-extracting-the-data" class="md-nav__link">
+  <a href="#extracting-the-data" class="md-nav__link">
     <span class="md-ellipsis">
-      1. Extracting the data
+      Extracting the data
     </span>
   </a>
   
 </li>
         
           <li class="md-nav__item">
-  <a href="#15-data-exploration" class="md-nav__link">
+  <a href="#data-exploration" class="md-nav__link">
     <span class="md-ellipsis">
-      1.5. Data Exploration
+      Data Exploration
     </span>
   </a>
   
 </li>
         
           <li class="md-nav__item">
-  <a href="#2-data-preprocessing" class="md-nav__link">
+  <a href="#data-preprocessing" class="md-nav__link">
     <span class="md-ellipsis">
-      2. Data Preprocessing
+      Data Preprocessing
     </span>
   </a>
   
@@ -567,7 +567,7 @@
           <li class="md-nav__item">
   <a href="#fairness-evaluation" class="md-nav__link">
     <span class="md-ellipsis">
-      Fairness evaluation
+      Fairness Evaluation
     </span>
   </a>
   
@@ -576,7 +576,7 @@
           <li class="md-nav__item">
   <a href="#explainability-analysis" class="md-nav__link">
     <span class="md-ellipsis">
-      Explainability analysis
+      Explainability Analysis
     </span>
   </a>
   
@@ -797,7 +797,7 @@
 </span></code></pre></div></li>
 </ul>
 <h2 id="data-curation">Data Curation</h2>
-<h3 id="0-downloading-the-data">0. Downloading the data</h3>
+<h3 id="downloading-the-data">Downloading the data</h3>
 <p>The MIMIC-IV dataset (v3.1) can be downloaded from <a href="https://physionet.org">PhysioNet</a>. </p>
 <p>Steps to download:</p>
 <ol>
@@ -808,7 +808,7 @@
 </li>
 <li>Download the data.</li>
 </ol>
-<h3 id="1-extracting-the-data">1. Extracting the data</h3>
+<h3 id="extracting-the-data">Extracting the data</h3>
 <p>The <code>extract_data.py</code> module uses the base <strong>MIMIC-IV</strong> database and the <strong>MIMIC-IV-Ext-BHC</strong> extension as raw data inputs. This feeds into a series of sequential operations for extracting and cleaning the individual data modalities. The data sources used for each modality include:
 - <strong>Tabular (Static EHR) data modality</strong>: demographics, prescriptions, previous diagnoses and provider orders (MIMIC-IV)
 - <strong>Time-series data modality</strong>: ED vital signs, in-hospital lab tests and measurements (MIMIC-IV and MIMIC-IV-ED)
@@ -836,7 +836,7 @@
 <div class="language-sh highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>poetry<span class="w"> </span>run<span class="w"> </span>python<span class="w"> </span>extract_data.py<span class="w"> </span>../../data/MIMIC-IV<span class="w"> </span>-o<span class="w"> </span>../outputs/ext_data<span class="w"> </span>-n<span class="w"> </span>-t<span class="w"> </span>-a<span class="w"> </span>--top_n_meds<span class="w"> </span><span class="m">50</span><span class="w"> </span>-v<span class="w"> </span>--lazy
 </span></code></pre></div>
 <p>This command will read from the <code>../../data/MIMIC-IV</code> directory and extract the relevant measurements across the three data modalities for the complete population with linked ED attendances. The script will also create count features covering the top 50 most common prescriptions. ed/vitalsign.csv for 1000 stays. Three output files describing each data modality (<code>ehr_static.csv</code>, <code>events_ts.csv</code> and <code>notes.csv</code>) will be saved under the <code>../outputs/ext_data</code> folder.</p>
-<h3 id="15-data-exploration">1.5. Data Exploration</h3>
+<h3 id="data-exploration">Data Exploration</h3>
 <p>Optionally, the <code>explore_data.py</code> script then allows the user to run basic data exploration on the three data files, generating a cohort summary describing the patient cohorts by outcome and a series of distribution plots by attribute. This script will access the <code>targets.toml</code> config file for the attribute and outcome names and the <code>feat_name_map.json</code> mapping for looking up the display names for each feature.</p>
 <p>Usage:
 <div class="language-sh highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>usage:<span class="w"> </span>explore_data.py<span class="w"> </span><span class="o">[</span>-h<span class="o">]</span><span class="w"> </span><span class="o">[</span>--config<span class="w"> </span>CONFIG<span class="o">]</span><span class="w"> </span>--output_path<span class="w"> </span>OUTPUT_PATH
@@ -863,7 +863,7 @@
 - Barcharts highlighting outcome prevalence.
 - Age group distributions by each sensitive attribute.
 - Violin plots of the log-transformed <strong>Brief Hospital Course</strong> lengths with statistical testing.</p>
-<h3 id="2-data-preprocessing">2. Data Preprocessing</h3>
+<h3 id="data-preprocessing">Data Preprocessing</h3>
 <p>Once these core files have been extracted, we run <code>prepare_data.py</code> to create a multimodal feature dictionary for model training and evaluation. The time-series and text modalities can optionally be left out of the dictionary. This will execute a sequence of preprocessing strategies for each data modality in the following order:</p>
 <div class="language-sh highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>├──<span class="w"> </span>Tabular<span class="w"> </span>modality
 </span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>│<span class="w">   </span>├──<span class="w"> </span>Encode<span class="w"> </span>categorical<span class="w"> </span>features
@@ -988,7 +988,7 @@ This runs inference on a multimodal algorithm fusing tabular, timeseries and tex
 <div class="language-sh highlight"><pre><span></span><code><span id="__span-14-1"><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a>poetry<span class="w"> </span>run<span class="w"> </span>python<span class="w"> </span>evaluate.py<span class="w"> </span>../outputs/prep_data/mmfair_feat.pkl<span class="w"> </span>-e<span class="w"> </span>../outputs/evaluation<span class="w"> </span>-o<span class="w"> </span>ext_stay_7<span class="w"> </span>--group_models<span class="w"> </span>-v
 </span></code></pre></div>
 This runs inference on a list of multimodal algorithms, with each model directory, display name and color for plotting explicitly set in <code>targets.toml</code> and its <code>paths</code> section.</p>
-<h3 id="fairness-evaluation">Fairness evaluation</h3>
+<h3 id="fairness-evaluation">Fairness Evaluation</h3>
 <p>In similar fashion, we can run <code>fairness.py</code> to evaluate a multimodal algorithm based on fairness metrics (Demographic Parity, Equalised Odds and Equal Opportunity). The script will use BCa bootstrapping to generate 95% CIs across each fairness metrics, over a set number of bootstrap iterations. There are two options for thresholding the output probabilities, selected using the <code>--threshold_method</code>. These are either Youden's J-statistic (default), selecting the best cutoff maximising the distance between TPR and FPR, or Max F1-score, optimised for precision and TPR strictly on the positive class. The <a href="https://fairlearn.org">FairLearn</a> package is used to compute the fairness metrics across the sensitive attributes and perform error analysis. Once again, we can execute the script in two modes:
 - <strong>Single mode</strong> (<code>across_models=False</code>): Evaluates fairness for a single learner generating bootstrapped fairness metrics, error plots and age-stratified fairness plots. This will save a fairness dictionary under <code>&lt;fair_path&gt;/pf_&lt;model_path&gt;.pkl</code> storing the computed fairness values over the set bootstraps. Group mode will then require this dictionary for each target model to generate a grouped fairness summary.
 - <strong>Group mode</strong> (<code>across_models=True</code>): Group evaluation, where the script will generate a grouped barplot with confidence intervals across each model that has been specified in <code>targets.toml</code> and its <code>paths</code> section (same location as in <code>evaluate.py</code>).</p>
@@ -1022,7 +1022,7 @@ This runs inference on a multimodal algorithm fusing tabular, timeseries and tex
 </span></code></pre></div>
 This runs fairness inference on a list of multimodal algorithms, with each model directory, display name and color for plotting explicitly set in <code>targets.toml</code> and its <code>paths</code> section. The output will be a grouped barchart by sensitive attribute showing the global differences in DPR, EQO and EOP.</p>
 <p><strong>Note</strong>: This requires each model specified in <code>targets.toml</code> to have been run in single mode first and have its fairness dictionary stored in their respective fairness output folder.</p>
-<h3 id="explainability-analysis">Explainability analysis</h3>
+<h3 id="explainability-analysis">Explainability Analysis</h3>
 <p>Finally, we can run <code>explain.py</code> to measure feature importance and understand the decision boundaries of a multimodal algorithm. Currently the script only supports interpreting a fully-fused model across all three data modalities (IF-EHR+TS+NT). It uses the <a href="https://shap.readthedocs.io/en/latest/">SHAP</a> library for post-model global and local feature importance estimation and borrows ideas from the <a href="https://github.com/Heidelberg-NLP/MM-SHAP/tree/main">MM-SHAP</a> library for aggregating SHAP values across modalities. </p>
 <p>Upon its first run, the script will create a model wrapper using the <strong>DeepSHAP</strong> algorithm to backpropagate across the multimodal framework and estimate the Shapley values across each deep neural net component. Similar to the previous scripts, it will again save a <code>.pkl</code> dictionary file containing the batch-wise Shapley values, mapped by each patient ID in the testing set, and split across each data modality. The time-series modality will include two independent value sets for the vital signs and the lab testing measurements. This process may take ~30 minutes on a local machine. After storing the SHAP values, the dictionary containing the attribution scores will be pre-loaded automatically in future runs. The next step of the script will depend on the selected mode:</p>
 <ul>
