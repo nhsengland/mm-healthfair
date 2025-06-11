@@ -959,17 +959,19 @@
 </span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="w">                       </span><span class="o">[</span>--pval_adjust<span class="w"> </span>PVAL_ADJUST<span class="o">]</span><span class="w"> </span><span class="o">[</span>--pval_test<span class="w"> </span>PVAL_TEST<span class="o">]</span><span class="w"> </span><span class="o">[</span>--max_i<span class="w"> </span>MAX_I<span class="o">]</span><span class="w"> </span><span class="o">[</span>--max_j<span class="w"> </span>MAX_J<span class="o">]</span><span class="w">     </span>
 </span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="w">                       </span><span class="o">[</span>--rot<span class="w"> </span>ROT<span class="o">]</span><span class="w"> </span><span class="o">[</span>--lazy<span class="o">]</span><span class="w"> </span><span class="o">[</span>--verbose<span class="o">]</span>
 </span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="w">                       </span>ehr_path
-</span></code></pre></div>
-- <code>ehr_path</code>: [Required] Path to folder containing extracted data.
-- <code>--config</code>: Path to targets.toml file containing lookup fields for grouping.
-- <code>--output_path</code>: Directory where summary tables and plots should be written.
-- <code>--display_dict_path</code>: Path to dictionary for display names of features.
-- <code>--bhc_fname</code>: Output file name for Brief Hospital Course distribution plot.
-- <code>--pval_adjust</code>: Method for p-value adjustment in summary tables and distribution plots. Defaults to 'bonferroni'.
-- <code>--pval_test</code>: Statistical test type for comparing distribution of BHC token lengths. Defaults to 't-test welch'.
-- <code>--max_i</code>: Number of rows argument for plotting function. Defaults to 2.
-- <code>--max_j</code>: Number of columns argument for plotting function. Defaults to 2.
-- <code>--rot</code> or <code>-r</code>: Rotation degrees for ticks in plotting function. Defaults to 0.</p>
+</span></code></pre></div></p>
+<ul>
+<li><code>ehr_path</code>: [Required] Path to folder containing extracted data.</li>
+<li><code>--config</code>: Path to targets.toml file containing lookup fields for grouping.</li>
+<li><code>--output_path</code>: Directory where summary tables and plots should be written.</li>
+<li><code>--display_dict_path</code>: Path to dictionary for display names of features.</li>
+<li><code>--bhc_fname</code>: Output file name for Brief Hospital Course distribution plot.</li>
+<li><code>--pval_adjust</code>: Method for p-value adjustment in summary tables and distribution plots. Defaults to 'bonferroni'.</li>
+<li><code>--pval_test</code>: Statistical test type for comparing distribution of BHC token lengths. Defaults to 't-test welch'.</li>
+<li><code>--max_i</code>: Number of rows argument for plotting function. Defaults to 2.</li>
+<li><code>--max_j</code>: Number of columns argument for plotting function. Defaults to 2.</li>
+<li><code>--rot</code> or <code>-r</code>: Rotation degrees for ticks in plotting function. Defaults to 0.</li>
+</ul>
 <p>Example:</p>
 <div class="language-sh highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>poetry<span class="w"> </span>run<span class="w"> </span>python<span class="w"> </span>explore_data.py<span class="w"> </span>../outputs/ext_data/<span class="w"> </span>-c<span class="w"> </span>../config/targets.toml<span class="w"> </span>-o<span class="w"> </span>../outputs/exp_data<span class="w"> </span>--lazy<span class="w"> </span>-v<span class="w"> </span>-r<span class="w"> </span><span class="m">35</span><span class="w"> </span>
 </span></code></pre></div>
@@ -1079,20 +1081,22 @@
 </span><span id="__span-12-3"><a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a><span class="w">                   </span><span class="o">[</span>--model_path<span class="w"> </span>MODEL_PATH<span class="o">]</span><span class="w"> </span><span class="o">[</span>--config<span class="w"> </span>CONFIG<span class="o">]</span><span class="w"> </span><span class="o">[</span>--targets<span class="w"> </span>TARGETS<span class="o">]</span><span class="w"> </span><span class="o">[</span>--n_bins<span class="w"> </span>N_BINS<span class="o">]</span>
 </span><span id="__span-12-4"><a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a><span class="w">                   </span><span class="o">[</span>--strat_by_attr<span class="o">]</span><span class="w"> </span><span class="o">[</span>--group_models<span class="o">]</span><span class="w"> </span><span class="o">[</span>--verbose<span class="o">]</span>
 </span><span id="__span-12-5"><a id="__codelineno-12-5" name="__codelineno-12-5" href="#__codelineno-12-5"></a><span class="w">                   </span>data_path
-</span></code></pre></div>
-- <code>data_path</code>: [Required] Path to the processed data .pkl file.
-- <code>--col_path</code>: Path to the pickled column dictionary generated from <code>prepare_data.py</code>.
-- <code>--ids_path</code>: Directory containing the test set ids.
-- <code>--attr_path</code>: Directory containing attributes metadata (original tabular dataset <code>ehr_static.csv</code>).
-- <code>--eval_path</code> or <code>-e</code>: Directory to store performance plots.
-- <code>--outcome</code> or <code>-o</code>: Binary outcome to use for multimodal learning (one of the labels in <code>targets.toml</code>). Defaults to prediction of in-hospital death.
-- <code>--model_dir</code> or <code>-m</code>: Directory containing the saved model metadata.
-- <code>--model_path</code>: Directory pointing to the saved model checkpoint (must be inside model_dir).
-- <code>--config</code>: Path to <code>model.toml</code> file containing model training parameters.
-- <code>--targets</code>: Path to <code>targets.toml</code> file containing lookup fields and outcomes.
-- <code>--n_bins</code>: Number of bins for quantile analysis and calibration curves.
-- <code>--strat_by_attr</code>: Show stratified quantile analysis for risk stratification grouped by attribute.
-- <code>--group_models</code>: Group evaluation mode. Generate Precision-Recall summary across all models specified in <code>targets.toml</code>.</p>
+</span></code></pre></div></p>
+<ul>
+<li><code>data_path</code>: [Required] Path to the processed data .pkl file.</li>
+<li><code>--col_path</code>: Path to the pickled column dictionary generated from <code>prepare_data.py</code>.</li>
+<li><code>--ids_path</code>: Directory containing the test set ids.</li>
+<li><code>--attr_path</code>: Directory containing attributes metadata (original tabular dataset <code>ehr_static.csv</code>).</li>
+<li><code>--eval_path</code> or <code>-e</code>: Directory to store performance plots.</li>
+<li><code>--outcome</code> or <code>-o</code>: Binary outcome to use for multimodal learning (one of the labels in <code>targets.toml</code>). Defaults to prediction of in-hospital death.</li>
+<li><code>--model_dir</code> or <code>-m</code>: Directory containing the saved model metadata.</li>
+<li><code>--model_path</code>: Directory pointing to the saved model checkpoint (must be inside model_dir).</li>
+<li><code>--config</code>: Path to <code>model.toml</code> file containing model training parameters.</li>
+<li><code>--targets</code>: Path to <code>targets.toml</code> file containing lookup fields and outcomes.</li>
+<li><code>--n_bins</code>: Number of bins for quantile analysis and calibration curves.</li>
+<li><code>--strat_by_attr</code>: Show stratified quantile analysis for risk stratification grouped by attribute.</li>
+<li><code>--group_models</code>: Group evaluation mode. Generate Precision-Recall summary across all models specified in <code>targets.toml</code>.</li>
+</ul>
 <p>To execute the inference we require the multimodal feature dictionary generated from the previous step, as well as the column mapping dictionary and the original tabular data file (for extracting the unprocessed sensitive attributes). The script will print out a performance summary with confidence intervals and save a series of performance plots to <code>eval_path</code>. It will also store a separate dictionary file in <code>&lt;eval_path&gt;/pf_&lt;model_path&gt;.pkl</code> which will contain the metric values and risk quantile mappings per patient. This dictionary is be required in the following explainability analysis.</p>
 <p>Example:</p>
 <p><strong>Single mode</strong>
@@ -1113,20 +1117,22 @@ This runs inference on a list of multimodal algorithms, with each model director
 </span><span id="__span-15-3"><a id="__codelineno-15-3" name="__codelineno-15-3" href="#__codelineno-15-3"></a><span class="w">                   </span><span class="o">[</span>--model_path<span class="w"> </span>MODEL_PATH<span class="o">]</span><span class="w"> </span><span class="o">[</span>--config<span class="w"> </span>CONFIG<span class="o">]</span><span class="w"> </span><span class="o">[</span>--targets<span class="w"> </span>TARGETS<span class="o">]</span><span class="w"> </span><span class="o">[</span>--n_bins<span class="w"> </span>N_BINS<span class="o">]</span>
 </span><span id="__span-15-4"><a id="__codelineno-15-4" name="__codelineno-15-4" href="#__codelineno-15-4"></a><span class="w">                   </span><span class="o">[</span>--strat_by_attr<span class="o">]</span><span class="w"> </span><span class="o">[</span>--group_models<span class="o">]</span><span class="w"> </span><span class="o">[</span>--verbose<span class="o">]</span>
 </span><span id="__span-15-5"><a id="__codelineno-15-5" name="__codelineno-15-5" href="#__codelineno-15-5"></a><span class="w">                   </span>data_path
-</span></code></pre></div>
-- <code>data_path</code>: [Required] Path to the processed data .pkl file.
-- <code>--fair_path</code> or <code>-f</code>: Directory to store fairness plots.
-- <code>--model_dir</code>: Directory containing the saved model metadata.
-- <code>--model_path</code>: Directory pointing to the saved model checkpoint (must be inside model_dir).
-- <code>--attr_path</code>: Directory containing attributes metadata (original ehr_static.csv).
-- <code>--outcome</code> or <code>-o</code>: Binary outcome to use for multimodal evaluation (one of the labels in targets.toml). Defaults to prediction of extended hospital stay.
-- <code>--targets</code>: Path to targets.toml file containing lookup fields and outcomes.
-- <code>--group_by_age</code>: If true, will generate a trajectory lineplot of the fairness measures across each age group (as assigned in targets.toml).
-- <code>--plot_errors</code>: If true, will use the Fairlearn API to generate a grouped barplot of error measures over each attribute (as specified in targets.toml).
-- <code>--across_models</code>: If true, will generate a trajectory lineplot of the fairness measures across multiple models (specified in paths within targets.toml).
-- <code>--threshold_method</code>: Method to use for thresholding positive and negative classes under class imbalance. Options are 'yd' (Youden's J statistic) or 'f1' (Maximum achievable F1-score). Defaults to 'yd'.
-- <code>--boot_samples</code> or <code>-b</code>: Number of bootstrap samples to use for calculating confidence intervals.
-- <code>--seed</code>: Seed for bootstrapping reproducibility. Defaults to 42.</p>
+</span></code></pre></div></p>
+<ul>
+<li><code>data_path</code>: [Required] Path to the processed data .pkl file.</li>
+<li><code>--fair_path</code> or <code>-f</code>: Directory to store fairness plots.</li>
+<li><code>--model_dir</code>: Directory containing the saved model metadata.</li>
+<li><code>--model_path</code>: Directory pointing to the saved model checkpoint (must be inside model_dir).</li>
+<li><code>--attr_path</code>: Directory containing attributes metadata (original ehr_static.csv).</li>
+<li><code>--outcome</code> or <code>-o</code>: Binary outcome to use for multimodal evaluation (one of the labels in targets.toml). Defaults to prediction of extended hospital stay.</li>
+<li><code>--targets</code>: Path to targets.toml file containing lookup fields and outcomes.</li>
+<li><code>--group_by_age</code>: If true, will generate a trajectory lineplot of the fairness measures across each age group (as assigned in targets.toml).</li>
+<li><code>--plot_errors</code>: If true, will use the Fairlearn API to generate a grouped barplot of error measures over each attribute (as specified in targets.toml).</li>
+<li><code>--across_models</code>: If true, will generate a trajectory lineplot of the fairness measures across multiple models (specified in paths within targets.toml).</li>
+<li><code>--threshold_method</code>: Method to use for thresholding positive and negative classes under class imbalance. Options are 'yd' (Youden's J statistic) or 'f1' (Maximum achievable F1-score). Defaults to 'yd'.</li>
+<li><code>--boot_samples</code> or <code>-b</code>: Number of bootstrap samples to use for calculating confidence intervals.</li>
+<li><code>--seed</code>: Seed for bootstrapping reproducibility. Defaults to 42.</li>
+</ul>
 <p>Example:</p>
 <p><strong>Single mode</strong>
 <div class="language-sh highlight"><pre><span></span><code><span id="__span-16-1"><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a>poetry<span class="w"> </span>run<span class="w"> </span>python<span class="w"> </span>fairness.py<span class="w"> </span>../outputs/evaluation<span class="w"> </span>-f<span class="w"> </span>../outputs/fairness<span class="w"> </span>-o<span class="w"> </span>ext_stay_7<span class="w"> </span>-m<span class="w"> </span>ext_stay_7_concat_static_timeseries_notes<span class="w"> </span>-b<span class="w"> </span><span class="m">1000</span><span class="w"> </span>--plot_errors<span class="w"> </span>-v
@@ -1151,24 +1157,26 @@ This runs fairness inference on a list of multimodal algorithms, with each model
 </span><span id="__span-18-4"><a id="__codelineno-18-4" name="__codelineno-18-4" href="#__codelineno-18-4"></a><span class="w">                  </span><span class="o">[</span>--exp_mode<span class="w"> </span>EXP_MODE<span class="o">]</span><span class="w"> </span><span class="o">[</span>--use_heatmaps<span class="o">]</span><span class="w"> </span><span class="o">[</span>--global_max_features<span class="w"> </span>GLOBAL_MAX_FEATURES<span class="o">]</span>
 </span><span id="__span-18-5"><a id="__codelineno-18-5" name="__codelineno-18-5" href="#__codelineno-18-5"></a><span class="w">                  </span><span class="o">[</span>--local_risk_group<span class="w"> </span>LOCAL_RISK_GROUP<span class="o">]</span><span class="w"> </span><span class="o">[</span>--notes_offset_ref<span class="o">]</span><span class="w"> </span><span class="o">[</span>--verbose<span class="o">]</span>
 </span><span id="__span-18-6"><a id="__codelineno-18-6" name="__codelineno-18-6" href="#__codelineno-18-6"></a><span class="w">                  </span>data_path
-</span></code></pre></div>
-- <code>data_path</code>: [Required] Path to the processed data .pkl file.
-- <code>col_path</code>: Path to the pickled column dictionary generated from <code>prepare_data.py</code>.
-- <code>--feat_names</code>: Path to a JSON file containing lookup names for each feature.
-- <code>--ids_path</code>: Directory containing test set ids.
-- <code>--exp_path</code> or <code>-x</code>: Directory to store explanation plots.
-- <code>--eval_path</code> or <code>-e</code>: Evaluation path for obtaining risk dictionary as .pkl file.   <br />
-- <code>--attr_path</code>: Directory containing attributes metadata (original <code>ehr_static.csv</code>).
-- <code>--outcome</code> or <code>-o</code>: Binary outcome to use for multimodal learning (one of the labels in <code>targets.toml</code>). Defaults to prediction of in-hospital death.
-- <code>--model_dir</code>: Directory containing the saved model metadata.
-- <code>--model_path</code>: Directory pointing to the saved model checkpoint (must be inside <code>model_dir</code>).
-- <code>--config</code>: Path to <code>model.toml</code> file containing model training parameters.
-- <code>--targets</code>: Path to <code>targets.toml</code> file containing lookup fields and outcomes.
-- <code>--exp_mode</code>: Use global or local explanations. If global, uses DeepExplainer over static and timeseries modalities in the test set. If local, uses DeepExplainer to explain individual predictions over all modalities (requires a fused static-timeseries-text model).
-- <code>--use_heatmaps</code>: Use heatmaps for SHAP summary plots instead of beeswarm plots.
-- <code>--global_max_features</code>: Top N features to plot in global-level explanations.
-- <code>--local_risk_group</code>: Risk quantile to use for local-level explanations (generated in evaluate.py).
-- <code>--notes_offset_ref</code>: Offset SHAP colormap center for local-level text plot using the expected SHAP value (batch-wise mean). Defaults to False (SHAP colormap centered around 0).</p>
+</span></code></pre></div></p>
+<ul>
+<li><code>data_path</code>: [Required] Path to the processed data .pkl file.</li>
+<li><code>col_path</code>: Path to the pickled column dictionary generated from <code>prepare_data.py</code>.</li>
+<li><code>--feat_names</code>: Path to a JSON file containing lookup names for each feature.</li>
+<li><code>--ids_path</code>: Directory containing test set ids.</li>
+<li><code>--exp_path</code> or <code>-x</code>: Directory to store explanation plots.</li>
+<li><code>--eval_path</code> or <code>-e</code>: Evaluation path for obtaining risk dictionary as .pkl file.     </li>
+<li><code>--attr_path</code>: Directory containing attributes metadata (original <code>ehr_static.csv</code>).</li>
+<li><code>--outcome</code> or <code>-o</code>: Binary outcome to use for multimodal learning (one of the labels in <code>targets.toml</code>). Defaults to prediction of in-hospital death.</li>
+<li><code>--model_dir</code>: Directory containing the saved model metadata.</li>
+<li><code>--model_path</code>: Directory pointing to the saved model checkpoint (must be inside <code>model_dir</code>).</li>
+<li><code>--config</code>: Path to <code>model.toml</code> file containing model training parameters.</li>
+<li><code>--targets</code>: Path to <code>targets.toml</code> file containing lookup fields and outcomes.</li>
+<li><code>--exp_mode</code>: Use global or local explanations. If global, uses DeepExplainer over static and timeseries modalities in the test set. If local, uses DeepExplainer to explain individual predictions over all modalities (requires a fused static-timeseries-text model).</li>
+<li><code>--use_heatmaps</code>: Use heatmaps for SHAP summary plots instead of beeswarm plots.</li>
+<li><code>--global_max_features</code>: Top N features to plot in global-level explanations.</li>
+<li><code>--local_risk_group</code>: Risk quantile to use for local-level explanations (generated in evaluate.py).</li>
+<li><code>--notes_offset_ref</code>: Offset SHAP colormap center for local-level text plot using the expected SHAP value (batch-wise mean). Defaults to False (SHAP colormap centered around 0).</li>
+</ul>
 <p>Example:</p>
 <p><strong>Global mode</strong>
 <div class="language-sh highlight"><pre><span></span><code><span id="__span-19-1"><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a>poetry<span class="w"> </span>run<span class="w"> </span>python<span class="w"> </span>explain.py<span class="w"> </span>../outputs/prep_data/mmfair_feat.pkl<span class="w"> </span>-m<span class="w"> </span>ext_stay_7_concat_static_timeseries_notes_db<span class="w"> </span>-o<span class="w"> </span>ext_stay_7<span class="w"> </span>-x<span class="w"> </span>../outputs/explanations<span class="w"> </span>--exp_mode<span class="w"> </span>global<span class="w"> </span>--global_max_features<span class="w"> </span><span class="m">20</span><span class="w"> </span>--use_heatmaps<span class="w"> </span>-v
