@@ -779,9 +779,9 @@
 <p>Configurations regarding the target objective, the sensitive attributes and any additional metadata for visualisation can be customised by editing the <code>targets.toml</code> file.</p>
 <h2 id="multimodal-learning-and-validation">Multimodal learning and validation</h2>
 <p>In this project, we use an intermediate fusion approach to fuse the three data modalities using concatenation with equal weight. Each modality is trained on a separate deep neural net component and fused at the final hidden layer. The currently supported network components are:
-- <strong>EHR (MLP)</strong>: Multi-layer Perceptron classifier for tabular data.
-- <strong>TS (LSTM)</strong>: 2-component LSTM classifier (for vital signs and lab measurements data).
-- <strong>NT (TF-E)</strong>: Transformer-encoder network for free-text (discharge summaries) data.</p>
+- <strong>MM-EHR (MLP)</strong>: Multi-layer Perceptron classifier for tabular data.
+- <strong>MM-TS (LSTM)</strong>: 2-component LSTM classifier (for vital signs and lab measurements data).
+- <strong>MM-NT (TF-E)</strong>: Transformer-encoder network for free-text (discharge summaries) data.</p>
 <p><img alt="MMLearning Concept" src="https://raw.githubusercontent.com/nhsengland/mm-healthfair/refs/heads/main/report/MMHealthFair%20Components.png" /></p>
 <p>After training a multimodal algorithm, we can execute the evaluation pipeline for performance assessment. To run the pipeline we use:
 1. <code>train.py</code>: Script to train a deep neural net for risk prediction. Option to log and save models using <a href="https://wandb.ai">Weights &amp; Biases</a>.
