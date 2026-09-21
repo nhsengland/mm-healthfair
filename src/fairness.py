@@ -6,13 +6,14 @@ import matplotlib.pyplot as plt
 import numpy as np
 import polars as pl
 import toml
-import utils.exploration as m4exp
 from fairlearn.metrics import (
     count,
     false_negative_rate,
     false_positive_rate,
     selection_rate,
 )
+
+import utils.exploration as m4exp
 from utils.fairness_utils import (
     get_bootstrapped_fairness_measures,
     get_fairness_summary,
