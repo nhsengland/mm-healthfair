@@ -3,6 +3,7 @@ import os
 import numpy as np
 import pandas as pd
 import polars as pl
+
 from utils.preprocessing import (
     clean_labevents,
     prepare_medication_features,
@@ -101,7 +102,7 @@ def read_admissions_table(
     )
     if verbose:
         print(
-            f'Subjects with extended stay > 7 days: {admits.filter(pl.col("ext_stay_7") == 1).select("subject_id").n_unique()}, % of pts: {admits.filter(pl.col("ext_stay_7") == 1).select("subject_id").n_unique() / admits.select("subject_id").n_unique() * 100:.2f}'
+            f"Subjects with extended stay > 7 days: {admits.filter(pl.col('ext_stay_7') == 1).select('subject_id').n_unique()}, % of pts: {admits.filter(pl.col('ext_stay_7') == 1).select('subject_id').n_unique() / admits.select('subject_id').n_unique() * 100:.2f}"
         )
 
     print("Collected admissions table and linked ED attendances..")
@@ -255,7 +256,7 @@ def read_icu_table(
     icu_eps = icu_eps.drop(["los"])
     if verbose:
         print(
-            f'Subjects with ICU admission: {icu_eps.filter(pl.col("icu_admission") == 1).select("subject_id").n_unique()}, % of pts: {icu_eps.filter(pl.col("icu_admission") == 1).select("subject_id").n_unique() / icu_eps.select("subject_id").n_unique() * 100:.2f}'
+            f"Subjects with ICU admission: {icu_eps.filter(pl.col('icu_admission') == 1).select('subject_id').n_unique()}, % of pts: {icu_eps.filter(pl.col('icu_admission') == 1).select('subject_id').n_unique() / icu_eps.select('subject_id').n_unique() * 100:.2f}"
         )
     print("Collected ICU stay outcomes..")
     return icu_eps.lazy() if use_lazy else icu_eps
