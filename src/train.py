@@ -7,15 +7,16 @@ import lightning as L
 import numpy as np
 import polars as pl
 import toml
-from datasets import CollateFn, CollateTimeSeries, MIMIC4Dataset
 from lightning.pytorch.callbacks import (
     EarlyStopping,
     LearningRateMonitor,
     ModelCheckpoint,
 )
 from lightning.pytorch.loggers import CSVLogger, WandbLogger
-from models import MMModel, SaveLossesCallback
 from torch.utils.data import DataLoader
+
+from datasets import CollateFn, CollateTimeSeries, MIMIC4Dataset
+from models import MMModel, SaveLossesCallback
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Multimodal learning pipeline.")
