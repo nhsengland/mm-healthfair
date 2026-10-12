@@ -309,7 +309,7 @@ def read_from_txt(filepath: str, as_type="str") -> list:
     """
     with open(filepath) as f:
         if as_type == "str":
-            data = [str(line.strip()) for line in f.readlines()]
+            data = [str(line.strip()) for line in f]
         elif as_type == "int":
-            data = [int(line.strip()) for line in f.readlines()]
+            data = [int(line.strip()) for line in f]
     return data

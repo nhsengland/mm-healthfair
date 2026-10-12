@@ -68,7 +68,7 @@ def plot_bar_metric_frame(
         if i < len(axes) - 1:
             axes[i].set_ylim(0.0, 1.0)
             axes[i].yaxis.set_major_formatter(
-                plt.FuncFormatter(lambda x, _: f"{x*100:.0f}%")
+                plt.FuncFormatter(lambda x, _: f"{x * 100:.0f}%")
             )
 
     fig = plt.gcf()
@@ -262,7 +262,7 @@ def plot_fairness_by_age(
         axes[i].set_ylim(-0.05, 1)
         axes[i].grid(True)
         axes[i].yaxis.set_major_formatter(
-            plt.FuncFormatter(lambda x, _: f"{x*100:.0f}%")
+            plt.FuncFormatter(lambda x, _: f"{x * 100:.0f}%")
         )
         if i == 1:
             axes[i].legend(
@@ -357,7 +357,7 @@ def get_fairness_summary(
         ax.set_xticklabels(metrics, fontsize=17)
         ax.set_ylim(-0.05, 1.1)
         ax.grid(axis="y", linestyle="--", alpha=0.7)
-        ax.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, _: f"{x*100:.0f}%"))
+        ax.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, _: f"{x * 100:.0f}%"))
 
         # Add legend to the second subplot
         if i == 1:
