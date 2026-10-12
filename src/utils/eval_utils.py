@@ -84,7 +84,7 @@ def plot_roc(
         tpr,
         color="darkorange",
         lw=1.5,
-        label=f'AUC = {roc_auc:0.3f} [{result_dict["roc_lower"]:.3f}, {result_dict["roc_upper"]:.3f}]',
+        label=f"AUC = {roc_auc:0.3f} [{result_dict['roc_lower']:.3f}, {result_dict['roc_upper']:.3f}]",
     )
     ### Get 95% CI for TPR by computing covariance matrix from Z-score
     tpr_se = np.sqrt((tpr * (1 - tpr)) / len(y_test))
@@ -137,12 +137,12 @@ def plot_pr(
         precision,
         color="darkorange",
         lw=1.5,
-        label=f'AUC = {pr_auc:0.3f} [{result_dict["pr_lower"]:.3f}, {result_dict["pr_upper"]:.3f}]',
+        label=f"AUC = {pr_auc:0.3f} [{result_dict['pr_lower']:.3f}, {result_dict['pr_upper']:.3f}]",
     )
     plt.plot([0, 1], [prevalence, prevalence], color="navy", lw=1.5, linestyle="--")
     plt.xlabel("Recall")
     plt.ylabel("Precision")
-    plt.title(f"PR ({outcome}, prevalence {(100*prevalence):.2f}%)")
+    plt.title(f"PR ({outcome}, prevalence {(100 * prevalence):.2f}%)")
     plt.legend(loc="lower right")
     plt.savefig(output_path)
     print(f"Precision-Recall curve saved to {output_path}")
@@ -369,7 +369,7 @@ def get_all_roc_pr_summary(
             tpr,
             color=color,
             lw=1.5,
-            label=f'{model} (AUC = {res_dict["roc_auc"]:.3f} [{res_dict["roc_lower"]:.3f}, {res_dict["roc_upper"]:.3f}])',
+            label=f"{model} (AUC = {res_dict['roc_auc']:.3f} [{res_dict['roc_lower']:.3f}, {res_dict['roc_upper']:.3f}])",
         )
         ### Get 95% CI for TPR by computing covariance matrix from Z-score
         tpr_se = np.sqrt((tpr * (1 - tpr)) / len(res_dict["y_test"]))
@@ -396,7 +396,7 @@ def get_all_roc_pr_summary(
             precision,
             color=color,
             lw=1.5,
-            label=f'{model} (AUC = {res_dict["pr_auc"]:.3f} [{res_dict["pr_lower"]:.3f}, {res_dict["pr_upper"]:.3f}])',
+            label=f"{model} (AUC = {res_dict['pr_auc']:.3f} [{res_dict['pr_lower']:.3f}, {res_dict['pr_upper']:.3f}])",
         )
 
     plt.plot(
@@ -528,7 +528,7 @@ def rank_prediction_quantiles(
                 bbox_to_anchor=(1, 1),
             )
             ax.yaxis.set_major_formatter(
-                plt.FuncFormatter(lambda x, _: f"{x*100:.0f}%")
+                plt.FuncFormatter(lambda x, _: f"{x * 100:.0f}%")
             )
             plt.xticks(rotation=0, ha="center")
             plt.xlabel("Risk quantile")
