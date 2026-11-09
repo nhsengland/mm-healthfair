@@ -10,6 +10,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import MinMaxScaler
 from tqdm import tqdm
 from transformers import AutoModel, AutoTokenizer
+
 from utils.functions import (
     contains_both_ltc_types,
     get_train_split_summary,
@@ -527,7 +528,7 @@ def remove_correlated_features(
         print("Full list of dropped features:", to_drop)
         print("-------------------------------------")
         print(
-            f"Final number of EHR features: {ehr_data.shape[1]}/{len(to_drop)+ehr_data.shape[1]}"
+            f"Final number of EHR features: {ehr_data.shape[1]}/{len(to_drop) + ehr_data.shape[1]}"
         )
 
     return ehr_data
@@ -707,7 +708,7 @@ def generate_train_val_test_set(
     ### Print summary statistics
     if verbose:
         print(
-            f"Created split with {train_x.shape[0]}({round(train_x.shape[0]/len(ehr_data), 2)*100}%) samples in train, {val_x.shape[0]}({round(val_x.shape[0]/len(ehr_data), 2)*100}%) samples in validation, and {test_x.shape[0]}({round(test_x.shape[0]/len(ehr_data), 2)*100}%) samples in test."
+            f"Created split with {train_x.shape[0]}({round(train_x.shape[0] / len(ehr_data), 2) * 100}%) samples in train, {val_x.shape[0]}({round(val_x.shape[0] / len(ehr_data), 2) * 100}%) samples in validation, and {test_x.shape[0]}({round(test_x.shape[0] / len(ehr_data), 2) * 100}%) samples in test."
         )
         print("Getting summary statistics for split...")
         get_train_split_summary(
@@ -1060,7 +1061,7 @@ def generate_interval_dataset(
                 )
             for _, ts in enumerate(ts_data_list):
                 key = "dynamic_0" if ts.columns == vitals_lkup else "dynamic_1"
-                if key == "dynamic_1" and "dynamic1_cols" not in col_dict.keys():
+                if key == "dynamic_1" and "dynamic1_cols" not in col_dict:
                     col_dict["dynamic1_cols"] = ts.columns
                 data_dict[id_val][key] = ts.to_numpy()
             n += 1

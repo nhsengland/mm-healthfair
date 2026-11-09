@@ -605,7 +605,7 @@ class LitLSTM(L.LightningModule):
             tuple: (predictions, labels)
         """
         if self.with_packed_sequences:
-            _, y, d, l = batch  # static, dynamic, lengths, labels  # noqa: E741
+            _, y, d, l = batch  # static, dynamic, lengths, labels
             d = torch.nn.utils.rnn.pack_padded_sequence(
                 d, l, batch_first=True, enforce_sorted=False
             )
