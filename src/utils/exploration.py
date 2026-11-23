@@ -61,7 +61,7 @@ def get_table_one(
     ### Generate Table 1 summary with p-values for target outcome
     if verbose:
         print(
-            f"Generating table summary by {outcome_label} with prevalence {(ed_disp[outcome_label].value_counts(normalize=True).iloc[1]*100).round(2)}%"
+            f"Generating table summary by {outcome_label} with prevalence {(ed_disp[outcome_label].value_counts(normalize=True).iloc[1] * 100).round(2)}%"
         )
     tb_one_hd = TableOne(
         ed_disp,

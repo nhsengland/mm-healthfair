@@ -4,6 +4,7 @@ import sys
 
 import polars as pl
 import toml
+
 import utils.exploration as m4exp
 
 if __name__ == "__main__":
